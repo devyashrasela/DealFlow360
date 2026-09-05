@@ -2,6 +2,12 @@ import express from 'express';
 import cors from 'cors';
 import { sequelize } from './models/index.js';
 
+// Route imports
+import authRoutes from './routes/auth.routes.js';
+import catalogRoutes from './routes/catalog.routes.js';
+import governanceRoutes from './routes/governance.routes.js';
+import quotationRoutes from './routes/quotation.routes.js';
+import approvalRoutes from './routes/approval.routes.js';
 
 const app = express();
 
@@ -22,8 +28,15 @@ app.use(express.json());
 
 // Public health check route
 app.get('/', (req, res) => {
-  res.json({ message: "AssetFlow API is working (Sequelize MVC)!", status: "healthy" });
+  res.json({ message: "DealFlow360 API is running!", status: "healthy" });
 });
+
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/catalog', catalogRoutes);
+app.use('/api/governance', governanceRoutes);
+app.use('/api/quotations', quotationRoutes);
+app.use('/api/approvals', approvalRoutes);
 
 // Sync database on startup
 export const syncDatabase = async () => {
