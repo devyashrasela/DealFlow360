@@ -92,6 +92,8 @@ export const generateInvoiceFromQuote = async (quotationId) => {
       amount_paid: 0,
       amount_credited: 0,
       balance_due: Number(totalAmount.toFixed(2)),
+      transaction_currency: quotation.transaction_currency || 'INR',
+      exchange_rate_to_base: quotation.exchange_rate_to_base || 1.0,
     }, { transaction: t });
 
     for (const lineData of invoiceLines) {
@@ -105,7 +107,7 @@ export const generateInvoiceFromQuote = async (quotationId) => {
 /**
  * Record a payment against an invoice. Recalculates balance_due and status atomically.
  */
-export const recordPayment = async ({ invoiceId, amount, paymentMethod, transactionReference, paymentDate, recordedByUserId }) => {
+export const recordPayment = async ({ invoiceId, amount, paymentMethod, transactionReference, paymentDate, recordedByUserId, transaction_currency, amount_in_transaction_currency, exchange_rate_used }) => {
   return sequelize.transaction(async (t) => {
     const invoice = await Invoice.findByPk(invoiceId, {
       lock: t.LOCK.UPDATE,
@@ -137,6 +139,13 @@ export const recordPayment = async ({ invoiceId, amount, paymentMethod, transact
       throw err;
     }
 
+    let fx_gain_loss = 0;
+    if (transaction_currency && invoice.transaction_currency && transaction_currency !== invoice.transaction_currency) {
+      if (amount_in_transaction_currency && exchange_rate_used && invoice.exchange_rate_to_base) {
+        fx_gain_loss = (amount_in_transaction_currency / exchange_rate_used) - (amount_in_transaction_currency / invoice.exchange_rate_to_base);
+      }
+    }
+
     const payment = await Payment.create({
       organization_id: invoice.organization_id,
       customer_account_id: invoice.customer_account_id,
@@ -148,6 +157,10 @@ export const recordPayment = async ({ invoiceId, amount, paymentMethod, transact
       transaction_reference: transactionReference || `TXN-${Date.now()}`,
       payment_date: paymentDate || new Date(),
       recorded_by_user_id: recordedByUserId,
+      transaction_currency: transaction_currency || 'INR',
+      amount_in_transaction_currency: amount_in_transaction_currency || null,
+      exchange_rate_used: exchange_rate_used || null,
+      fx_gain_loss: Number(fx_gain_loss.toFixed(2)),
     }, { transaction: t });
 
     // Recalculate invoice totals

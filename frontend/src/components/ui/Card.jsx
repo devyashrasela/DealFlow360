@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const Card = ({ children, className = '', title, subtitle, action }) => {
+export const Card = ({ children, className = '', title, subtitle, action, noPadding = false }) => {
   return (
     <div className={`bg-[#FFFFFF] rounded-xl border border-neutral-200/80 shadow-xs overflow-hidden ${className}`}>
       {(title || subtitle || action) && (
@@ -12,7 +12,7 @@ export const Card = ({ children, className = '', title, subtitle, action }) => {
           {action && <div>{action}</div>}
         </div>
       )}
-      <div className="p-6">{children}</div>
+      <div className={noPadding ? '' : 'p-6'}>{children}</div>
     </div>
   );
 };

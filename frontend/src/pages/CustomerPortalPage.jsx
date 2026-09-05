@@ -20,6 +20,9 @@ export function CustomerPortalPage() {
   const [counterMessage, setCounterMessage] = useState('');
 
   const [authError, setAuthError] = useState(false);
+  const [feedback, setFeedback] = useState(null);
+  const [submittingCounter, setSubmittingCounter] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     loadQuotes();
@@ -42,35 +45,56 @@ export function CustomerPortalPage() {
   };
 
   const handleLineSubmit = async (quoteId, lineId) => {
-    await negotiationApi.lineRequest({
-      quotation_id: quoteId,
-      quotation_line_id: lineId,
-      change_type: changeType,
-      proposed_value: Number(proposedValue),
-      message_content: messageContent,
-    });
-    setExpandedLine(null);
-    setMessageContent('');
-    setProposedValue('');
-    loadQuotes();
+    try {
+      await negotiationApi.lineRequest({
+        quotation_id: quoteId,
+        quotation_line_id: lineId,
+        change_type: changeType,
+        proposed_value: Number(proposedValue),
+        message_content: messageContent,
+      });
+      setExpandedLine(null);
+      setMessageContent('');
+      setProposedValue('');
+      setFeedback({ type: 'success', text: 'Line negotiation request submitted.' });
+      loadQuotes();
+    } catch (err) {
+      setFeedback({ type: 'error', text: err.message || 'Failed to submit line request' });
+    }
   };
 
   const handleCounterSubmit = async (quoteId) => {
-    await negotiationApi.counterOffer({
-      quotation_id: quoteId,
-      target_total: targetTotal ? Number(targetTotal) : null,
-      counter_discount_percentage: counterDiscount ? Number(counterDiscount) : null,
-      message_content: counterMessage,
-    });
-    setTargetTotal('');
-    setCounterDiscount('');
-    setCounterMessage('');
-    loadQuotes();
+    setSubmittingCounter(true);
+    try {
+      await negotiationApi.counterOffer({
+        quotation_id: quoteId,
+        target_total: targetTotal ? Number(targetTotal) : null,
+        counter_discount_percentage: counterDiscount ? Number(counterDiscount) : null,
+        message_content: counterMessage,
+      });
+      setTargetTotal('');
+      setCounterDiscount('');
+      setCounterMessage('');
+      setFeedback({ type: 'success', text: 'Counter-offer successfully submitted to sales team.' });
+      loadQuotes();
+    } catch (err) {
+      setFeedback({ type: 'error', text: err.message || 'Failed to submit counter-offer' });
+    } finally {
+      setSubmittingCounter(false);
+    }
   };
 
   const handleConfirm = async (quoteId) => {
-    await negotiationApi.confirm(quoteId);
-    loadQuotes();
+    setConfirming(true);
+    try {
+      await negotiationApi.confirm(quoteId);
+      setFeedback({ type: 'success', text: 'Quotation confirmed! Commercial terms locked and invoice generated.' });
+      loadQuotes();
+    } catch (err) {
+      setFeedback({ type: 'error', text: err.message || 'Failed to confirm quotation' });
+    } finally {
+      setConfirming(false);
+    }
   };
 
   if (loading) return <div className="p-8">Loading portal...</div>;
@@ -111,14 +135,38 @@ export function CustomerPortalPage() {
       </header>
 
       <main className="max-w-6xl mx-auto p-6 space-y-6">
+        {/* User Action Feedback Banner */}
+        {feedback && (
+          <div className={`p-4 rounded-xl border text-sm font-medium flex items-center justify-between ${
+            feedback.type === 'error'
+              ? 'bg-rose-50 border-rose-200 text-rose-700'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          }`}>
+            <span>{feedback.text}</span>
+            <button onClick={() => setFeedback(null)} className="text-xs opacity-60 hover:opacity-100 ml-2">✕</button>
+          </div>
+        )}
+
         {/* Banner */}
         <Card className="flex justify-between items-center bg-white">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{activeQuote.quotation_number}</h1>
             <p className="text-sm text-gray-500">Expires: {new Date(activeQuote.expiration_date).toLocaleDateString()}</p>
           </div>
-          <Badge color={badgeColor} size="lg" className="uppercase tracking-wider font-semibold">
-            {activeQuote.stage.replace('_', ' ')}
+          <Badge
+            status={
+              activeQuote.stage === 'confirmed'
+                ? 'approved'
+                : activeQuote.stage === 'under_negotiation' || activeQuote.stage === 'pending_approval'
+                ? 'pending'
+                : activeQuote.stage === 'approved'
+                ? 'active'
+                : 'draft'
+            }
+            size="md"
+            className="uppercase tracking-wider font-semibold"
+          >
+            {activeQuote.stage.replace(/_/g, ' ')}
           </Badge>
         </Card>
 
@@ -157,7 +205,9 @@ export function CustomerPortalPage() {
                 {activeQuote.lines?.map((line) => (
                   <React.Fragment key={line.id}>
                     <tr className="border-b border-gray-100 hover:bg-gray-50 transition">
-                      <td className="p-3 font-medium text-gray-900">{line.category} Item</td>
+                      <td className="p-3 font-medium text-gray-900">
+                        {line.product?.name || (line.category ? `${line.category} Item` : 'Item')}
+                      </td>
                       <td className="p-3 text-sm text-gray-500 capitalize">{line.category}</td>
                       <td className="p-3 text-right">{line.quantity}</td>
                       <td className="p-3 text-right">${Number(line.unit_list_price).toLocaleString()}</td>
@@ -278,6 +328,11 @@ export function CustomerPortalPage() {
           </Card>
           
           <div className="flex flex-col justify-end space-y-4">
+            {activeQuote.stage !== 'approved' && activeQuote.stage !== 'confirmed' && (
+              <div className="bg-amber-50 p-3 rounded-lg border border-amber-200 text-xs text-amber-800">
+                <span className="font-semibold">Notice:</span> Quotation must be in <strong>Approved</strong> stage before you can confirm and lock terms (current stage: <em>{activeQuote.stage.replace(/_/g, ' ')}</em>).
+              </div>
+            )}
             <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 text-sm text-blue-800">
               <span className="font-semibold">Note:</span> Once confirmed, the terms are locked and final invoices will be generated.
             </div>
@@ -285,9 +340,14 @@ export function CustomerPortalPage() {
               size="lg" 
               className="w-full py-4 text-lg font-bold"
               onClick={() => handleConfirm(activeQuote.id)}
-              disabled={activeQuote.stage === 'confirmed'}
+              disabled={activeQuote.stage !== 'approved' || confirming}
+              loading={confirming}
             >
-              Confirm Quotation & Lock Terms
+              {activeQuote.stage === 'confirmed'
+                ? 'Quotation Confirmed'
+                : activeQuote.stage === 'approved'
+                ? 'Confirm Quotation & Lock Terms'
+                : 'Awaiting Provider Approval'}
             </Button>
           </div>
         </div>

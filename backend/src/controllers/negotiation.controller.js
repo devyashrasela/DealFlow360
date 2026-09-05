@@ -3,19 +3,39 @@ import { Op } from 'sequelize';
 import {
   Quotation, QuotationLine, NegotiationThread,
   FulfillmentOrder, Invoice, InvoiceLine,
+  CustomerAccount, OrganizationMembership, Organization,
+  Product, User
 } from '../models/index.js';
 import { authenticate, resolveOrgContext } from '../middleware/auth.middleware.js';
 import { generateInvoiceFromQuote } from '../services/invoice.service.js';
 import { executeFulfillmentAllocation } from '../services/fulfillment.service.js';
 import { provisionSubscriptionFromQuote } from '../services/subscription.service.js';
+import { recalcQuotation } from './quotation.controller.js';
 
 const router = Router();
 router.use(authenticate, resolveOrgContext);
 
 // ── Scope helper: quotes belonging to caller's org or customer account ──
-function scopeWhere(req) {
-  if (req.headers['x-customer-account-id']) {
-    return { customer_account_id: req.headers['x-customer-account-id'] };
+async function getScopeWhere(req) {
+  const customerAccountId = req.headers['x-customer-account-id'];
+  if (customerAccountId) {
+    const account = await CustomerAccount.findByPk(customerAccountId);
+    if (!account) return { id: null };
+
+    // Verify user has active membership in either provider org or buyer org
+    const userMemberships = await OrganizationMembership.findAll({
+      where: {
+        user_id: req.user.id,
+        organization_id: { [Op.in]: [account.provider_organization_id, account.buyer_organization_id] },
+        status: 'active'
+      }
+    });
+
+    if (userMemberships.length === 0) {
+      return { id: null }; // Unauthorized access
+    }
+
+    return { customer_account_id: customerAccountId };
   }
   return { organization_id: req.orgContext.organizationId };
 }
@@ -34,10 +54,11 @@ router.post('/line-request', async (req, res) => {
     return res.status(400).json({ error: `change_type must be: ${allowed.join('|')}` });
   }
 
-  const quote = await Quotation.findOne({ where: { id: quotation_id, ...scopeWhere(req) } });
+  const scope = await getScopeWhere(req);
+  const quote = await Quotation.findOne({ where: { id: quotation_id, ...scope } });
   if (!quote) return res.status(404).json({ error: 'Quotation not found' });
 
-  if (!['draft', 'pending_approval', 'under_negotiation'].includes(quote.stage)) {
+  if (!['draft', 'pending_approval', 'under_negotiation', 'approved'].includes(quote.stage)) {
     return res.status(409).json({ error: `Cannot negotiate in stage: ${quote.stage}` });
   }
 
@@ -69,10 +90,11 @@ router.post('/counter-offer', async (req, res) => {
     return res.status(400).json({ error: 'Provide target_total or counter_discount_percentage' });
   }
 
-  const quote = await Quotation.findOne({ where: { id: quotation_id, ...scopeWhere(req) } });
+  const scope = await getScopeWhere(req);
+  const quote = await Quotation.findOne({ where: { id: quotation_id, ...scope } });
   if (!quote) return res.status(404).json({ error: 'Quotation not found' });
 
-  if (!['draft', 'pending_approval', 'under_negotiation'].includes(quote.stage)) {
+  if (!['draft', 'pending_approval', 'under_negotiation', 'approved'].includes(quote.stage)) {
     return res.status(409).json({ error: `Cannot counter-offer in stage: ${quote.stage}` });
   }
 
@@ -96,6 +118,69 @@ router.post('/counter-offer', async (req, res) => {
 });
 
 // ──────────────────────────────────────────────
+// POST /api/negotiations/respond
+// Sales rep responds to counter / accepts / rejects
+// ──────────────────────────────────────────────
+router.post('/respond', async (req, res) => {
+  const { quotation_id, action, message_content } = req.body;
+  if (!quotation_id || !action) {
+    return res.status(400).json({ error: 'quotation_id and action (accept_counter | reject_counter | reply) required' });
+  }
+
+  const quote = await Quotation.findOne({
+    where: { id: quotation_id, organization_id: req.orgContext.organizationId },
+    include: [{ model: QuotationLine, as: 'lines' }]
+  });
+  if (!quote) return res.status(404).json({ error: 'Quotation not found' });
+
+  if (action === 'accept_counter') {
+    if (quote.customer_counter_discount != null) {
+      const disc = Number(quote.customer_counter_discount);
+      for (const line of (quote.lines || [])) {
+        await line.update({ applied_discount_percentage: disc });
+      }
+    }
+    await quote.update({
+      stage: 'draft',
+      customer_counter_total: null,
+      customer_counter_discount: null
+    });
+    await recalcQuotation(quote.id, req.orgContext.organizationId);
+  } else if (action === 'reject_counter') {
+    await quote.update({
+      stage: 'draft',
+      customer_counter_total: null,
+      customer_counter_discount: null
+    });
+  }
+
+  const thread = await NegotiationThread.create({
+    quotation_id,
+    quotation_line_id: null,
+    author_user_id: req.user.id,
+    is_customer_message: false,
+    change_type: 'general_inquiry',
+    status: action === 'accept_counter' ? 'accepted_by_rep' : action === 'reject_counter' ? 'rejected_by_rep' : 'submitted',
+    message_content: message_content || `Sales Rep action: ${action.replace('_', ' ')}`
+  });
+
+  res.json({ message: 'Response recorded', quotation: quote, thread });
+});
+
+// ──────────────────────────────────────────────
+// GET /api/negotiations/threads/:quotationId
+// Get conversation thread for a quotation
+// ──────────────────────────────────────────────
+router.get('/threads/:quotationId', async (req, res) => {
+  const { quotationId } = req.params;
+  const threads = await NegotiationThread.findAll({
+    where: { quotation_id: quotationId },
+    order: [['createdAt', 'ASC']]
+  });
+  res.json(threads);
+});
+
+// ──────────────────────────────────────────────
 // POST /api/negotiations/confirm
 // One-click confirm: lock lines, transition to confirmed
 // ──────────────────────────────────────────────
@@ -103,13 +188,14 @@ router.post('/confirm', async (req, res) => {
   const { quotation_id } = req.body;
   if (!quotation_id) return res.status(400).json({ error: 'quotation_id required' });
 
+  const scope = await getScopeWhere(req);
   const quote = await Quotation.findOne({
-    where: { id: quotation_id, ...scopeWhere(req) },
+    where: { id: quotation_id, ...scope },
     include: [{ model: QuotationLine, as: 'lines' }],
   });
   if (!quote) return res.status(404).json({ error: 'Quotation not found' });
 
-  if (!['approved'].includes(quote.stage)) {
+  if (quote.stage !== 'approved') {
     return res.status(409).json({ error: `Cannot confirm from stage: ${quote.stage}. Quotation must be approved before confirmation.` });
   }
 
@@ -128,7 +214,6 @@ router.post('/confirm', async (req, res) => {
     console.error(`[EVENT] fulfillment allocation failed for ${quote.id}:`, fulfillErr.message);
   }
 
-  // Check if quotation has recurring/subscription lines
   const hasRecurringLines = quote.lines?.some(l => l.category === 'subscriptions' || (l.billing_cadence && l.billing_cadence !== 'one_time'));
   if (hasRecurringLines) {
     try {
@@ -146,15 +231,24 @@ router.post('/confirm', async (req, res) => {
 // List quotes for portal customer
 // ──────────────────────────────────────────────
 router.get('/my-quotes', async (req, res) => {
+  const scope = await getScopeWhere(req);
   const quotes = await Quotation.findAll({
-    where: scopeWhere(req),
+    where: scope,
     attributes: { exclude: ['blended_margin_percentage', 'blended_risk_score', 'worst_line_excess', 'weighted_margin_bleed', 'margin_hard_stop_breached', 'risk_tier'] },
-    include: [{
-      model: QuotationLine,
-      as: 'lines',
-      attributes: { exclude: ['unit_cost_price', 'line_margin_percentage', 'line_cost_total', 'line_margin_amount', 'effective_ceiling_limit'] }
-    }],
-    order: [['updated_at', 'DESC']],
+    include: [
+      {
+        model: QuotationLine,
+        as: 'lines',
+        attributes: { exclude: ['unit_cost_price', 'line_margin_percentage', 'line_cost_total', 'line_margin_amount', 'effective_ceiling_limit'] },
+        include: [{ model: Product, as: 'product', attributes: ['id', 'name', 'sku'] }]
+      },
+      {
+        model: CustomerAccount,
+        as: 'customer_account',
+        include: [{ model: Organization, as: 'buyer_organization', attributes: ['legal_name'] }]
+      }
+    ],
+    order: [['createdAt', 'DESC']],
   });
   res.json(quotes);
 });

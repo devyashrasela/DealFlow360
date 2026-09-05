@@ -61,16 +61,17 @@ export const computeLineMath = (line) => {
   const appliedDiscount = Number(line.applied_discount_percentage ?? line.discount_percentage) || 0;
   const effectiveLimit = Number(line.effective_ceiling_limit ?? line.ceiling_discount) || 100;
 
-  const unitNetPrice = unitListPrice * (1 - appliedDiscount / 100);
-  const lineGrossAmount = quantity * unitListPrice;
-  const lineNetAmount = quantity * unitNetPrice;
-  const lineCostTotal = quantity * unitCostPrice;
-  const lineMarginAmount = lineNetAmount - lineCostTotal;
-  const lineMarginPercentage = lineNetAmount > 0 ? (lineMarginAmount / lineNetAmount) * 100 : 0;
-  const lineExcessPoints = Math.max(0, appliedDiscount - effectiveLimit);
+  const unitNetPrice = Number((unitListPrice * (1 - appliedDiscount / 100)).toFixed(2));
+  const lineGrossAmount = Number((quantity * unitListPrice).toFixed(2));
+  const lineNetAmount = Number((quantity * unitNetPrice).toFixed(2));
+  const lineCostTotal = Number((quantity * unitCostPrice).toFixed(2));
+  const lineMarginAmount = Number((lineNetAmount - lineCostTotal).toFixed(2));
+  const lineMarginPercentage = lineNetAmount > 0 ? Number(((lineMarginAmount / lineNetAmount) * 100).toFixed(2)) : 0;
+  const lineExcessPoints = Number(Math.max(0, appliedDiscount - effectiveLimit).toFixed(2));
   const isOverLimit = lineExcessPoints > 0;
 
   return {
+    ...(line.id ? { id: line.id } : {}),
     unit_net_price: unitNetPrice,
     line_gross_amount: lineGrossAmount,
     line_net_amount: lineNetAmount,
@@ -94,6 +95,7 @@ export const computeBlendedRisk = (lines) => {
       worst_line_excess: 0,
       weighted_margin_bleed: 0,
       blended_risk_score: 0,
+      blendedRiskScore: 0,
       gross_total: 0,
       total_discount_amount: 0,
       net_subtotal: 0,
@@ -107,32 +109,36 @@ export const computeBlendedRisk = (lines) => {
   let totalCost = 0;
 
   for (const line of lines) {
-    if (line.line_excess_points > eMax) {
-      eMax = line.line_excess_points;
+    const excess = Number(line.line_excess_points) || 0;
+    if (excess > eMax) {
+      eMax = excess;
     }
-    totalNet += line.line_net_amount;
-    totalGross += line.line_gross_amount;
-    totalCost += line.line_cost_total;
+    totalNet += Number(line.line_net_amount) || 0;
+    totalGross += Number(line.line_gross_amount) || 0;
+    totalCost += Number(line.line_cost_total) || 0;
   }
 
   let wBleed = 0;
   if (totalNet > 0) {
     for (const line of lines) {
-      wBleed += line.line_excess_points * (line.line_net_amount / totalNet);
+      const net = Number(line.line_net_amount) || 0;
+      const excess = Number(line.line_excess_points) || 0;
+      wBleed += excess * (net / totalNet);
     }
   }
 
-  const blendedRiskScore = (0.6 * eMax) + (0.4 * wBleed);
-  const totalDiscountAmount = totalGross - totalNet;
-  const blendedMarginPercentage = totalNet > 0 ? ((totalNet - totalCost) / totalNet) * 100 : 0;
+  const blendedRiskScore = Number(((0.6 * eMax) + (0.4 * wBleed)).toFixed(2));
+  const totalDiscountAmount = Number(Math.max(0, totalGross - totalNet).toFixed(2));
+  const blendedMarginPercentage = totalNet > 0 ? Number((((totalNet - totalCost) / totalNet) * 100).toFixed(2)) : 0;
 
   return {
-    worst_line_excess: eMax,
-    weighted_margin_bleed: wBleed,
+    worst_line_excess: Number(eMax.toFixed(2)),
+    weighted_margin_bleed: Number(wBleed.toFixed(2)),
     blended_risk_score: blendedRiskScore,
-    gross_total: totalGross,
+    blendedRiskScore: blendedRiskScore, // Compatibility alias
+    gross_total: Number(totalGross.toFixed(2)),
     total_discount_amount: totalDiscountAmount,
-    net_subtotal: totalNet,
+    net_subtotal: Number(totalNet.toFixed(2)),
     blended_margin_percentage: blendedMarginPercentage
   };
 };
@@ -148,6 +154,10 @@ export const computeBlendedRisk = (lines) => {
  */
 export const determineRiskTier = async (organizationId, blendedRiskScore, E_max, blendedMarginPercentage) => {
   try {
+    const score = Number(blendedRiskScore) || 0;
+    const eMax = Number(E_max) || 0;
+    const marginPct = Number(blendedMarginPercentage) || 0;
+
     const chains = await ApprovalChain.findAll({
       where: { organization_id: organizationId },
       order: [['min_risk_score', 'ASC']]
@@ -156,7 +166,7 @@ export const determineRiskTier = async (organizationId, blendedRiskScore, E_max,
     // Margin hard stop check across chains
     for (const chain of chains) {
       if (chain.absolute_margin_hard_stop !== null && chain.absolute_margin_hard_stop !== undefined) {
-        if (blendedMarginPercentage < parseFloat(chain.absolute_margin_hard_stop)) {
+        if (marginPct < parseFloat(chain.absolute_margin_hard_stop)) {
           return {
             risk_tier: 'high_risk_finance',
             margin_hard_stop_breached: true,
@@ -169,14 +179,14 @@ export const determineRiskTier = async (organizationId, blendedRiskScore, E_max,
 
     if (chains.length === 0) {
       // Simple fallback rules if no approval chains configured
-      if (blendedRiskScore === 0) {
+      if (score === 0) {
         return {
           risk_tier: 'low_risk_auto',
           margin_hard_stop_breached: false,
           requires_manager_approval: false,
           requires_finance_approval: false
         };
-      } else if (blendedRiskScore > 0 && blendedRiskScore <= 5 && E_max <= 5) {
+      } else if (score > 0 && score <= 5 && eMax <= 5) {
         return {
           risk_tier: 'medium_risk_manager',
           margin_hard_stop_breached: false,
@@ -202,18 +212,18 @@ export const determineRiskTier = async (organizationId, blendedRiskScore, E_max,
         : null;
 
       // Exact zero match for Slab 1 (0 to 0)
-      if (min === 0 && max === 0 && blendedRiskScore === 0) {
+      if (min === 0 && max === 0 && score === 0) {
         matchedChain = chain;
         break;
       }
 
       if (max !== null) {
-        if (blendedRiskScore >= min && blendedRiskScore <= max) {
+        if (score >= min && score <= max) {
           matchedChain = chain;
           break;
         }
       } else {
-        if (blendedRiskScore >= min) {
+        if (score >= min) {
           matchedChain = chain;
           break;
         }

@@ -5,6 +5,7 @@ import { Badge } from '../../../components/ui/Badge';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
 import { listInvoices, recordPayment, applyCreditOffset } from '../../../api/invoiceApi';
+import { formatDualCurrency, convertFromBase } from '../../../utils/currency';
 
 export const InvoiceListPage = () => {
   const { providerSlug } = useParams();
@@ -48,21 +49,22 @@ export const InvoiceListPage = () => {
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'draft': return <Badge variant="default">Draft</Badge>;
-      case 'issued': return <Badge variant="info">Issued</Badge>;
-      case 'posted': return <Badge variant="warning">Posted</Badge>;
-      case 'partially_paid': return <Badge variant="info">Partially Paid</Badge>;
-      case 'paid': return <Badge variant="success">Paid</Badge>;
-      case 'credited': return <Badge variant="default">Credited</Badge>;
-      case 'overdue': return <Badge variant="danger">Overdue</Badge>;
-      case 'void': return <Badge variant="danger">Void</Badge>;
-      default: return <Badge variant="default">{status}</Badge>;
+      case 'draft': return <Badge status="draft" title="Draft • In preparation, not yet posted">Draft</Badge>;
+      case 'issued': return <Badge status="issued" title="Issued • Transmitted to customer">Issued</Badge>;
+      case 'posted': return <Badge status="posted" title="Posted • Recognized in financial ledger">Posted</Badge>;
+      case 'partially_paid': return <Badge status="partially_paid" title="Partially Paid • Partial balance outstanding">Partially Paid</Badge>;
+      case 'paid': return <Badge status="paid" title="Paid • Full invoice settlement posted">Paid</Badge>;
+      case 'credited': return <Badge status="credited" title="Credited • Settled via credit offset note">Credited</Badge>;
+      case 'overdue': return <Badge status="overdue" title="Overdue • Payment terms deadline lapsed">Overdue</Badge>;
+      case 'void': return <Badge status="void" title="Void • Cancelled / Invalidated statement">Void</Badge>;
+      default: return <Badge status={status}>{status}</Badge>;
     }
   };
 
   const openPaymentModal = (inv) => {
     setSelectedInvoice(inv);
-    setPaymentAmount(inv.balance_due || '');
+    const txnBalance = convertFromBase(inv.balance_due, inv.exchange_rate_to_base);
+    setPaymentAmount(txnBalance || '');
     setPaymentMethod('bank_transfer');
     setTransactionRef('');
     setIsPaymentModalOpen(true);
@@ -76,8 +78,12 @@ export const InvoiceListPage = () => {
     }
     setIsSubmittingPayment(true);
     try {
+      const baseAmount = convertToBase(Number(paymentAmount), selectedInvoice.exchange_rate_to_base);
       await recordPayment(selectedInvoice.id, {
-        amount: Number(paymentAmount),
+        amount: baseAmount,
+        amount_in_transaction_currency: Number(paymentAmount),
+        transaction_currency: selectedInvoice.transaction_currency,
+        exchange_rate_used: selectedInvoice.exchange_rate_to_base,
         payment_method: paymentMethod,
         transaction_reference: transactionRef || undefined,
         payment_date: new Date(),
@@ -226,6 +232,7 @@ export const InvoiceListPage = () => {
                 <th className="px-5 py-3.5 font-semibold">Type</th>
                 <th className="px-5 py-3.5 font-semibold">Issued Date</th>
                 <th className="px-5 py-3.5 font-semibold">Due Date</th>
+                <th className="px-5 py-3.5 font-semibold">Currency</th>
                 <th className="px-5 py-3.5 font-semibold">Amount</th>
                 <th className="px-5 py-3.5 font-semibold">Status</th>
                 <th className="px-5 py-3.5 font-semibold">Balance Due</th>
@@ -284,13 +291,16 @@ export const InvoiceListPage = () => {
                       <td className="px-5 py-3.5 text-xs text-neutral-600">
                         {inv.due_date ? new Date(inv.due_date).toLocaleDateString() : '—'}
                       </td>
+                      <td className="px-5 py-3.5 text-xs text-neutral-600">
+                        {inv.transaction_currency || 'INR'}
+                      </td>
                       <td className="px-5 py-3.5 font-medium">
                         {isCreditNote ? (
                           <span className="text-rose-600 font-semibold">
-                            -${Number(inv.total_amount || 0).toLocaleString()}
+                            -{formatDualCurrency(inv.total_amount || 0, convertFromBase(inv.total_amount || 0, inv.exchange_rate_to_base), inv.transaction_currency)}
                           </span>
                         ) : (
-                          <span>${Number(inv.total_amount || 0).toLocaleString()}</span>
+                          <span>{formatDualCurrency(inv.total_amount || 0, convertFromBase(inv.total_amount || 0, inv.exchange_rate_to_base), inv.transaction_currency)}</span>
                         )}
                       </td>
                       <td className="px-5 py-3.5">
@@ -298,9 +308,9 @@ export const InvoiceListPage = () => {
                       </td>
                       <td className="px-5 py-3.5 font-bold">
                         {hasUnpaidBalance ? (
-                          <span className="text-rose-600">${Number(inv.balance_due || 0).toLocaleString()}</span>
+                          <span className="text-rose-600">{formatDualCurrency(inv.balance_due || 0, convertFromBase(inv.balance_due || 0, inv.exchange_rate_to_base), inv.transaction_currency)}</span>
                         ) : (
-                          <span className="text-neutral-400">$0.00</span>
+                          <span className="text-neutral-400">{formatDualCurrency(0, 0, inv.transaction_currency)}</span>
                         )}
                       </td>
                       <td className="px-5 py-3.5 text-right whitespace-nowrap">
@@ -355,7 +365,7 @@ export const InvoiceListPage = () => {
             <div className="flex justify-between">
               <span className="text-neutral-500">Outstanding Balance Due:</span>
               <span className="font-bold text-rose-600">
-                ${Number(selectedInvoice?.balance_due || 0).toLocaleString()}
+                {selectedInvoice ? formatDualCurrency(selectedInvoice.balance_due, convertFromBase(selectedInvoice.balance_due, selectedInvoice.exchange_rate_to_base), selectedInvoice.transaction_currency) : '$0.00'}
               </span>
             </div>
           </div>
@@ -367,7 +377,7 @@ export const InvoiceListPage = () => {
             <input
               type="number"
               step="0.01"
-              max={selectedInvoice?.balance_due || undefined}
+              max={selectedInvoice ? convertFromBase(selectedInvoice.balance_due, selectedInvoice.exchange_rate_to_base) : undefined}
               min="0.01"
               required
               value={paymentAmount}

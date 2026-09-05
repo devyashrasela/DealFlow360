@@ -185,7 +185,7 @@ export const WarehouseAdminPage = () => {
       {/* Main Table */}
       <Card 
         title="Configured Depots & Fulfillment Centers" 
-        subtitle="Operational parameters used in Screen 7 & Screen 8 auto-split computations"
+        subtitle="Logistics parameters and facility routing used for automatic shipment splitting."
       >
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
@@ -228,7 +228,10 @@ export const WarehouseAdminPage = () => {
                       </div>
                     </td>
                     <td className="px-4 py-3.5 text-center">
-                      <Badge status={w.is_active ? 'active' : 'cancelled'}>
+                      <Badge
+                        status={w.is_active ? 'operational' : 'inactive'}
+                        title={w.is_active ? 'Operational • Facility active and accepting order dispatches' : 'Inactive • Facility paused from routing'}
+                      >
                         {w.is_active ? 'Operational' : 'Inactive'}
                       </Badge>
                     </td>

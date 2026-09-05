@@ -12,6 +12,7 @@ import { Invoice, InvoiceLine, Payment, CreditAllocation } from './ledger.models
 import { DealHealthAlert, RepDiscountBaseline } from './dealHealth.models.js';
 import { Session, Invitation, OrganizationRelationship, RelationshipAssignment, AuditLog } from './session.models.js';
 import { RoleChangeAuditLog } from './roleChangeAudit.models.js';
+import { ExchangeRate, ExchangeRateHistory } from './exchangeRate.models.js';
 
 // ==========================================
 // RELATIONAL ASSOCIATIONS
@@ -343,6 +344,8 @@ const db = {
   RelationshipAssignment,
   AuditLog,
   RoleChangeAuditLog,
+  ExchangeRate,
+  ExchangeRateHistory,
 };
 
 export default db;
@@ -389,4 +392,6 @@ export {
   RelationshipAssignment,
   AuditLog,
   RoleChangeAuditLog,
+  ExchangeRate,
+  ExchangeRateHistory,
 };

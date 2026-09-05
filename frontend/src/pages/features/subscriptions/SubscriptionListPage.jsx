@@ -44,11 +44,16 @@ export const SubscriptionListPage = () => {
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'active': return <Badge variant="success">Active</Badge>;
-      case 'pending_cancellation': return <Badge variant="warning">Pending Cancel</Badge>;
-      case 'cancelled': return <Badge variant="danger">Cancelled</Badge>;
-      case 'pending_proration': return <Badge variant="info">Pending Proration</Badge>;
-      default: return <Badge variant="default">{status}</Badge>;
+      case 'active':
+        return <Badge status="active" title="Active • Recurring billing contract in good standing">Active</Badge>;
+      case 'pending_cancellation':
+        return <Badge status="pending_cancellation" title="Pending Cancel • Scheduled to terminate at period end">Pending Cancel</Badge>;
+      case 'cancelled':
+        return <Badge status="cancelled" title="Cancelled • Subscription contract terminated">Cancelled</Badge>;
+      case 'pending_proration':
+        return <Badge status="pending_proration" title="Pending Proration • Calculating mid-cycle delta">Pending Proration</Badge>;
+      default:
+        return <Badge status={status}>{status}</Badge>;
     }
   };
 

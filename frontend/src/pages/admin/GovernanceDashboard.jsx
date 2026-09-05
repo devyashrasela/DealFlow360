@@ -251,7 +251,7 @@ export function GovernanceDashboard({ initialTab }) {
                     return (
                       <tr key={tc.id} className="hover:bg-neutral-50/50 transition-colors">
                         <td className="p-3.5 font-semibold capitalize text-[#111826]">
-                          <Badge status={tierName === 'gold' ? 'warning' : tierName === 'silver' ? 'default' : tierName === 'bronze' ? 'pickpack' : 'active'}>
+                          <Badge variant="tag" dot={false} title={`Customer Tier: ${tierName}`}>
                             {tierName} Tier
                           </Badge>
                         </td>
@@ -319,7 +319,7 @@ export function GovernanceDashboard({ initialTab }) {
                     return (
                       <tr key={cc.id} className="hover:bg-neutral-50/50 transition-colors">
                         <td className="p-3.5 font-semibold capitalize text-[#111826]">
-                          <Badge status={catName === 'subscriptions' ? 'active' : catName === 'services' ? 'pickpack' : 'default'}>
+                          <Badge variant="category" dot={false} title={`Product Category: ${catName}`}>
                             {catName}
                           </Badge>
                         </td>
@@ -404,15 +404,15 @@ export function GovernanceDashboard({ initialTab }) {
                         : 'Tier 1: Rep Autonomy (Auto-Approve)';
 
                     const routingBadge = ac.requires_manager_approval && ac.requires_finance_approval
-                      ? 'open'
+                      ? 'danger'
                       : ac.requires_manager_approval
-                        ? 'pickpack'
+                        ? 'warning'
                         : 'active';
 
                     return (
                       <tr key={ac.id} className="hover:bg-neutral-50/50 transition-colors">
                         <td className="p-3.5 font-medium text-[#111826]">
-                          <Badge status={routingBadge} className="capitalize">
+                          <Badge status={routingBadge} title={routingLabel} className="capitalize">
                             {ac.risk_tier.replace(/_/g, ' ')}
                           </Badge>
                         </td>
@@ -495,7 +495,7 @@ export function GovernanceDashboard({ initialTab }) {
                   </Button>
                 </div>
                 <p className="text-xs text-[#2E3141]/70 mt-1">
-                  Automated product recommendations must meet or exceed this profit margin to be suggested in Screen 3.
+                  Automated product recommendations must meet or exceed this profit margin to be suggested during quotation upsells.
                 </p>
               </div>
             </div>

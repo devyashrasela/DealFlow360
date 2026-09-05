@@ -37,7 +37,7 @@ export const CustomerProfilePage = () => {
                 <div>
                   <h2 className="text-xl font-bold text-[#111826]">{profile.legal_name}</h2>
                   <p className="text-sm text-neutral-500 flex items-center gap-1 mt-1">
-                    <Badge variant="success">Active Account</Badge>
+                    <Badge status="active" title="Active Account • In good standing">Active Account</Badge>
                   </p>
                 </div>
               </div>
@@ -92,7 +92,7 @@ export const CustomerProfilePage = () => {
             <div className="space-y-4">
               <div>
                 <p className="text-xs text-neutral-500 font-medium uppercase tracking-wider mb-1">Pricing Tier</p>
-                <Badge variant="info" className="uppercase tracking-wider">{profile.pricing_tier}</Badge>
+                <Badge variant="tag" dot={false} title={`Pricing Tier: ${profile.pricing_tier}`} className="uppercase tracking-wider">{profile.pricing_tier}</Badge>
               </div>
               
               <div className="pt-3 border-t border-neutral-100">

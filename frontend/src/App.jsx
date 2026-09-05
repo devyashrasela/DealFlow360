@@ -20,7 +20,7 @@ import { ApprovalDetailPage } from './pages/approvals/ApprovalDetailPage.jsx';
 import { CatalogAdminPage } from './pages/admin/CatalogAdminPage.jsx';
 import { GovernanceDashboard } from './pages/admin/GovernanceDashboard.jsx';
 import { WarehouseAdminPage } from './pages/admin/WarehouseAdminPage.jsx';
-import { SubscriptionPlansPage } from './pages/admin/SubscriptionPlansPage.jsx';
+import { ExchangeRatesPage } from './pages/admin/ExchangeRatesPage.jsx';
 import { TeamRolesPage } from './pages/admin/TeamRolesPage.jsx';
 import { LandingPage } from './pages/LandingPage.jsx';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
@@ -122,14 +122,17 @@ export default function App() {
             <Route path="admin/catalog" element={<RoleGate><CatalogAdminPage /></RoleGate>} />
             <Route path="admin/governance" element={<RoleGate><GovernanceDashboard /></RoleGate>} />
             <Route path="admin/warehouses" element={<RoleGate><WarehouseAdminPage /></RoleGate>} />
+            <Route path="admin/exchange-rates" element={<RoleGate><ExchangeRatesPage /></RoleGate>} />
 
             {/* Direct Configuration Routes (Matching Sidebar) */}
+            <Route path="catalog" element={<RoleGate><CatalogAdminPage /></RoleGate>} />
             <Route path="products" element={<RoleGate><CatalogAdminPage initialTab="products" /></RoleGate>} />
             <Route path="price-lists" element={<RoleGate><CatalogAdminPage initialTab="pricelists" /></RoleGate>} />
+            <Route path="subscription-plans" element={<RoleGate><CatalogAdminPage initialTab="plans" /></RoleGate>} />
             <Route path="discount-rules" element={<RoleGate><GovernanceDashboard initialTab="ceilings" /></RoleGate>} />
             <Route path="approval-chains" element={<RoleGate><GovernanceDashboard initialTab="slabs" /></RoleGate>} />
             <Route path="warehouses" element={<RoleGate><WarehouseAdminPage /></RoleGate>} />
-            <Route path="subscription-plans" element={<RoleGate><SubscriptionPlansPage /></RoleGate>} />
+            <Route path="exchange-rates" element={<RoleGate><ExchangeRatesPage /></RoleGate>} />
             <Route path="team-roles" element={<RoleGate><TeamRolesPage /></RoleGate>} />
             <Route path="admin/team-roles" element={<RoleGate><TeamRolesPage /></RoleGate>} />
 

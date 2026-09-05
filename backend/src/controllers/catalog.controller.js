@@ -41,14 +41,20 @@ export const listProducts = async (req, res) => {
       limit: parseInt(limit, 10),
       offset,
       include: [
-        { model: ProductVariant, as: 'variants', attributes: ['id'] }
+        { 
+          model: ProductVariant, 
+          as: 'variants', 
+          attributes: ['id', 'variant_sku', 'variant_name', 'price_delta', 'attributes', 'is_active'],
+          where: { is_active: true },
+          required: false 
+        }
       ]
     });
 
     const products = rows.map(product => {
       const prodJson = product.toJSON();
-      prodJson.variants_count = prodJson.variants ? prodJson.variants.length : 0;
-      delete prodJson.variants;
+      prodJson.variants = prodJson.variants || [];
+      prodJson.variants_count = prodJson.variants.length;
       
       // Omit internal fields if necessary depending on the consumer, but as per requirements, these are internal users.
       // If customer role was allowed, we'd delete standard_unit_cost here.

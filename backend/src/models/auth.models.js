@@ -169,6 +169,11 @@ export const CustomerAccount = sequelize.define('CustomerAccount', {
     allowNull: false,
     defaultValue: true,
   },
+  transaction_currency: {
+    type: DataTypes.STRING(3),
+    allowNull: false,
+    defaultValue: 'INR',
+  },
 }, {
   tableName: 'customer_accounts',
   timestamps: true,

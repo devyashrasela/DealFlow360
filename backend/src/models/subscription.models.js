@@ -71,6 +71,26 @@ export const Subscription = sequelize.define('Subscription', {
     allowNull: false,
     defaultValue: 1,
   },
+  transaction_currency: {
+    type: DataTypes.STRING(3),
+    allowNull: false,
+    defaultValue: 'INR',
+  },
+  exchange_rate_to_base: {
+    type: DataTypes.DECIMAL(15, 6),
+    allowNull: false,
+    defaultValue: 1.000000,
+  },
+  mrr_amount_transaction: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: false,
+    defaultValue: 0.00,
+  },
+  arr_amount_transaction: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: false,
+    defaultValue: 0.00,
+  },
 }, {
   tableName: 'subscriptions',
   timestamps: true,

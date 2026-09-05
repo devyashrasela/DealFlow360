@@ -108,6 +108,19 @@ export const Quotation = sequelize.define('Quotation', {
     allowNull: false,
     defaultValue: 1,
   },
+  transaction_currency: {
+    type: DataTypes.STRING(3),
+    allowNull: false,
+    defaultValue: 'INR',
+  },
+  exchange_rate_to_base: {
+    type: DataTypes.DECIMAL(15, 6),
+    allowNull: true,
+  },
+  exchange_rate_frozen_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
 }, {
   tableName: 'quotations',
   timestamps: true,

@@ -85,6 +85,21 @@ export const Invoice = sequelize.define('Invoice', {
     allowNull: false,
     defaultValue: 1,
   },
+  transaction_currency: {
+    type: DataTypes.STRING(3),
+    allowNull: false,
+    defaultValue: 'INR',
+  },
+  exchange_rate_to_base: {
+    type: DataTypes.DECIMAL(15, 6),
+    allowNull: false,
+    defaultValue: 1.000000,
+  },
+  fx_realized_gain_loss: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: false,
+    defaultValue: 0.00,
+  },
 }, {
   tableName: 'invoices',
   timestamps: true,
@@ -198,6 +213,24 @@ export const Payment = sequelize.define('Payment', {
   recorded_by_user_id: {
     type: DataTypes.UUID,
     allowNull: false,
+  },
+  transaction_currency: {
+    type: DataTypes.STRING(3),
+    allowNull: false,
+    defaultValue: 'INR',
+  },
+  amount_in_transaction_currency: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: true,
+  },
+  exchange_rate_used: {
+    type: DataTypes.DECIMAL(15, 6),
+    allowNull: true,
+  },
+  fx_gain_loss: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: false,
+    defaultValue: 0.00,
   },
 }, {
   tableName: 'payments',

@@ -123,9 +123,13 @@ export function DealHealthDashboard() {
                   <td className="p-3 font-medium">
                     ${Number(alert.quotation?.grand_total || alert.quotation?.gross_total || 0).toLocaleString()}
                   </td>
-                  <td className="p-3"><Badge color="gray">{alert.diagnostic_payload?.stage || alert.quotation?.stage}</Badge></td>
+                  <td className="p-3"><Badge variant="tag" dot={false}>{alert.diagnostic_payload?.stage || alert.quotation?.stage}</Badge></td>
                   <td className="p-3 text-red-600 font-medium">{alert.diagnostic_payload?.days_stale ?? 0} days</td>
-                  <td className="p-3 capitalize">{alert.resolution_status}</td>
+                  <td className="p-3">
+                    <Badge status={alert.resolution_status === 'active' ? 'warning' : 'healthy'} title={alert.resolution_status === 'active' ? 'Active Alert • Needs attention' : 'Resolved'}>
+                      {alert.resolution_status}
+                    </Badge>
+                  </td>
                   <td className="p-3 text-right space-x-2">
                     <Button variant="secondary" size="sm" onClick={() => handleNudge(alert.id)} disabled={alert.resolution_status !== 'active'}>
                       Send Nudge
@@ -179,7 +183,11 @@ export function DealHealthDashboard() {
                   </td>
                   <td className="p-3 text-right text-red-600 font-bold">{alert.diagnostic_payload?.applied}%</td>
                   <td className="p-3 text-right text-gray-500">{alert.diagnostic_payload?.threshold}% ({alert.diagnostic_payload?.fallback})</td>
-                  <td className="p-3 capitalize">{alert.resolution_status}</td>
+                  <td className="p-3">
+                    <Badge status={alert.resolution_status === 'active' ? 'warning' : 'healthy'} title={alert.resolution_status === 'active' ? 'Active Alert • Margin anomaly' : 'Resolved'}>
+                      {alert.resolution_status}
+                    </Badge>
+                  </td>
                   <td className="p-3 text-right space-x-2">
                     <Button variant="danger" size="sm" onClick={() => handleEscalate(alert.id)} disabled={alert.resolution_status !== 'active'}>
                       Route to Finance
@@ -228,9 +236,17 @@ export function DealHealthDashboard() {
                   <td className="p-3 text-gray-600">
                     {alert.fulfillment_order?.estimated_delivery_date ? new Date(alert.fulfillment_order.estimated_delivery_date).toLocaleDateString() : '—'}
                   </td>
-                  <td className="p-3 capitalize">{alert.diagnostic_payload?.fulfillment_status || alert.fulfillment_order?.status}</td>
+                  <td className="p-3">
+                    <Badge status={alert.diagnostic_payload?.fulfillment_status || alert.fulfillment_order?.status}>
+                      {alert.diagnostic_payload?.fulfillment_status || alert.fulfillment_order?.status || 'Pending'}
+                    </Badge>
+                  </td>
                   <td className="p-3 text-orange-600 font-medium">Within {alert.diagnostic_payload?.slippage_window_hours || 48} hrs</td>
-                  <td className="p-3 capitalize">{alert.resolution_status}</td>
+                  <td className="p-3">
+                    <Badge status={alert.resolution_status === 'active' ? 'warning' : 'healthy'} title={alert.resolution_status === 'active' ? 'Active Alert • Delivery slippage risk' : 'Resolved'}>
+                      {alert.resolution_status}
+                    </Badge>
+                  </td>
                   <td className="p-3 text-right space-x-2">
                     <Button variant="secondary" size="sm" onClick={() => handleNudge(alert.id)} disabled={alert.resolution_status !== 'active'}>
                       Notify Ops

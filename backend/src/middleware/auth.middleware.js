@@ -34,11 +34,18 @@ export const authenticate = async (req, res, next) => {
   }
 };
 
-// ── 2. Header-based Org Context (legacy fallback for internal routes) ──────────
-// Resolves context from x-organization-id header.
 export const resolveOrgContext = async (req, res, next) => {
   try {
-    const organizationId = req.headers['x-organization-id'];
+    let organizationId = req.headers['x-organization-id'];
+    const customerAccountId = req.headers['x-customer-account-id'];
+
+    if (!organizationId && customerAccountId) {
+      const account = await CustomerAccount.findByPk(customerAccountId);
+      if (account) {
+        organizationId = account.provider_organization_id;
+      }
+    }
+
     if (!organizationId)
       return res.status(400).json({ error: 'Organization ID header is required' });
 
@@ -49,9 +56,26 @@ export const resolveOrgContext = async (req, res, next) => {
     if (!organization)
       return res.status(403).json({ error: 'Organization not found or inactive' });
 
-    const membership = await OrganizationMembership.findOne({
+    let membership = await OrganizationMembership.findOne({
       where: { user_id: req.user.id, organization_id: organizationId, status: 'active' },
     });
+
+    if (!membership && customerAccountId) {
+      const account = await CustomerAccount.findByPk(customerAccountId);
+      if (account) {
+        const buyerMembership = await OrganizationMembership.findOne({
+          where: { user_id: req.user.id, organization_id: account.buyer_organization_id, status: 'active' }
+        });
+        if (buyerMembership) {
+          membership = {
+            id: buyerMembership.id,
+            role: 'customer_portal',
+            employee_identifier: null
+          };
+        }
+      }
+    }
+
     if (!membership)
       return res.status(403).json({ error: 'No active membership in this organization' });
 

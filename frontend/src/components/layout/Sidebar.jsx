@@ -23,6 +23,7 @@ import {
   Plus,
   Check,
   ArrowLeftRight,
+  DollarSign
 } from 'lucide-react';
 
 export const Sidebar = () => {
@@ -44,17 +45,14 @@ export const Sidebar = () => {
     { name: 'Invoices', path: `/${orgSlug}/invoices`, icon: Receipt },
     { name: 'Deal Health', path: '/deal-health', icon: Activity },
     { name: 'Reports', path: '/reports', icon: BarChart3 },
-    { name: 'Admin Catalog', path: '/admin/catalog', icon: Settings },
-    { name: 'Governance', path: '/admin/governance', icon: ShieldCheck },
   ];
 
   const CONFIG_NAV = [
-    { name: 'Products', path: '/products', icon: Box },
-    { name: 'Price Lists', path: '/price-lists', icon: Tags },
+    { name: 'Catalog & Products', path: '/catalog', icon: Box },
     { name: 'Discount Rules', path: '/discount-rules', icon: Percent },
     { name: 'Approval Chains', path: '/approval-chains', icon: GitBranch },
     { name: 'Warehouses', path: '/warehouses', icon: WarehouseIcon },
-    { name: 'Subscription Plans', path: '/subscription-plans', icon: Layers },
+    { name: 'Exchange Rates', path: '/exchange-rates', icon: DollarSign },
     { name: 'Team & Roles', path: '/team-roles', icon: Users },
   ];
 
@@ -195,7 +193,12 @@ export const Sidebar = () => {
             <p className="px-3 text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-2">Configuration</p>
             {visibleConfig.map((item) => {
               const Icon = item.icon;
-              const isActive = location.pathname.startsWith(item.path);
+              const isActive = location.pathname.startsWith(item.path) || (item.path === '/catalog' && (
+                location.pathname.startsWith('/products') ||
+                location.pathname.startsWith('/price-lists') ||
+                location.pathname.startsWith('/subscription-plans') ||
+                location.pathname.startsWith('/admin/catalog')
+              ));
 
               return (
                 <NavLink

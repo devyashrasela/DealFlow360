@@ -34,6 +34,25 @@ async function migrate() {
     console.log('📦 Syncing AuditLog table...');
     await AuditLog.sync({ alter: true });
 
+    // Safe column migrations for existing tables
+    const [foCols] = await sequelize.query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'fulfillment_orders' AND COLUMN_NAME = 'estimated_delivery_date'
+    `);
+    if (foCols.length === 0) {
+      console.log('📦 Adding estimated_delivery_date to fulfillment_orders...');
+      await sequelize.query('ALTER TABLE fulfillment_orders ADD COLUMN estimated_delivery_date DATETIME NULL');
+    }
+
+    const [aalCols] = await sequelize.query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'approval_audit_logs' AND COLUMN_NAME = 'organization_id'
+    `);
+    if (aalCols.length === 0) {
+      console.log('📦 Adding organization_id to approval_audit_logs...');
+      await sequelize.query('ALTER TABLE approval_audit_logs ADD COLUMN organization_id CHAR(36) BINARY NULL');
+    }
+
     console.log('✅ All auth extension tables created/updated successfully.');
     process.exit(0);
   } catch (err) {

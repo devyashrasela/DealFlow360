@@ -1,3 +1,4 @@
+import { Op } from 'sequelize';
 import {
   Quotation,
   QuotationLine,
@@ -24,7 +25,7 @@ import {
  * @param {string} quotationId
  * @param {string} organizationId
  */
-const recalcQuotation = async (quotationId, organizationId) => {
+export const recalcQuotation = async (quotationId, organizationId) => {
   const quotation = await Quotation.findOne({
     where: { id: quotationId, organization_id: organizationId }
   });
@@ -44,10 +45,14 @@ const recalcQuotation = async (quotationId, organizationId) => {
     blended_risk_score
   } = computeBlendedRisk(lines);
 
+  const total_tax_amount = Number(quotation.total_tax_amount || 0);
+  const grand_total = Number((net_subtotal + total_tax_amount).toFixed(2));
+
   await quotation.update({
     gross_total,
     total_discount_amount,
     net_subtotal,
+    grand_total,
     blended_margin_percentage,
     worst_line_excess,
     weighted_margin_bleed,
@@ -61,13 +66,47 @@ export const createQuotation = async (req, res) => {
     const organization_id = req.orgContext.organizationId;
     const assigned_sales_rep_id = req.user.id;
 
+    if (!customer_account_id) {
+      return res.status(400).json({ error: 'customer_account_id is required' });
+    }
+    if (!price_list_id) {
+      return res.status(400).json({ error: 'price_list_id is required' });
+    }
+
+    // Tenant Isolation Verification
+    const customerAccount = await CustomerAccount.findOne({
+      where: { id: customer_account_id, provider_organization_id: organization_id, is_active: true }
+    });
+    if (!customerAccount) {
+      return res.status(400).json({ error: 'Invalid customer account for this organization' });
+    }
+
+    const priceList = await PriceList.findOne({
+      where: { id: price_list_id, organization_id, is_active: true }
+    });
+    if (!priceList) {
+      return res.status(400).json({ error: 'Invalid or inactive price list for this organization' });
+    }
+
+    let expDate = expiration_date ? new Date(expiration_date) : null;
+    if (!expDate || isNaN(expDate.getTime())) {
+      expDate = new Date();
+      expDate.setDate(expDate.getDate() + 30);
+    } else if (expDate <= new Date()) {
+      return res.status(400).json({ error: 'Expiration date must be in the future' });
+    }
+
+    const countQuotes = await Quotation.count({ where: { organization_id } });
+    const year = new Date().getFullYear();
+    const quotation_number = `Q-${year}-${String(countQuotes + 1001).padStart(4, '0')}`;
+
     const quotation = await Quotation.create({
       organization_id,
       customer_account_id,
       price_list_id,
       assigned_sales_rep_id,
-      expiration_date,
-      quotation_number: `Q-${Date.now()}`,
+      expiration_date: expDate,
+      quotation_number,
       stage: 'draft'
     });
 
@@ -80,11 +119,16 @@ export const createQuotation = async (req, res) => {
 export const listQuotations = async (req, res) => {
   try {
     const organization_id = req.orgContext.organizationId;
-    const { stage, customer_account_id, page = 1, limit = 20 } = req.query;
+    const { stage, customer_account_id, search, page = 1, limit = 100 } = req.query;
     
     const where = { organization_id };
-    if (stage) where.stage = stage;
+    if (stage && stage !== 'all') where.stage = stage;
     if (customer_account_id) where.customer_account_id = customer_account_id;
+    if (search) {
+      where[Op.or] = [
+        { quotation_number: { [Op.like]: `%${search}%` } }
+      ];
+    }
 
     const offset = (Math.max(1, parseInt(page, 10)) - 1) * parseInt(limit, 10);
 
@@ -92,22 +136,34 @@ export const listQuotations = async (req, res) => {
       where,
       limit: parseInt(limit, 10),
       offset,
+      order: [['createdAt', 'DESC']],
       include: [
         {
           model: CustomerAccount,
           as: 'customer_account',
-          include: [{ model: Organization, as: 'buyer_organization', attributes: ['legal_name'] }]
+          include: [{ model: Organization, as: 'buyer_organization', attributes: ['legal_name', 'trading_name'] }]
         },
         {
           model: User,
           as: 'sales_rep',
           attributes: ['id', 'full_name']
+        },
+        {
+          model: PriceList,
+          as: 'price_list',
+          attributes: ['id', 'name', 'tier', 'currency']
         }
       ]
     });
 
+    const quotes = rows.map(r => {
+      const q = r.toJSON();
+      q.status = q.stage;
+      return q;
+    });
+
     res.json({
-      quotations: rows,
+      quotations: quotes,
       total: count,
       page: parseInt(page, 10),
       totalPages: Math.ceil(count / limit)
@@ -129,8 +185,8 @@ export const getQuotation = async (req, res) => {
           model: QuotationLine,
           as: 'lines',
           include: [
-            { model: Product, as: 'product', attributes: ['id', 'name'] },
-            { model: ProductVariant, as: 'product_variant', attributes: ['id', 'variant_name', ['variant_name', 'name']] }
+            { model: Product, as: 'product', attributes: ['id', 'name', 'sku'] },
+            { model: ProductVariant, as: 'product_variant', attributes: ['id', 'variant_name', 'variant_sku', ['variant_name', 'name']] }
           ]
         },
         {
@@ -146,7 +202,9 @@ export const getQuotation = async (req, res) => {
       return res.status(404).json({ error: 'Quotation not found' });
     }
 
-    res.json(quotation);
+    const qJson = quotation.toJSON();
+    qJson.status = qJson.stage;
+    res.json(qJson);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -188,6 +246,15 @@ export const addLine = async (req, res) => {
     const { quotationId } = req.params;
     const { product_id, product_variant_id, quantity, applied_discount_percentage } = req.body;
 
+    const qty = Number(quantity);
+    if (!qty || qty <= 0 || !Number.isInteger(qty)) {
+      return res.status(400).json({ error: 'Quantity must be a positive integer' });
+    }
+    const discount = Number(applied_discount_percentage) || 0;
+    if (discount < 0 || discount > 100) {
+      return res.status(400).json({ error: 'Applied discount must be between 0% and 100%' });
+    }
+
     const quotation = await Quotation.findOne({
       where: { id: quotationId, organization_id },
       include: [{ model: CustomerAccount, as: 'customer_account' }]
@@ -228,8 +295,8 @@ export const addLine = async (req, res) => {
     const lineMath = computeLineMath({
       unit_list_price: list_price,
       unit_cost_price: unit_cost,
-      quantity,
-      applied_discount_percentage,
+      quantity: qty,
+      applied_discount_percentage: discount,
       effective_ceiling_limit: ceiling_discount
     });
 
@@ -239,14 +306,14 @@ export const addLine = async (req, res) => {
     const line = await QuotationLine.create({
       quotation_id: quotationId,
       product_id,
-      product_variant_id,
+      product_variant_id: product_variant_id || null,
       line_number,
       category: product.category,
       billing_cadence: product.billing_cadence || 'one_time',
-      quantity,
+      quantity: qty,
       unit_list_price: list_price,
       unit_cost_price: unit_cost,
-      applied_discount_percentage,
+      applied_discount_percentage: discount,
       effective_ceiling_limit: ceiling_discount,
       ...lineMath
     });
@@ -281,11 +348,28 @@ export const updateLine = async (req, res) => {
     const line = await QuotationLine.findOne({ where: { id: lineId, quotation_id: quotationId } });
     if (!line) return res.status(404).json({ error: 'Line not found' });
 
-    const newQuantity = quantity !== undefined ? quantity : line.quantity;
-    const newDiscount = applied_discount_percentage !== undefined ? applied_discount_percentage : line.applied_discount_percentage;
+    let newQuantity = line.quantity;
+    if (quantity !== undefined) {
+      const q = Number(quantity);
+      if (!q || q <= 0 || !Number.isInteger(q)) {
+        return res.status(400).json({ error: 'Quantity must be a positive integer' });
+      }
+      newQuantity = q;
+    }
+
+    let newDiscount = line.applied_discount_percentage;
+    if (applied_discount_percentage !== undefined) {
+      const d = Number(applied_discount_percentage);
+      if (d < 0 || d > 100) {
+        return res.status(400).json({ error: 'Applied discount must be between 0% and 100%' });
+      }
+      newDiscount = d;
+    }
 
     const pricing_tier = quotation.customer_account?.pricing_tier || 'standard';
     const product = await Product.findOne({ where: { id: line.product_id, organization_id } });
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+
     const ceiling_discount = await resolveCeiling(organization_id, product.category, pricing_tier);
 
     const lineMath = computeLineMath({
@@ -336,6 +420,84 @@ export const removeLine = async (req, res) => {
     await recalcQuotation(quotationId, organization_id);
 
     res.status(204).end();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const deleteQuotation = async (req, res) => {
+  try {
+    const organization_id = req.orgContext.organizationId;
+    const { quotationId } = req.params;
+
+    const quotation = await Quotation.findOne({
+      where: { id: quotationId, organization_id }
+    });
+
+    if (!quotation) return res.status(404).json({ error: 'Quotation not found' });
+    if (quotation.stage !== 'draft') {
+      return res.status(409).json({ error: 'Only draft quotations can be deleted' });
+    }
+
+    await QuotationLine.destroy({ where: { quotation_id: quotationId } });
+    await quotation.destroy();
+
+    res.status(204).end();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const confirmQuotation = async (req, res) => {
+  try {
+    const organization_id = req.orgContext.organizationId;
+    const { quotationId } = req.params;
+
+    const quotation = await Quotation.findOne({
+      where: { id: quotationId, organization_id },
+      include: [{ model: QuotationLine, as: 'lines' }]
+    });
+
+    if (!quotation) return res.status(404).json({ error: 'Quotation not found' });
+    if (quotation.stage !== 'approved') {
+      return res.status(409).json({
+        error: `Cannot confirm quotation in '${quotation.stage}' stage. It must be approved before confirmation.`
+      });
+    }
+
+    await quotation.update({
+      stage: 'confirmed',
+      confirmed_at: new Date()
+    });
+
+    // Downstream event processing: Invoices, Fulfillment, Subscriptions
+    try {
+      const { generateInvoiceFromQuote } = await import('../services/invoice.service.js');
+      await generateInvoiceFromQuote(quotation.id);
+    } catch (invErr) {
+      console.error('[EVENT] Invoice generation error:', invErr.message);
+    }
+
+    try {
+      const { executeFulfillmentAllocation } = await import('../services/fulfillment.service.js');
+      await executeFulfillmentAllocation(quotation.organization_id, { quotationId: quotation.id });
+    } catch (fulErr) {
+      console.error('[EVENT] Fulfillment allocation error:', fulErr.message);
+    }
+
+    const hasRecurring = quotation.lines?.some(
+      l => l.category === 'subscriptions' || (l.billing_cadence && l.billing_cadence !== 'one_time')
+    );
+    if (hasRecurring) {
+      try {
+        const { provisionSubscriptionFromQuote } = await import('../services/subscription.service.js');
+        await provisionSubscriptionFromQuote(quotation.id);
+      } catch (subErr) {
+        console.error('[EVENT] Subscription provisioning error:', subErr.message);
+      }
+    }
+
+    res.json({ message: 'Quotation confirmed successfully', quotation });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

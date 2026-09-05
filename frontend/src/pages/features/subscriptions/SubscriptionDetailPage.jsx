@@ -106,7 +106,7 @@ export const SubscriptionDetailPage = () => {
           <div>
             <h1 className="text-2xl font-bold text-[#111826] tracking-tight flex items-center gap-3">
               {sub.subscription_code}
-              <Badge variant="success">{sub.status}</Badge>
+              <Badge status={sub.status}>{sub.status}</Badge>
             </h1>
             <p className="text-sm text-[#2E3141]/70 mt-1">
               Customer: {sub.customer_account?.buyer_organization?.legal_name}
@@ -219,7 +219,11 @@ export const SubscriptionDetailPage = () => {
                       <td className="px-6 py-4">{new Date(sc.scheduled_date).toLocaleDateString()}</td>
                       <td className="px-6 py-4">${Number(sc.expected_total).toLocaleString()}</td>
                       <td className="px-6 py-4">
-                        {sc.is_processed ? <Badge variant="success">Yes</Badge> : <Badge variant="default">Pending</Badge>}
+                        {sc.is_processed ? (
+                          <Badge status="paid" title="Processed • Cycle billing posted to ledger">Processed</Badge>
+                        ) : (
+                          <Badge status="pending" title="Pending • Scheduled for future billing date">Pending</Badge>
+                        )}
                       </td>
                     </tr>
                   ))}

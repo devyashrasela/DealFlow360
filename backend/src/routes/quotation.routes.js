@@ -4,6 +4,8 @@ import {
   listQuotations,
   getQuotation,
   updateQuotation,
+  deleteQuotation,
+  confirmQuotation,
   addLine,
   updateLine,
   removeLine,
@@ -22,6 +24,8 @@ router.post('/', allowedRoles, createQuotation);
 router.get('/', allowedRoles, listQuotations);
 router.get('/:quotationId', allowedRoles, getQuotation);
 router.put('/:quotationId', allowedRoles, updateQuotation);
+router.delete('/:quotationId', allowedRoles, deleteQuotation);
+router.post('/:quotationId/confirm', allowedRoles, confirmQuotation);
 
 router.post('/:quotationId/lines', allowedRoles, addLine);
 router.put('/:quotationId/lines/:lineId', allowedRoles, updateLine);
@@ -30,3 +34,4 @@ router.delete('/:quotationId/lines/:lineId', allowedRoles, removeLine);
 router.get('/:quotationId/upsells', allowedRoles, getUpsells);
 
 export default router;
+

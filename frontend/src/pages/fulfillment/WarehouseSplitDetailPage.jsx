@@ -24,6 +24,13 @@ const ORDER_LIFECYCLE_STEPS = [
   'delivered',
 ];
 
+const formatFulfillmentStatus = (status) => {
+  if (!status) return 'Unknown';
+  if (status === 'pickpack') return 'Pick & Pack';
+  if (status === 'stock_received_pending_consolidation') return 'Stock Received';
+  return status.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+};
+
 export const WarehouseSplitDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -141,7 +148,7 @@ export const WarehouseSplitDetailPage = () => {
         </Button>
         <div className="flex items-center gap-2">
           <span className="text-xs text-neutral-500">Lifecycle State:</span>
-          <Badge status={order.status}>{order.status}</Badge>
+          <Badge status={order.status}>{formatFulfillmentStatus(order.status)}</Badge>
         </div>
       </div>
 
@@ -208,7 +215,7 @@ export const WarehouseSplitDetailPage = () => {
               </p>
             </div>
           </div>
-          <Badge status="open">Backorder Active</Badge>
+          <Badge status="open" title="Backorder Active • Replenishment requested">Backorder Active</Badge>
         </div>
       )}
 
@@ -310,7 +317,7 @@ export const WarehouseSplitDetailPage = () => {
                     {order.warehouse?.name}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <Badge status={order.status}>{order.status}</Badge>
+                    <Badge status={order.status}>{formatFulfillmentStatus(order.status)}</Badge>
                   </td>
                 </tr>
               ))}

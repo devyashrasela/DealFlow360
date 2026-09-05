@@ -19,6 +19,8 @@ import invoiceRoutes from './routes/invoice.routes.js';
 import warehouseRoutes from './routes/warehouse.routes.js';
 import teamRolesRoutes from './routes/teamRoles.routes.js';
 
+import exchangeRateRoutes from './controllers/exchangeRate.controller.js';
+
 const app = express();
 
 app.use((req, res, next) => {
@@ -37,6 +39,7 @@ app.use(express.json());
 
 
 // API Routes
+app.use('/api/exchange-rates', exchangeRateRoutes);
 app.use('/api/negotiations', negotiationRoutes);
 app.use('/api/deal-health', dealHealthRoutes);
 app.use('/api/reports', reportingRoutes);

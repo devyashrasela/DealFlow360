@@ -19,10 +19,16 @@ export function ApprovalListPage() {
 
   const fetchApprovals = async () => {
     try {
-      const res = await approvalApi.listPending();
+      const res = await approvalApi.listAll();
       setAllApprovals(res || []);
     } catch (err) {
-      setError(err.message);
+      // Fallback to listPending if listAll is not supported
+      try {
+        const fallbackRes = await approvalApi.listPending();
+        setAllApprovals(fallbackRes || []);
+      } catch (err2) {
+        setError(err2.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -140,12 +146,12 @@ export function ApprovalListPage() {
                 const q = approval.quotation;
                 if (!q) return null;
                 const riskLevel = q.risk_tier === 'high_risk_finance' ? 'HIGH' : q.risk_tier === 'medium_risk_manager' ? 'MEDIUM' : 'LOW';
-                const riskColor = riskLevel === 'HIGH' ? 'bg-rose-50 text-rose-700 border-rose-200' : riskLevel === 'MEDIUM' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200';
-                
-                let statusBadge = 'default';
-                if (approval.status === 'approved') statusBadge = 'delivered'; // emerald
-                if (approval.status === 'pending') statusBadge = 'pickpack'; // amber
-                if (approval.status === 'rejected' || approval.status === 'returned') statusBadge = 'open'; // rose
+                const riskClass =
+                  riskLevel === 'HIGH'
+                    ? 'bg-rose-500/10 text-rose-900 border-rose-500/20'
+                    : riskLevel === 'MEDIUM'
+                    ? 'bg-amber-500/10 text-amber-900 border-amber-500/20'
+                    : 'bg-emerald-500/10 text-emerald-900 border-emerald-500/20';
                 
                 const assignedTo = !approval.required_role ? 'Auto' : (approval.required_role === 'finance_ops' ? 'Finance Team' : 'M. Shah');
                 const stageName = !approval.required_role ? 'Auto-Approved' : (approval.required_role === 'sales_manager' ? 'Sales Manager' : 'Finance');
@@ -159,12 +165,12 @@ export function ApprovalListPage() {
                     <td className="px-6 py-4 font-medium text-blue-600">{q.quotation_number}</td>
                     <td className="px-6 py-4">{q.customer_account?.buyer_organization?.legal_name || 'Unknown'}</td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${riskColor}`}>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border ${riskClass}`}>
                         {riskLevel}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <Badge status={statusBadge} className="capitalize">{approval.status}</Badge>
+                      <Badge status={approval.status} className="capitalize">{approval.status}</Badge>
                     </td>
                     <td className="px-6 py-4">{stageName}</td>
                     <td className="px-6 py-4 text-[#2E3141]/70">{assignedTo}</td>

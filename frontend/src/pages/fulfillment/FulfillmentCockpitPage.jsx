@@ -17,6 +17,13 @@ import {
   X,
 } from 'lucide-react';
 
+const formatFulfillmentStatus = (status) => {
+  if (!status) return 'Unknown';
+  if (status === 'pickpack') return 'Pick & Pack';
+  if (status === 'stock_received_pending_consolidation') return 'Stock Received';
+  return status.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+};
+
 export const FulfillmentCockpitPage = () => {
   const navigate = useNavigate();
 
@@ -313,11 +320,11 @@ export const FulfillmentCockpitPage = () => {
                     </td>
                     <td className="px-4 py-3 text-center">
                       {item.available_to_fulfill <= 0 ? (
-                        <Badge status="open">Stockout</Badge>
+                        <Badge status="stockout" title="Stockout • Zero units available in warehouse facility">Stockout</Badge>
                       ) : item.is_low_stock ? (
-                        <Badge status="pickpack">Low Stock</Badge>
+                        <Badge status="low_stock" title="Low Stock • Quantity below minimum threshold">Low Stock</Badge>
                       ) : (
-                        <Badge status="active">Healthy</Badge>
+                        <Badge status="healthy" title="Healthy • Inventory levels optimal for fulfillment">Healthy</Badge>
                       )}
                     </td>
                   </tr>
@@ -385,7 +392,7 @@ export const FulfillmentCockpitPage = () => {
                         {order.items?.reduce((sum, it) => sum + it.quantity_allocated, 0) || 0}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <Badge status={order.status}>{order.status}</Badge>
+                        <Badge status={order.status}>{formatFulfillmentStatus(order.status)}</Badge>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#724B66] group-hover:translate-x-0.5 transition">
@@ -437,7 +444,7 @@ export const FulfillmentCockpitPage = () => {
                       {bo.backorder_quantity}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <Badge status={bo.status}>{bo.status}</Badge>
+                      <Badge status={bo.status}>{formatFulfillmentStatus(bo.status)}</Badge>
                     </td>
                     <td className="px-4 py-3 text-xs text-neutral-500">
                       {new Date(bo.createdAt).toLocaleDateString()}

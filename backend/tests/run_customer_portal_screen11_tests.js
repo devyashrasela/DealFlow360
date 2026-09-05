@@ -10,7 +10,7 @@ import {
   FulfillmentOrder, Subscription, Invoice
 } from '../src/models/index.js';
 
-const BASE_URL = 'http://localhost:5001/api';
+const BASE_URL = process.env.API_BASE_URL || 'http://localhost:5000/api';
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
 
 const results = [];

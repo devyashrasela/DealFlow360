@@ -39,41 +39,43 @@ export const submitForApproval = async (req, res) => {
       return res.status(400).json({ message: 'Quotation must be in draft stage' });
     }
 
-    let totalRevenue = 0;
-    let totalCost = 0;
-
     const recomputedLines = quotation.lines.map(line => {
       const computed = computeLineMath(line);
-      totalRevenue += computed.line_net_amount || 0;
-      totalCost += computed.line_cost_total || 0;
-      return computed;
+      return {
+        ...computed,
+        id: line.id
+      };
     });
 
     const blendedRisk = computeBlendedRisk(recomputedLines);
-
-    const blendedMarginPercentage = totalRevenue > 0 ? ((totalRevenue - totalCost) / totalRevenue) * 100 : 0;
+    const blendedRiskScore = blendedRisk.blended_risk_score;
     const E_max = blendedRisk.worst_line_excess || 0;
+    const blendedMarginPercentage = blendedRisk.blended_margin_percentage;
 
-    const riskTier = await determineRiskTier(orgId, blendedRisk.blendedRiskScore, E_max, blendedMarginPercentage);
+    const riskTier = await determineRiskTier(orgId, blendedRiskScore, E_max, blendedMarginPercentage);
 
     if (riskTier.margin_hard_stop_breached) {
       await quotation.update({
         stage: 'rejected',
         worst_line_excess: E_max,
         weighted_margin_bleed: blendedRisk.weighted_margin_bleed,
-        blended_risk_score: blendedRisk.blendedRiskScore,
+        blended_risk_score: blendedRiskScore,
         margin_hard_stop_breached: true,
-        gross_total: totalRevenue
+        gross_total: blendedRisk.gross_total,
+        net_subtotal: blendedRisk.net_subtotal,
+        total_discount_amount: blendedRisk.total_discount_amount,
+        grand_total: blendedRisk.net_subtotal
       }, { transaction: t });
 
       await ApprovalAuditLog.create({
         organization_id: orgId,
         quotation_id: quotation.id,
         actor_user_id: req.user.id,
-        blended_risk_score_at_action: blendedRisk.blendedRiskScore,
+        blended_risk_score_at_action: blendedRiskScore,
         payload_snapshot: {
-          gross_total: totalRevenue,
-          blended_risk_score: blendedRisk.blendedRiskScore,
+          gross_total: blendedRisk.gross_total,
+          net_subtotal: blendedRisk.net_subtotal,
+          blended_risk_score: blendedRiskScore,
           worst_line_excess: E_max,
           action: 'rejected_margin_hard_stop'
         },
@@ -92,15 +94,19 @@ export const submitForApproval = async (req, res) => {
     await quotation.update({
       worst_line_excess: E_max,
       weighted_margin_bleed: blendedRisk.weighted_margin_bleed,
-      blended_risk_score: blendedRisk.blendedRiskScore,
+      blended_risk_score: blendedRiskScore,
       risk_tier: riskTier.risk_tier || riskTier,
       margin_hard_stop_breached: false,
-      gross_total: totalRevenue
+      gross_total: blendedRisk.gross_total,
+      net_subtotal: blendedRisk.net_subtotal,
+      total_discount_amount: blendedRisk.total_discount_amount,
+      grand_total: blendedRisk.net_subtotal
     }, { transaction: t });
 
     const payloadSnapshot = {
-      gross_total: totalRevenue,
-      blended_risk_score: blendedRisk.blendedRiskScore,
+      gross_total: blendedRisk.gross_total,
+      net_subtotal: blendedRisk.net_subtotal,
+      blended_risk_score: blendedRiskScore,
       worst_line_excess: E_max,
       lines: recomputedLines.map(l => ({ id: l.id, revenue: l.line_net_amount, cost: l.line_cost_total }))
     };
@@ -109,7 +115,7 @@ export const submitForApproval = async (req, res) => {
       organization_id: orgId,
       quotation_id: quotation.id,
       actor_user_id: req.user.id,
-      blended_risk_score_at_action: blendedRisk.blendedRiskScore,
+      blended_risk_score_at_action: blendedRiskScore,
       payload_snapshot: payloadSnapshot,
       ip_address: req.ip,
       user_agent: req.get('User-Agent')
@@ -117,14 +123,14 @@ export const submitForApproval = async (req, res) => {
 
     const riskTierValue = riskTier.risk_tier || riskTier;
 
-    if (riskTierValue === 'low_risk_auto' || blendedRisk.blendedRiskScore === 0) {
+    if (riskTierValue === 'low_risk_auto' || blendedRiskScore === 0) {
       await quotation.update({ stage: 'approved' }, { transaction: t });
       await ApprovalAuditLog.create({
         ...auditLogBase,
         action_taken: 'auto_approved'
       }, { transaction: t });
       await t.commit();
-      return res.status(200).json({ status: 'auto_approved' });
+      return res.status(200).json({ status: 'auto_approved', riskAnalysis: riskTier });
     }
 
     let createdSteps = [];
@@ -179,13 +185,14 @@ export const listPendingApprovals = async (req, res) => {
     const { status } = req.query;
 
     const roleWhere = userRole === 'admin' ? {} : { required_role: userRole };
-    const statusWhere = status === 'pending' ? { status: 'pending' } : (status && status !== 'all' ? { status } : {});
+    const statusWhere = status === 'all' ? {} : (status ? { status } : { status: 'pending' });
 
     const approvals = await QuotationApproval.findAll({
       where: {
         ...statusWhere,
         ...roleWhere
       },
+      order: [['createdAt', 'DESC']],
       include: [{
         model: Quotation,
         as: 'quotation',
@@ -195,8 +202,7 @@ export const listPendingApprovals = async (req, res) => {
           as: 'customer_account',
           include: [{ model: Organization, as: 'buyer_organization' }]
         }]
-      }],
-      order: [['createdAt', 'DESC']]
+      }]
     });
 
     return res.status(200).json(approvals);
@@ -215,7 +221,7 @@ export const getApprovalDetail = async (req, res) => {
       include: [
         { model: QuotationLine, as: 'lines', include: [{ model: Product, as: 'product' }] },
         { model: QuotationApproval, as: 'approvals' },
-        { model: ApprovalAuditLog, as: 'audit_logs' },
+        { model: ApprovalAuditLog, as: 'audit_logs', include: [{ model: User, as: 'actor', attributes: ['id', 'full_name', 'email'] }] },
         { model: CustomerAccount, as: 'customer_account', include: [{ model: Organization, as: 'buyer_organization' }] }
       ]
     });
@@ -256,7 +262,12 @@ export const approveQuotation = async (req, res) => {
     });
 
     const currentStep = pendingSteps[0];
-    if (!currentStep || currentStep.required_role !== userRole) {
+    if (!currentStep) {
+      await t.rollback();
+      return res.status(404).json({ message: 'No pending approval steps found' });
+    }
+
+    if (userRole !== 'admin' && currentStep.required_role !== userRole) {
       await t.rollback();
       return res.status(403).json({ message: 'You are not authorized to approve this step' });
     }
@@ -265,7 +276,7 @@ export const approveQuotation = async (req, res) => {
       status: 'approved',
       action_by_user_id: req.user.id,
       action_timestamp: new Date(),
-      comments
+      comments: comments || null
     }, { transaction: t });
 
     const remainingSteps = pendingSteps.length - 1;
@@ -343,7 +354,12 @@ export const rejectQuotation = async (req, res) => {
     });
 
     const currentStep = pendingSteps[0];
-    if (!currentStep || currentStep.required_role !== userRole) {
+    if (!currentStep) {
+      await t.rollback();
+      return res.status(404).json({ message: 'No pending approval steps found' });
+    }
+
+    if (userRole !== 'admin' && currentStep.required_role !== userRole) {
       await t.rollback();
       return res.status(403).json({ message: 'You are not authorized to reject this step' });
     }
@@ -410,6 +426,11 @@ export const returnQuotation = async (req, res) => {
 
     const currentStep = pendingSteps[0];
     if (currentStep) {
+      const userRole = req.orgContext.membership.role;
+      if (userRole !== 'admin' && currentStep.required_role !== userRole) {
+        await t.rollback();
+        return res.status(403).json({ message: 'You are not authorized to return this step' });
+      }
       await currentStep.update({
         status: 'rejected',
         action_by_user_id: req.user.id,

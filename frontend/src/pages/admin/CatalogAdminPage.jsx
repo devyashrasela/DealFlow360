@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext.jsx';
 import { apiClient } from '../../api/client';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
@@ -8,16 +9,19 @@ import { Card } from '../../components/ui/Card';
 import { 
   Plus, Edit2, Trash2, ChevronDown, ChevronRight, 
   Settings, DollarSign, PackageOpen, Layers, CheckCircle2,
-  AlertCircle, Sparkles
+  AlertCircle, Sparkles, X, RefreshCw, Clock, ArrowUpRight
 } from 'lucide-react';
 
 export function CatalogAdminPage({ initialTab }) {
   const location = useLocation();
+  const { activeOrg } = useAuth();
+  const orgSlug = activeOrg?.slug || 'acme';
 
   // Compute default tab based on URL path or prop
   const getComputedTab = () => {
     if (initialTab) return initialTab;
     if (location.pathname.includes('price-list')) return 'pricelists';
+    if (location.pathname.includes('subscription')) return 'plans';
     if (location.pathname.includes('upsell')) return 'upsell';
     return 'products';
   };
@@ -29,6 +33,8 @@ export function CatalogAdminPage({ initialTab }) {
       setActiveTab(initialTab);
     } else if (location.pathname.includes('price-list')) {
       setActiveTab('pricelists');
+    } else if (location.pathname.includes('subscription')) {
+      setActiveTab('plans');
     } else if (location.pathname.includes('products')) {
       setActiveTab('products');
     }
@@ -44,9 +50,12 @@ export function CatalogAdminPage({ initialTab }) {
   // UI State
   const [expandedProductId, setExpandedProductId] = useState(null);
 
-  // Product Modal State
+  // Product / Plan Modal Dynamic Fields State
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [currentProduct, setCurrentProduct] = useState(null);
+  const [modalCategory, setModalCategory] = useState('hardware');
+  const [modalBillingCadence, setModalBillingCadence] = useState('one_time');
+  const [modalBasePrice, setModalBasePrice] = useState(0);
 
   // Variant Modal State
   const [isVariantModalOpen, setIsVariantModalOpen] = useState(false);
@@ -63,6 +72,8 @@ export function CatalogAdminPage({ initialTab }) {
   const [priceListItems, setPriceListItems] = useState([]);
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const [newItemProductId, setNewItemProductId] = useState('');
+  const [searchStr, setSearchStr] = useState('');
+  const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
   const [newItemPrice, setNewItemPrice] = useState('');
   const [isSavingItem, setIsSavingItem] = useState(false);
 
@@ -116,7 +127,7 @@ export function CatalogAdminPage({ initialTab }) {
     setLoading(true);
     setError('');
     try {
-      if (activeTab === 'products') {
+      if (activeTab === 'products' || activeTab === 'plans' || activeTab === 'upsell') {
         const res = await apiClient.get('/catalog');
         setProducts(res.products || []);
       } else if (activeTab === 'pricelists') {
@@ -126,15 +137,54 @@ export function CatalogAdminPage({ initialTab }) {
         ]);
         setPriceLists(Array.isArray(plRes) ? plRes : plRes.priceLists || plRes.data || []);
         setProducts(prodRes.products || []);
-      } else if (activeTab === 'upsell') {
-        const res = await apiClient.get('/catalog');
-        setProducts(res.products || []);
       }
     } catch (err) {
       setError(err.message || 'Failed to fetch data');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Filter products that represent recurring subscriptions
+  const subscriptionPlans = products.filter(
+    p => p.category === 'subscriptions' || (p.billing_cadence && p.billing_cadence !== 'one_time')
+  );
+
+  const activePlansCount = subscriptionPlans.filter(p => p.is_active !== false).length;
+  const monthlyPlansCount = subscriptionPlans.filter(p => (p.billing_cadence || 'monthly').toLowerCase() === 'monthly').length;
+  const annualPlansCount = subscriptionPlans.filter(p => ['annual', 'yearly'].includes((p.billing_cadence || '').toLowerCase())).length;
+  const quarterlyPlansCount = subscriptionPlans.filter(p => (p.billing_cadence || '').toLowerCase() === 'quarterly').length;
+
+  const handleOpenCreateProduct = () => {
+    setCurrentProduct(null);
+    setModalCategory('hardware');
+    setModalBillingCadence('one_time');
+    setModalBasePrice('');
+    setIsProductModalOpen(true);
+  };
+
+  const handleOpenCreatePlan = () => {
+    setCurrentProduct(null);
+    setModalCategory('subscriptions');
+    setModalBillingCadence('monthly');
+    setModalBasePrice('');
+    setIsProductModalOpen(true);
+  };
+
+  const handleOpenEditProduct = (p) => {
+    setCurrentProduct(p);
+    setModalCategory(p.category || 'hardware');
+    setModalBillingCadence(p.billing_cadence || 'one_time');
+    setModalBasePrice(p.base_list_price || 0);
+    setIsProductModalOpen(true);
+  };
+
+  const handleOpenEditPlan = (p) => {
+    setCurrentProduct(p);
+    setModalCategory('subscriptions');
+    setModalBillingCadence(p.billing_cadence || 'monthly');
+    setModalBasePrice(p.base_list_price || 0);
+    setIsProductModalOpen(true);
   };
 
   // --- PRODUCT CRUD ---
@@ -148,16 +198,16 @@ export function CatalogAdminPage({ initialTab }) {
       category: formData.get('category'),
       billing_cadence: formData.get('billing_cadence'),
       base_list_price: parseFloat(formData.get('base_list_price')),
-      standard_unit_cost: parseFloat(formData.get('standard_unit_cost')),
+      standard_unit_cost: parseFloat(formData.get('standard_unit_cost') || 0),
     };
 
     try {
       if (currentProduct) {
         await apiClient.put(`/catalog/${currentProduct.id}`, payload);
-        showFeedback(`Product "${payload.name}" updated successfully.`);
+        showFeedback(`${payload.category === 'subscriptions' ? 'Subscription plan' : 'Product'} "${payload.name}" updated successfully.`);
       } else {
         await apiClient.post('/catalog', payload);
-        showFeedback(`Product "${payload.name}" created successfully.`);
+        showFeedback(`${payload.category === 'subscriptions' ? 'Subscription plan' : 'Product'} "${payload.name}" created successfully.`);
       }
       setIsProductModalOpen(false);
       fetchData();
@@ -170,10 +220,10 @@ export function CatalogAdminPage({ initialTab }) {
     if (!confirm(`Are you sure you want to deactivate "${name}"?`)) return;
     try {
       await apiClient.delete(`/catalog/${id}`);
-      showFeedback(`Product "${name}" deactivated.`);
+      showFeedback(`"${name}" deactivated.`);
       fetchData();
     } catch (err) {
-      alert(err.message || 'Error deleting product');
+      alert(err.message || 'Error deleting item');
     }
   };
 
@@ -310,6 +360,7 @@ export function CatalogAdminPage({ initialTab }) {
       const res = await apiClient.get(`/catalog/price-lists/${selectedPriceList.id}`);
       setPriceListItems(res.items || res.priceList?.items || []);
       setNewItemProductId('');
+      setSearchStr('');
       setNewItemPrice('');
       setIsAddItemOpen(false);
       showFeedback('Price list item added successfully.');
@@ -387,23 +438,39 @@ export function CatalogAdminPage({ initialTab }) {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto h-full flex flex-col space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto pb-12">
       
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-[#111826] tracking-tight">Product Catalog & Pricing</h1>
-          <p className="text-[#2E3141]/70 mt-1">Master catalog, variant matrix, tier-based price lists, and upsell rules.</p>
+          <h1 className="text-3xl font-bold text-[#111826] tracking-tight">Catalog & Products</h1>
+          <p className="text-[#2E3141]/70 mt-1">Master SKU catalog, recurring subscription tiers, price lists, and upsell rules.</p>
         </div>
         <div className="flex items-center gap-3">
           {activeTab === 'products' && (
             <Button 
               variant="primary" 
-              onClick={() => { setCurrentProduct(null); setIsProductModalOpen(true); }} 
+              onClick={handleOpenCreateProduct} 
               icon={Plus}
             >
               Create Product
             </Button>
+          )}
+          {activeTab === 'plans' && (
+            <>
+              <Link to={`/${orgSlug}/subscriptions`}>
+                <Button variant="outline" size="sm" icon={ArrowUpRight}>
+                  Live Contracts
+                </Button>
+              </Link>
+              <Button 
+                variant="primary" 
+                onClick={handleOpenCreatePlan} 
+                icon={Plus}
+              >
+                Create Plan
+              </Button>
+            </>
           )}
           {activeTab === 'pricelists' && (
             <Button 
@@ -435,34 +502,57 @@ export function CatalogAdminPage({ initialTab }) {
       )}
 
       {/* TABS */}
-      <div className="flex border-b border-neutral-200/60">
+      <div className="flex border-b border-neutral-200/60 overflow-x-auto">
         <button 
-          className={`pb-3 px-1 mr-8 font-medium text-sm transition-colors relative ${activeTab === 'products' ? 'text-[#724B66]' : 'text-[#2E3141]/60 hover:text-[#2E3141]'}`}
+          className={`pb-3 px-1 mr-8 font-medium text-sm transition-colors relative shrink-0 ${activeTab === 'products' ? 'text-[#724B66]' : 'text-[#2E3141]/60 hover:text-[#2E3141]'}`}
           onClick={() => setActiveTab('products')}
         >
           <div className="flex items-center space-x-2">
             <PackageOpen size={18}/>
-            <span>Tab 1: Master Catalog</span>
+            <span>Products & SKUs</span>
           </div>
           {activeTab === 'products' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#724B66] rounded-t-full" />}
         </button>
+
         <button 
-          className={`pb-3 px-1 mr-8 font-medium text-sm transition-colors relative ${activeTab === 'pricelists' ? 'text-[#724B66]' : 'text-[#2E3141]/60 hover:text-[#2E3141]'}`}
+          className={`pb-3 px-1 mr-8 font-medium text-sm transition-colors relative shrink-0 ${activeTab === 'plans' ? 'text-[#724B66]' : 'text-[#2E3141]/60 hover:text-[#2E3141]'}`}
+          onClick={() => setActiveTab('plans')}
+        >
+          <div className="flex items-center space-x-2">
+            <RefreshCw size={18}/>
+            <span>Subscription Plans</span>
+            {subscriptionPlans.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-[#724B66]/10 text-[#724B66]">
+                {subscriptionPlans.length}
+              </span>
+            )}
+          </div>
+          {activeTab === 'plans' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#724B66] rounded-t-full" />}
+        </button>
+
+        <button 
+          className={`pb-3 px-1 mr-8 font-medium text-sm transition-colors relative shrink-0 ${activeTab === 'pricelists' ? 'text-[#724B66]' : 'text-[#2E3141]/60 hover:text-[#2E3141]'}`}
           onClick={() => setActiveTab('pricelists')}
         >
           <div className="flex items-center space-x-2">
             <DollarSign size={18}/>
-            <span>Tab 2: Price Lists</span>
+            <span>Price Lists</span>
+            {priceLists.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-neutral-100 text-neutral-600">
+                {priceLists.length}
+              </span>
+            )}
           </div>
           {activeTab === 'pricelists' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#724B66] rounded-t-full" />}
         </button>
+
         <button 
-          className={`pb-3 px-1 font-medium text-sm transition-colors relative ${activeTab === 'upsell' ? 'text-[#724B66]' : 'text-[#2E3141]/60 hover:text-[#2E3141]'}`}
+          className={`pb-3 px-1 font-medium text-sm transition-colors relative shrink-0 ${activeTab === 'upsell' ? 'text-[#724B66]' : 'text-[#2E3141]/60 hover:text-[#2E3141]'}`}
           onClick={() => setActiveTab('upsell')}
         >
           <div className="flex items-center space-x-2">
             <Layers size={18}/>
-            <span>Tab 3: Upsell & Cross-Sell Engine</span>
+            <span>Upsell Rules</span>
           </div>
           {activeTab === 'upsell' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#724B66] rounded-t-full" />}
         </button>
@@ -471,7 +561,7 @@ export function CatalogAdminPage({ initialTab }) {
       {/* CONTENT */}
       {error && <div className="p-4 bg-rose-50 text-rose-600 rounded-lg text-sm">{error}</div>}
       
-      <div className="flex-1 overflow-auto">
+      <div className="space-y-6">
         {loading ? (
           <div className="py-16 flex flex-col items-center justify-center text-[#2E3141]/50 gap-2">
             <Settings className="animate-spin" size={24} />
@@ -516,7 +606,7 @@ export function CatalogAdminPage({ initialTab }) {
                                 )}
                               </td>
                               <td className="p-4 capitalize">
-                                <Badge status={p.category === 'subscriptions' ? 'active' : p.category === 'services' ? 'pickpack' : 'default'}>
+                                <Badge variant="category" dot={false} title={`Product category: ${p.category}`}>
                                   {p.category}
                                 </Badge>
                               </td>
@@ -530,7 +620,7 @@ export function CatalogAdminPage({ initialTab }) {
                                 10.0%
                               </td>
                               <td className="p-4 text-center">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${variantCount > 0 ? 'bg-[#724B66]/10 text-[#724B66]' : 'bg-neutral-100 text-neutral-500'}`}>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium border ${variantCount > 0 ? 'bg-[#724B66]/10 text-[#724B66] border-[#724B66]/20' : 'bg-neutral-100/90 text-neutral-500 border-neutral-200/80'}`}>
                                   {variantCount} variants
                                 </span>
                               </td>
@@ -538,7 +628,7 @@ export function CatalogAdminPage({ initialTab }) {
                                 <Button 
                                   variant="ghost" 
                                   size="sm" 
-                                  onClick={() => { setCurrentProduct(p); setIsProductModalOpen(true); }} 
+                                  onClick={() => handleOpenEditProduct(p)} 
                                   icon={Edit2}
                                 >
                                   Edit
@@ -644,6 +734,145 @@ export function CatalogAdminPage({ initialTab }) {
               </Card>
             )}
 
+            {/* TAB: SUBSCRIPTION PLANS & PRORATION SIMULATOR */}
+            {activeTab === 'plans' && (
+              <div className="space-y-6">
+                {/* KPI Stats Strip */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Card 1: Configured Plan Tiers */}
+                  <div className="bg-white p-5 rounded-xl border border-neutral-200/60 shadow-xs">
+                    <div className="flex items-center justify-between text-neutral-500 text-xs font-semibold uppercase tracking-wider">
+                      <span>Configured Plans</span>
+                      <div className="w-8 h-8 rounded-lg bg-[#724B66]/10 flex items-center justify-center text-[#724B66]">
+                        <RefreshCw className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <p className="text-2xl font-bold text-[#111826] mt-2">
+                      {subscriptionPlans.length} {subscriptionPlans.length === 1 ? 'Recurring Tier' : 'Recurring Tiers'}
+                    </p>
+                    <p className="text-xs text-neutral-500 mt-1">
+                      {activePlansCount} active • Available for quote line selection
+                    </p>
+                  </div>
+
+                  {/* Card 2: Billing Cadences */}
+                  <div className="bg-white p-5 rounded-xl border border-neutral-200/60 shadow-xs">
+                    <div className="flex items-center justify-between text-neutral-500 text-xs font-semibold uppercase tracking-wider">
+                      <span>Cadence Coverage</span>
+                      <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+                        <Clock className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <p className="text-2xl font-bold text-[#111826] mt-2">
+                      {monthlyPlansCount} Monthly{annualPlansCount > 0 ? ` • ${annualPlansCount} Annual` : ''}{quarterlyPlansCount > 0 ? ` • ${quarterlyPlansCount} Qtr` : ''}
+                    </p>
+                    <p className="text-xs text-neutral-500 mt-1">
+                      Automated recurring contract cycles
+                    </p>
+                  </div>
+
+                  {/* Card 3: Live Contracts Hub */}
+                  <div className="bg-white p-5 rounded-xl border border-neutral-200/60 shadow-xs flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between text-neutral-500 text-xs font-semibold uppercase tracking-wider">
+                        <span>Live Contracts</span>
+                        <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-600">
+                          <ArrowUpRight className="w-4 h-4" />
+                        </div>
+                      </div>
+                      <p className="text-2xl font-bold text-[#111826] mt-2">Subscriptions Hub</p>
+                    </div>
+                    <Link
+                      to={`/${orgSlug}/subscriptions`}
+                      className="text-xs font-medium text-[#724B66] hover:text-[#5a3b51] hover:underline inline-flex items-center gap-1.5 mt-2 transition"
+                    >
+                      <span>Manage active contracts & MRR</span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Plans Table */}
+                <Card
+                  title="Active Subscription Plan Specifications"
+                  subtitle="Recurring contract specifications configured in the master product catalog."
+                  action={
+                    <Button variant="primary" size="sm" icon={Plus} onClick={handleOpenCreatePlan}>
+                      Add Subscription Plan
+                    </Button>
+                  }
+                >
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm whitespace-nowrap">
+                      <thead className="bg-[#F3F2F2] text-[#2E3141] uppercase tracking-wider text-xs border-b border-neutral-200/60 font-semibold">
+                        <tr>
+                          <th className="p-4">Plan SKU</th>
+                          <th className="p-4">Plan Name</th>
+                          <th className="p-4">Billing Interval</th>
+                          <th className="p-4 text-right">Base Price</th>
+                          <th className="p-4 text-right">Standard Cost</th>
+                          <th className="p-4 text-center">Status</th>
+                          <th className="p-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-200/60">
+                        {subscriptionPlans.map(p => (
+                          <tr key={p.id} className="hover:bg-neutral-50/50 transition-colors group">
+                            <td className="p-4 font-mono text-[#724B66] text-xs font-bold">{p.sku}</td>
+                            <td className="p-4 font-semibold text-[#111826]">
+                              {p.name}
+                              {p.description && <span className="block text-xs font-normal text-neutral-500 truncate max-w-xs">{p.description}</span>}
+                            </td>
+                            <td className="p-4">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-neutral-100 text-neutral-600 capitalize">
+                                {p.billing_cadence || 'monthly'}
+                              </span>
+                            </td>
+                            <td className="p-4 text-right font-bold text-[#111826]">
+                              ${Number(p.base_list_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              <span className="text-xs font-normal text-neutral-400"> / {p.billing_cadence === 'annual' ? 'yr' : p.billing_cadence === 'quarterly' ? 'qtr' : 'mo'}</span>
+                            </td>
+                            <td className="p-4 text-right text-neutral-600">
+                              ${Number(p.standard_unit_cost || p.unit_cost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-4 text-center">
+                              <Badge status={p.is_active ? 'active' : 'inactive'}>{p.is_active ? 'Active' : 'Inactive'}</Badge>
+                            </td>
+                            <td className="p-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenEditPlan(p)}
+                                  icon={Edit2}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-rose-600 hover:bg-rose-50"
+                                  onClick={() => handleDeleteProduct(p.id, p.name)}
+                                  icon={Trash2}
+                                />
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                        {subscriptionPlans.length === 0 && (
+                          <tr>
+                            <td colSpan="7" className="p-8 text-center text-neutral-400">
+                              No subscription plans configured. Click "Add Subscription Plan" to provision recurring service tiers.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </div>
+            )}
+
             {/* TAB 2: PRICE LISTS */}
             {activeTab === 'pricelists' && (
               <Card>
@@ -669,7 +898,7 @@ export function CatalogAdminPage({ initialTab }) {
                             </div>
                           </td>
                           <td className="p-4 capitalize">
-                            <Badge status={pl.tier === 'gold' ? 'warning' : pl.tier === 'silver' ? 'default' : pl.tier === 'bronze' ? 'pickpack' : 'active'}>
+                            <Badge variant="tag" dot={false} title={`Price List Tier: ${pl.tier}`}>
                               {pl.tier}
                             </Badge>
                           </td>
@@ -680,7 +909,10 @@ export function CatalogAdminPage({ initialTab }) {
                             {pl.effective_end ? new Date(pl.effective_end).toLocaleDateString() : 'Indefinite'}
                           </td>
                           <td className="p-4">
-                            <Badge status={pl.is_active ? 'active' : 'cancelled'}>
+                            <Badge
+                              status={pl.is_active ? 'active' : 'inactive'}
+                              title={pl.is_active ? 'Active • Available for quotation pricing' : 'Inactive • Archived from new quotes'}
+                            >
                               {pl.is_active ? 'Active' : 'Inactive'}
                             </Badge>
                           </td>
@@ -805,27 +1037,72 @@ export function CatalogAdminPage({ initialTab }) {
 
       {/* --- MODALS --- */}
       
-      {/* Product Modal */}
-      <Modal isOpen={isProductModalOpen} onClose={() => setIsProductModalOpen(false)} title={currentProduct ? 'Edit Product' : 'Create Master Product'}>
+      {/* Unified Product / Subscription Plan Modal */}
+      <Modal 
+        isOpen={isProductModalOpen} 
+        onClose={() => setIsProductModalOpen(false)} 
+        title={
+          currentProduct 
+            ? (modalCategory === 'subscriptions' ? 'Edit Subscription Plan' : 'Edit Product')
+            : (modalCategory === 'subscriptions' ? 'Create Subscription Plan' : 'Create Master Product')
+        }
+      >
         <form onSubmit={handleSaveProduct} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-[#111826] uppercase tracking-wider mb-1">SKU Code</label>
-              <input name="sku" defaultValue={currentProduct?.sku || ''} required className="w-full border border-neutral-300 rounded-lg p-2 text-sm focus:border-[#724B66] outline-none" />
+              <label className="block text-xs font-semibold text-[#111826] uppercase tracking-wider mb-1">
+                {modalCategory === 'subscriptions' ? 'Plan SKU / Code' : 'SKU Code'}
+              </label>
+              <input 
+                name="sku" 
+                defaultValue={currentProduct?.sku || ''} 
+                required 
+                placeholder={modalCategory === 'subscriptions' ? 'e.g. SAAS-SEC-PRO' : 'e.g. PROD-001'}
+                className="w-full border border-neutral-300 rounded-lg p-2 text-sm focus:border-[#724B66] outline-none" 
+              />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[#111826] uppercase tracking-wider mb-1">Product Name</label>
-              <input name="name" defaultValue={currentProduct?.name || ''} required className="w-full border border-neutral-300 rounded-lg p-2 text-sm focus:border-[#724B66] outline-none" />
+              <label className="block text-xs font-semibold text-[#111826] uppercase tracking-wider mb-1">
+                {modalCategory === 'subscriptions' ? 'Plan Display Name' : 'Product Name'}
+              </label>
+              <input 
+                name="name" 
+                defaultValue={currentProduct?.name || ''} 
+                required 
+                placeholder={modalCategory === 'subscriptions' ? 'e.g. Cloud Security Retainer' : 'e.g. Enterprise Router X900'}
+                className="w-full border border-neutral-300 rounded-lg p-2 text-sm focus:border-[#724B66] outline-none" 
+              />
             </div>
           </div>
+
           <div>
             <label className="block text-xs font-semibold text-[#111826] uppercase tracking-wider mb-1">Description</label>
-            <textarea name="description" defaultValue={currentProduct?.description || ''} className="w-full border border-neutral-300 rounded-lg p-2 text-sm focus:border-[#724B66] outline-none" rows={3} />
+            <textarea 
+              name="description" 
+              defaultValue={currentProduct?.description || ''} 
+              placeholder={modalCategory === 'subscriptions' ? 'e.g. 24/7 endpoint monitoring, monthly review, dedicated SLA.' : 'Detailed product specifications...'}
+              className="w-full border border-neutral-300 rounded-lg p-2 text-sm focus:border-[#724B66] outline-none" 
+              rows={2} 
+            />
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-[#111826] uppercase tracking-wider mb-1">Category</label>
-              <select name="category" defaultValue={currentProduct?.category || 'hardware'} className="w-full border border-neutral-300 rounded-lg p-2 text-sm bg-white focus:border-[#724B66] outline-none">
+              <select 
+                name="category" 
+                value={modalCategory}
+                onChange={(e) => {
+                  const cat = e.target.value;
+                  setModalCategory(cat);
+                  if (cat === 'subscriptions') {
+                    if (modalBillingCadence === 'one_time') setModalBillingCadence('monthly');
+                  } else {
+                    if (modalBillingCadence !== 'one_time') setModalBillingCadence('one_time');
+                  }
+                }}
+                className="w-full border border-neutral-300 rounded-lg p-2 text-sm bg-white focus:border-[#724B66] outline-none"
+              >
                 <option value="hardware">Hardware</option>
                 <option value="services">Services</option>
                 <option value="subscriptions">Subscriptions</option>
@@ -833,27 +1110,76 @@ export function CatalogAdminPage({ initialTab }) {
             </div>
             <div>
               <label className="block text-xs font-semibold text-[#111826] uppercase tracking-wider mb-1">Billing Cadence</label>
-              <select name="billing_cadence" defaultValue={currentProduct?.billing_cadence || 'one_time'} className="w-full border border-neutral-300 rounded-lg p-2 text-sm bg-white focus:border-[#724B66] outline-none">
-                <option value="one_time">One Time</option>
+              <select 
+                name="billing_cadence" 
+                value={modalBillingCadence}
+                onChange={(e) => setModalBillingCadence(e.target.value)}
+                className="w-full border border-neutral-300 rounded-lg p-2 text-sm bg-white focus:border-[#724B66] outline-none"
+              >
+                {modalCategory !== 'subscriptions' && <option value="one_time">One Time</option>}
                 <option value="monthly">Monthly</option>
                 <option value="quarterly">Quarterly</option>
                 <option value="annual">Annual</option>
               </select>
             </div>
           </div>
+
+          {/* Dynamic Subscription Policy & Run-Rate Helper */}
+          {modalCategory === 'subscriptions' && (
+            <div className="p-3 bg-[#724B66]/10 border border-[#724B66]/20 rounded-lg text-xs space-y-1.5">
+              <div className="flex items-center gap-1.5 font-bold text-[#724B66]">
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Recurring Subscription Policy</span>
+              </div>
+              <p className="text-neutral-600">
+                Products categorized as subscriptions automatically generate recurring contract billing lines and support mid-cycle seat co-terming and proration upon quotation acceptance.
+              </p>
+              {Number(modalBasePrice) > 0 && (
+                <div className="pt-2 border-t border-[#724B66]/15 flex items-center justify-between text-neutral-700 font-medium">
+                  <span>Calculated Run-Rate:</span>
+                  <span className="font-mono font-bold text-[#111826]">
+                    {modalBillingCadence === 'monthly' && `MRR: $${Number(modalBasePrice).toFixed(2)} | ARR: $${(Number(modalBasePrice) * 12).toFixed(2)}`}
+                    {modalBillingCadence === 'quarterly' && `MRR: $${(Number(modalBasePrice) / 3).toFixed(2)} | ARR: $${(Number(modalBasePrice) * 4).toFixed(2)}`}
+                    {modalBillingCadence === 'annual' && `MRR: $${(Number(modalBasePrice) / 12).toFixed(2)} | ARR: $${Number(modalBasePrice).toFixed(2)}`}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-[#111826] uppercase tracking-wider mb-1">Base List Price ($)</label>
-              <input name="base_list_price" type="number" step="0.01" defaultValue={currentProduct?.base_list_price || 0} required className="w-full border border-neutral-300 rounded-lg p-2 text-sm focus:border-[#724B66] outline-none" />
+              <label className="block text-xs font-semibold text-[#111826] uppercase tracking-wider mb-1">
+                {modalCategory === 'subscriptions' ? 'Base Recurring Price ($)' : 'Base List Price ($)'}
+              </label>
+              <input 
+                name="base_list_price" 
+                type="number" 
+                step="0.01" 
+                value={modalBasePrice}
+                onChange={(e) => setModalBasePrice(e.target.value)}
+                required 
+                className="w-full border border-neutral-300 rounded-lg p-2 text-sm focus:border-[#724B66] outline-none font-mono" 
+              />
             </div>
             <div>
               <label className="block text-xs font-semibold text-[#111826] uppercase tracking-wider mb-1">Standard Unit Cost ($)</label>
-              <input name="standard_unit_cost" type="number" step="0.01" defaultValue={currentProduct?.standard_unit_cost || currentProduct?.unit_cost || 0} required className="w-full border border-neutral-300 rounded-lg p-2 text-sm focus:border-[#724B66] outline-none" />
+              <input 
+                name="standard_unit_cost" 
+                type="number" 
+                step="0.01" 
+                defaultValue={currentProduct?.standard_unit_cost || currentProduct?.unit_cost || 0} 
+                required 
+                className="w-full border border-neutral-300 rounded-lg p-2 text-sm focus:border-[#724B66] outline-none font-mono" 
+              />
             </div>
           </div>
+
           <div className="flex justify-end space-x-3 pt-4 border-t border-neutral-100">
             <Button variant="ghost" onClick={() => setIsProductModalOpen(false)} type="button">Cancel</Button>
-            <Button variant="primary" type="submit">Save Product</Button>
+            <Button variant="primary" type="submit">
+              {currentProduct ? 'Save Changes' : (modalCategory === 'subscriptions' ? 'Provision Subscription Plan' : 'Save Product')}
+            </Button>
           </div>
         </form>
       </Modal>
@@ -949,7 +1275,7 @@ export function CatalogAdminPage({ initialTab }) {
               variant="outline" 
               size="sm" 
               onClick={() => setIsAddItemOpen(!isAddItemOpen)} 
-              icon={Plus}
+              icon={isAddItemOpen ? X : Plus}
             >
               {isAddItemOpen ? 'Close Add Form' : 'Add Custom Price Override'}
             </Button>
@@ -959,32 +1285,55 @@ export function CatalogAdminPage({ initialTab }) {
           {isAddItemOpen && (
             <form onSubmit={handleAddPriceListItem} className="p-4 bg-[#724B66]/5 border border-[#724B66]/20 rounded-xl space-y-3">
               <h5 className="text-xs font-bold text-[#724B66] uppercase tracking-wider">Set Custom Product Price</h5>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[#111826] mb-1">Target Product</label>
-                  <select 
-                    value={newItemProductId} 
-                    onChange={(e) => setNewItemProductId(e.target.value)}
-                    className="w-full p-2 text-sm border border-neutral-300 rounded-lg bg-white outline-none focus:border-[#724B66]"
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="relative">
+                  <label className="block text-xs font-semibold text-[#111826] mb-1">Target Product (Search by SKU/Name)</label>
+                  <input 
+                    type="text"
+                    value={searchStr}
+                    onChange={(e) => {
+                      setSearchStr(e.target.value);
+                      if (!e.target.value) setNewItemProductId('');
+                    }}
+                    onFocus={() => setIsProductDropdownOpen(true)}
+                    onBlur={() => setTimeout(() => setIsProductDropdownOpen(false), 200)}
+                    className="w-full p-2.5 text-sm border border-neutral-300 rounded-lg bg-white outline-none focus:border-[#724B66] focus:ring-1 focus:ring-[#724B66]"
                     required
-                  >
-                    <option value="">Select a catalog product...</option>
-                    {products.map(prod => (
-                      <option key={prod.id} value={prod.id}>
-                        {prod.name} ({prod.sku}) — Base: ${prod.base_list_price}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Type to search..."
+                  />
+                  {isProductDropdownOpen && (
+                    <ul className="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg max-h-60 overflow-y-auto divide-y divide-neutral-100">
+                      {products
+                        .filter(p => `${p.name} ${p.sku}`.toLowerCase().includes(searchStr.toLowerCase()))
+                        .map(prod => (
+                          <li 
+                            key={prod.id} 
+                            className="px-4 py-2 hover:bg-neutral-50 cursor-pointer transition-colors"
+                            onClick={() => {
+                              setSearchStr(`${prod.name} (${prod.sku})`);
+                              setNewItemProductId(prod.id);
+                              setIsProductDropdownOpen(false);
+                            }}
+                          >
+                            <div className="font-semibold text-[#111826] text-sm">{prod.name}</div>
+                            <div className="text-xs text-neutral-500 font-mono mt-0.5">{prod.sku} — Base: ${prod.base_list_price}</div>
+                          </li>
+                      ))}
+                      {products.filter(p => `${p.name} ${p.sku}`.toLowerCase().includes(searchStr.toLowerCase())).length === 0 && (
+                        <li className="px-4 py-3 text-sm text-neutral-400 text-center italic">No products found.</li>
+                      )}
+                    </ul>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-[#111826] mb-1">Custom Tier Unit Price ($)</label>
+                  <label className="block text-xs font-semibold text-[#111826] mb-1">Custom Tier Unit Price ({selectedPriceList?.currency || 'Base'})</label>
                   <input 
                     type="number" 
                     step="0.01" 
                     value={newItemPrice} 
                     onChange={(e) => setNewItemPrice(e.target.value)}
                     placeholder="e.g. 199.99" 
-                    className="w-full p-2 text-sm border border-neutral-300 rounded-lg bg-white outline-none focus:border-[#724B66]"
+                    className="w-full p-2.5 text-sm border border-neutral-300 rounded-lg bg-white outline-none focus:border-[#724B66] focus:ring-1 focus:ring-[#724B66]"
                     required 
                   />
                 </div>
@@ -998,42 +1347,42 @@ export function CatalogAdminPage({ initialTab }) {
             </form>
           )}
           
-          <div className="border border-neutral-200/60 rounded-lg overflow-hidden max-h-96 overflow-y-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-[#F3F2F2] sticky top-0 text-xs text-[#2E3141] font-semibold">
+          <div className="border border-neutral-200/60 rounded-lg overflow-hidden max-h-[400px] overflow-y-auto bg-white shadow-xs">
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-neutral-50/75 sticky top-0 border-b border-neutral-200 text-neutral-500 uppercase tracking-wider text-xs font-semibold z-10">
                 <tr>
-                  <th className="p-3">Product Name</th>
-                  <th className="p-3 text-right">Override Unit Price</th>
-                  <th className="p-3 text-right">Actions</th>
+                  <th className="px-4 py-3">Product Name</th>
+                  <th className="px-4 py-3 text-right">Override Unit Price</th>
+                  <th className="px-4 py-3 text-right w-24">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-200/60 bg-white">
+              <tbody className="divide-y divide-neutral-100">
                 {priceListItems.map(item => (
-                  <tr key={item.id} className="hover:bg-neutral-50/50">
-                    <td className="p-3 font-medium text-[#111826]">
-                      {item.product?.name || item.Product?.name || 'Product Override'}
-                      <span className="block text-xs text-neutral-400 font-mono">
+                  <tr key={item.id} className="hover:bg-neutral-50/50 transition-colors group">
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-[#111826]">
+                        {item.product?.name || item.Product?.name || 'Product Override'}
+                      </div>
+                      <div className="text-xs text-neutral-400 font-mono mt-0.5">
                         {item.product?.sku || item.Product?.sku || item.product_id}
-                      </span>
+                      </div>
                     </td>
-                    <td className="p-3 text-right font-bold text-[#724B66]">
-                      ${Number(item.custom_unit_price).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    <td className="px-4 py-3 text-right font-bold text-[#111826]">
+                      {selectedPriceList?.currency || '$'} {Number(item.custom_unit_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
-                    <td className="p-3 text-right">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="text-rose-600 hover:bg-rose-50"
-                        onClick={() => handleRemovePriceListItem(item.id)}
-                        icon={Trash2}
+                    <td className="px-4 py-3 text-right">
+                      <button 
+                        onClick={() => handleRemovePriceListItem(item.id)} 
+                        className="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        title="Remove Override"
                       >
-                        Remove
-                      </Button>
+                        <Trash2 className="w-3.5 h-3.5" /> Remove
+                      </button>
                     </td>
                   </tr>
                 ))}
                 {priceListItems.length === 0 && (
-                  <tr><td colSpan="3" className="p-6 text-center text-[#2E3141]/50 text-xs italic">No custom price overrides configured. Standard catalog prices apply.</td></tr>
+                  <tr><td colSpan="3" className="p-8 text-center text-neutral-400 text-sm">No custom price overrides configured. Standard catalog prices apply.</td></tr>
                 )}
               </tbody>
             </table>

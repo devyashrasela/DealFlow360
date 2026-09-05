@@ -6,6 +6,7 @@ import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
 import { getInvoiceDetail, recordPayment } from '../../../api/invoiceApi';
 import { useAuth } from '../../../context/AuthContext';
+import { formatDualCurrency, convertFromBase, convertToBase } from '../../../utils/currency';
 
 export const InvoiceDetailPage = () => {
   const { providerSlug, invoiceId } = useParams();
@@ -27,7 +28,10 @@ export const InvoiceDetailPage = () => {
     try {
       const res = await getInvoiceDetail(invoiceId);
       setInv(res.data);
-      if (res.data) setPaymentAmount(res.data.balance_due);
+      if (res.data) {
+        const txnBalance = convertFromBase(res.data.balance_due, res.data.exchange_rate_to_base);
+        setPaymentAmount(txnBalance);
+      }
     } catch (err) {
       console.error(err);
     }
@@ -36,8 +40,12 @@ export const InvoiceDetailPage = () => {
   const handleRecordPayment = async () => {
     setIsPaying(true);
     try {
+      const baseAmount = convertToBase(Number(paymentAmount), inv.exchange_rate_to_base);
       await recordPayment(invoiceId, {
-        amount: Number(paymentAmount),
+        amount: baseAmount,
+        amount_in_transaction_currency: Number(paymentAmount),
+        transaction_currency: inv.transaction_currency,
+        exchange_rate_used: inv.exchange_rate_to_base,
         payment_method: paymentMethod,
         transaction_reference: `TXN-${Date.now()}`,
         recorded_by_user_id: user?.id || '00000000-0000-0000-0000-000000000000',
@@ -64,7 +72,7 @@ export const InvoiceDetailPage = () => {
           <div>
             <h1 className="text-2xl font-bold text-[#111826] tracking-tight flex items-center gap-3">
               {inv.invoice_number}
-              <Badge variant={inv.status === 'paid' ? 'success' : inv.status === 'void' ? 'danger' : 'info'}>
+              <Badge status={inv.status}>
                 {inv.status}
               </Badge>
             </h1>
@@ -88,11 +96,11 @@ export const InvoiceDetailPage = () => {
           <div className="bg-[#FFFFFF] p-5 rounded-xl shadow-sm border border-neutral-200/60 space-y-4">
             <div>
               <p className="text-xs text-neutral-500 font-medium uppercase tracking-wider mb-1">Total Amount</p>
-              <p className="text-lg font-bold text-[#111826]">${Number(inv.total_amount).toLocaleString()}</p>
+              <p className="text-lg font-bold text-[#111826]">{formatDualCurrency(inv.total_amount, convertFromBase(inv.total_amount, inv.exchange_rate_to_base), inv.transaction_currency)}</p>
             </div>
             <div>
               <p className="text-xs text-neutral-500 font-medium uppercase tracking-wider mb-1">Balance Due</p>
-              <p className="text-lg font-bold text-red-600">${Number(inv.balance_due).toLocaleString()}</p>
+              <p className="text-lg font-bold text-red-600">{formatDualCurrency(inv.balance_due, convertFromBase(inv.balance_due, inv.exchange_rate_to_base), inv.transaction_currency)}</p>
             </div>
             <div>
               <p className="text-xs text-neutral-500 font-medium uppercase tracking-wider mb-1">Issue Date</p>
@@ -145,14 +153,14 @@ export const InvoiceDetailPage = () => {
                       <td className="px-5 py-3.5 font-medium text-[#111826]">{li.line_description || li.product?.name || 'Item'}</td>
                       <td className="px-5 py-3.5 capitalize text-xs text-neutral-600">{li.category || '—'}</td>
                       <td className="px-5 py-3.5 capitalize text-xs text-neutral-600">{(li.billing_cadence || 'one_time').replace(/_/g, ' ')}</td>
-                      <td className="px-5 py-3.5">${Number(li.unit_price || 0).toLocaleString()}</td>
+                      <td className="px-5 py-3.5">{formatDualCurrency(li.unit_price || 0, convertFromBase(li.unit_price || 0, inv.exchange_rate_to_base), inv.transaction_currency)}</td>
                       <td className="px-5 py-3.5">{li.quantity}</td>
                       <td className="px-5 py-3.5 text-xs text-neutral-600">
-                        {Number(li.discount_amount || 0) > 0 ? `$${Number(li.discount_amount).toLocaleString()}` : '—'}
+                        {Number(li.discount_amount || 0) > 0 ? formatDualCurrency(li.discount_amount, convertFromBase(li.discount_amount, inv.exchange_rate_to_base), inv.transaction_currency) : '—'}
                       </td>
-                      <td className="px-5 py-3.5 font-medium">${Number(li.net_amount || (li.unit_price * li.quantity) || 0).toLocaleString()}</td>
+                      <td className="px-5 py-3.5 font-medium">{formatDualCurrency(li.net_amount || (li.unit_price * li.quantity) || 0, convertFromBase(li.net_amount || (li.unit_price * li.quantity) || 0, inv.exchange_rate_to_base), inv.transaction_currency)}</td>
                       <td className="px-5 py-3.5 text-xs text-neutral-600">{li.tax_rate_percentage ? `${li.tax_rate_percentage}%` : '0%'}</td>
-                      <td className="px-5 py-3.5 font-bold text-right">${Number(li.line_total_with_tax || li.line_total || li.net_amount || 0).toLocaleString()}</td>
+                      <td className="px-5 py-3.5 font-bold text-right">{formatDualCurrency(li.line_total_with_tax || li.line_total || li.net_amount || 0, convertFromBase(li.line_total_with_tax || li.line_total || li.net_amount || 0, inv.exchange_rate_to_base), inv.transaction_currency)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -198,11 +206,11 @@ export const InvoiceDetailPage = () => {
           <div className="bg-neutral-50 p-3 rounded-lg border border-neutral-200">
             <div className="flex justify-between text-sm">
               <span className="text-neutral-500">Invoice Total:</span>
-              <span className="font-medium">${Number(inv.total_amount).toLocaleString()}</span>
+              <span className="font-medium">{formatDualCurrency(inv.total_amount, convertFromBase(inv.total_amount, inv.exchange_rate_to_base), inv.transaction_currency)}</span>
             </div>
             <div className="flex justify-between text-sm mt-1">
               <span className="text-neutral-500">Balance Due:</span>
-              <span className="font-bold text-red-600">${Number(inv.balance_due).toLocaleString()}</span>
+              <span className="font-bold text-red-600">{formatDualCurrency(inv.balance_due, convertFromBase(inv.balance_due, inv.exchange_rate_to_base), inv.transaction_currency)}</span>
             </div>
           </div>
 
@@ -213,7 +221,7 @@ export const InvoiceDetailPage = () => {
               value={paymentAmount}
               onChange={(e) => setPaymentAmount(e.target.value)}
               className="w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-[#724B66] focus:border-[#724B66]"
-              max={inv.balance_due}
+              max={inv ? convertFromBase(inv.balance_due, inv.exchange_rate_to_base) : undefined}
               min="0.01"
               step="0.01"
             />
