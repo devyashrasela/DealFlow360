@@ -9,7 +9,7 @@ import { Card } from '../../components/ui/Card';
 import { 
   Plus, Edit2, Trash2, ChevronDown, ChevronRight, 
   Settings, DollarSign, PackageOpen, Layers, CheckCircle2,
-  AlertCircle, Sparkles, X, RefreshCw, ArrowUpRight
+  AlertCircle, Sparkles, X, RefreshCw, ArrowUpRight, FileText
 } from 'lucide-react';
 
 export function CatalogAdminPage({ initialTab }) {
@@ -49,6 +49,7 @@ export function CatalogAdminPage({ initialTab }) {
 
   // UI State
   const [expandedProductId, setExpandedProductId] = useState(null);
+  const [expandedPlanId, setExpandedPlanId] = useState(null);
 
   // Product / Plan Modal Dynamic Fields State
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -239,6 +240,10 @@ export function CatalogAdminPage({ initialTab }) {
         }
       }
     }
+  };
+
+  const toggleExpandPlan = (planId) => {
+    setExpandedPlanId(prev => prev === planId ? null : planId);
   };
 
   // --- VARIANT CRUD ---
@@ -593,13 +598,24 @@ export function CatalogAdminPage({ initialTab }) {
                               <td className="p-4">
                                 <button 
                                   onClick={() => toggleExpandProduct(p)}
-                                  className="font-semibold text-[#111826] hover:text-[#724B66] flex items-center space-x-2 text-left"
+                                  className="font-semibold text-[#111826] hover:text-[#724B66] flex items-center space-x-2 text-left group"
                                 >
-                                  {expandedProductId === p.id ? <ChevronDown size={16} className="text-[#724B66]"/> : <ChevronRight size={16} className="text-neutral-400"/>}
+                                  {expandedProductId === p.id ? <ChevronDown size={16} className="text-[#724B66] shrink-0"/> : <ChevronRight size={16} className="text-neutral-400 group-hover:text-[#724B66] shrink-0"/>}
                                   <span>{p.name}</span>
+                                  {p.description && (
+                                    <span className="text-[10px] uppercase font-semibold tracking-wider text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded border border-neutral-200/80 group-hover:border-[#724B66]/30 group-hover:text-[#724B66] transition-colors">
+                                      Specs
+                                    </span>
+                                  )}
                                 </button>
                                 {p.description && (
-                                  <p className="text-xs text-[#2E3141]/60 mt-0.5 line-clamp-1 pl-6">{p.description}</p>
+                                  <p 
+                                    onClick={() => toggleExpandProduct(p)}
+                                    className="text-xs text-[#2E3141]/60 mt-0.5 line-clamp-1 pl-6 cursor-pointer hover:text-neutral-800"
+                                    title="Click to expand full SKU specifications and variants"
+                                  >
+                                    {p.description}
+                                  </p>
                                 )}
                               </td>
                               <td className="p-4 capitalize">
@@ -644,7 +660,32 @@ export function CatalogAdminPage({ initialTab }) {
                             {expandedProductId === p.id && (
                               <tr className="bg-[#F3F2F2]/30">
                                 <td colSpan="8" className="p-0">
-                                  <div className="px-10 py-5 border-l-4 border-[#724B66] bg-white m-3 rounded-lg shadow-xs">
+                                  <div className="px-10 py-5 border-l-4 border-[#724B66] bg-white m-3 rounded-lg shadow-xs space-y-4">
+                                    {/* SKU Description & Specifications */}
+                                    <div className="p-3.5 bg-neutral-50/80 rounded-lg border border-neutral-200/60 text-xs">
+                                      <div className="flex items-center justify-between mb-1.5">
+                                        <div className="flex items-center gap-1.5 font-bold text-neutral-600 uppercase tracking-wider text-[11px]">
+                                          <FileText className="w-3.5 h-3.5 text-[#724B66]" />
+                                          <span>SKU Description & Technical Specifications</span>
+                                        </div>
+                                        <span className="font-mono text-neutral-400 text-[11px]">SKU: {p.sku}</span>
+                                      </div>
+                                      {p.description ? (
+                                        <p className="text-neutral-700 leading-relaxed whitespace-pre-wrap">{p.description}</p>
+                                      ) : (
+                                        <div className="flex items-center justify-between text-neutral-400 italic">
+                                          <span>No description or technical specifications configured for this product SKU.</span>
+                                          <button 
+                                            type="button"
+                                            onClick={() => handleOpenEditProduct(p)} 
+                                            className="not-italic text-xs font-semibold text-[#724B66] hover:underline"
+                                          >
+                                            + Add specifications
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+
                                     <div className="flex justify-between items-center mb-4">
                                       <div>
                                         <h4 className="font-bold text-[#111826] text-sm flex items-center gap-2">
@@ -797,49 +838,173 @@ export function CatalogAdminPage({ initialTab }) {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-200/60">
-                        {subscriptionPlans.map(p => (
-                          <tr key={p.id} className="hover:bg-neutral-50/50 transition-colors group">
-                            <td className="p-4 font-mono text-[#724B66] text-xs font-bold">{p.sku}</td>
-                            <td className="p-4 font-semibold text-[#111826]">
-                              {p.name}
-                              {p.description && <span className="block text-xs font-normal text-neutral-500 truncate max-w-xs">{p.description}</span>}
-                            </td>
-                            <td className="p-4">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-neutral-100 text-neutral-600 capitalize">
-                                {p.billing_cadence || 'monthly'}
-                              </span>
-                            </td>
-                            <td className="p-4 text-right font-bold text-[#111826]">
-                              ${Number(p.base_list_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              <span className="text-xs font-normal text-neutral-400"> / {p.billing_cadence === 'annual' ? 'yr' : p.billing_cadence === 'quarterly' ? 'qtr' : 'mo'}</span>
-                            </td>
-                            <td className="p-4 text-right text-neutral-600">
-                              ${Number(p.standard_unit_cost || p.unit_cost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </td>
-                            <td className="p-4 text-center">
-                              <Badge status={p.is_active ? 'active' : 'inactive'}>{p.is_active ? 'Active' : 'Inactive'}</Badge>
-                            </td>
-                            <td className="p-4 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleOpenEditPlan(p)}
-                                  icon={Edit2}
-                                >
-                                  Edit
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-rose-600 hover:bg-rose-50"
-                                  onClick={() => handleDeleteProduct(p.id, p.name)}
-                                  icon={Trash2}
-                                />
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                        {subscriptionPlans.map(p => {
+                          const listPrice = Number(p.base_list_price) || 0;
+                          const unitCost = Number(p.standard_unit_cost || p.unit_cost) || 0;
+                          const marginPct = listPrice > 0 ? (((listPrice - unitCost) / listPrice) * 100).toFixed(1) : '0.0';
+                          const isExpanded = expandedPlanId === p.id;
+
+                          return (
+                            <React.Fragment key={p.id}>
+                              <tr className={`hover:bg-neutral-50/60 transition-colors group ${isExpanded ? 'bg-neutral-50/40' : ''}`}>
+                                <td className="p-4 font-mono text-[#724B66] text-xs font-bold">{p.sku}</td>
+                                <td className="p-4">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleExpandPlan(p.id)}
+                                    className="font-semibold text-[#111826] hover:text-[#724B66] flex items-center space-x-2 text-left group/btn"
+                                  >
+                                    {isExpanded ? (
+                                      <ChevronDown size={16} className="text-[#724B66] shrink-0" />
+                                    ) : (
+                                      <ChevronRight size={16} className="text-neutral-400 group-hover/btn:text-[#724B66] shrink-0 transition-colors" />
+                                    )}
+                                    <span>{p.name}</span>
+                                    {p.description ? (
+                                      <span className="text-[10px] uppercase font-semibold tracking-wider text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded border border-neutral-200/80 group-hover/btn:border-[#724B66]/30 group-hover/btn:text-[#724B66] transition-colors">
+                                        Specs
+                                      </span>
+                                    ) : (
+                                      <span className="text-[10px] text-neutral-400 italic font-normal">
+                                        (no desc)
+                                      </span>
+                                    )}
+                                  </button>
+                                  {p.description && !isExpanded && (
+                                    <p 
+                                      onClick={() => toggleExpandPlan(p.id)}
+                                      className="text-xs text-neutral-500 pl-6 mt-0.5 line-clamp-1 max-w-sm cursor-pointer hover:text-neutral-800 transition-colors"
+                                      title="Click to view full description and specifications"
+                                    >
+                                      {p.description}
+                                    </p>
+                                  )}
+                                </td>
+                                <td className="p-4">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-neutral-100 text-neutral-600 capitalize">
+                                    {p.billing_cadence || 'monthly'}
+                                  </span>
+                                </td>
+                                <td className="p-4 text-right font-bold text-[#111826]">
+                                  ${listPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  <span className="text-xs font-normal text-neutral-400"> / {p.billing_cadence === 'annual' ? 'yr' : p.billing_cadence === 'quarterly' ? 'qtr' : 'mo'}</span>
+                                </td>
+                                <td className="p-4 text-right text-neutral-600">
+                                  ${unitCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </td>
+                                <td className="p-4 text-center">
+                                  <Badge status={p.is_active ? 'active' : 'inactive'}>{p.is_active ? 'Active' : 'Inactive'}</Badge>
+                                </td>
+                                <td className="p-4 text-right">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => toggleExpandPlan(p.id)}
+                                      className="text-neutral-500 hover:text-[#724B66]"
+                                    >
+                                      {isExpanded ? 'Collapse' : 'Details'}
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleOpenEditPlan(p)}
+                                      icon={Edit2}
+                                    >
+                                      Edit
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-rose-600 hover:bg-rose-50"
+                                      onClick={() => handleDeleteProduct(p.id, p.name)}
+                                      icon={Trash2}
+                                    />
+                                  </div>
+                                </td>
+                              </tr>
+
+                              {/* EXPANDABLE SKU SPECIFICATIONS DRAWER */}
+                              {isExpanded && (
+                                <tr className="bg-[#F3F2F2]/30">
+                                  <td colSpan="7" className="p-0">
+                                    <div className="px-8 py-5 border-l-4 border-[#724B66] bg-white m-3 rounded-lg shadow-xs space-y-3.5">
+                                      {/* Header */}
+                                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-neutral-100 pb-2.5">
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-6 h-6 rounded-md bg-[#724B66]/10 flex items-center justify-center text-[#724B66]">
+                                            <FileText className="w-3.5 h-3.5" />
+                                          </div>
+                                          <h4 className="text-xs font-bold text-[#111826] uppercase tracking-wider">
+                                            SKU Description & Plan Specifications
+                                          </h4>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-xs text-neutral-500">
+                                          <span>SKU: <strong className="font-mono text-[#724B66]">{p.sku}</strong></span>
+                                          <span>•</span>
+                                          <span>Billing Interval: <strong className="capitalize text-[#111826]">{p.billing_cadence || 'monthly'}</strong></span>
+                                          <span>•</span>
+                                          <span>
+                                            Target Margin: <strong className="text-emerald-700 font-semibold">{marginPct}%</strong>
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      {/* Full Description & Entitlements */}
+                                      <div className="p-3.5 bg-neutral-50/80 rounded-lg border border-neutral-200/60 text-xs">
+                                        <div className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">
+                                          Scope of Coverage & SLA Terms
+                                        </div>
+                                        {p.description ? (
+                                          <p className="text-neutral-800 leading-relaxed whitespace-pre-wrap">{p.description}</p>
+                                        ) : (
+                                          <div className="flex items-center justify-between text-neutral-400 italic">
+                                            <span>No detailed description or SLA terms configured for this subscription SKU.</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleOpenEditPlan(p)}
+                                              className="not-italic text-xs font-semibold text-[#724B66] hover:underline"
+                                            >
+                                              + Add description & SLA terms
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* Commercial terms footer */}
+                                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] text-neutral-500">
+                                        <div className="flex items-center gap-4">
+                                          <span>Base List Rate: <strong className="text-[#111826]">${listPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })} / {p.billing_cadence === 'annual' ? 'yr' : 'mo'}</strong></span>
+                                          <span>Standard Cost: <strong className="text-[#111826]">${unitCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+                                          <span>Expected Contribution: <strong className="text-emerald-700 font-semibold">${(listPrice - unitCost).toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleOpenEditPlan(p)}
+                                            icon={Edit2}
+                                            className="text-neutral-600 hover:text-[#724B66]"
+                                          >
+                                            Edit Specifications
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => toggleExpandPlan(p.id)}
+                                            className="text-neutral-400 hover:text-neutral-600"
+                                          >
+                                            Collapse
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
                         {subscriptionPlans.length === 0 && (
                           <tr>
                             <td colSpan="7" className="p-8 text-center text-neutral-400">
@@ -1057,14 +1222,22 @@ export function CatalogAdminPage({ initialTab }) {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[#111826] uppercase tracking-wider mb-1">Description</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-[#111826] uppercase tracking-wider">
+                {modalCategory === 'subscriptions' ? 'Plan Specifications & SLA Entitlements' : 'SKU Description & Technical Specifications'}
+              </label>
+              <span className="text-[11px] text-neutral-400">Expandable in catalog tables</span>
+            </div>
             <textarea 
               name="description" 
               defaultValue={currentProduct?.description || ''} 
-              placeholder={modalCategory === 'subscriptions' ? 'e.g. 24/7 endpoint monitoring, monthly review, dedicated SLA.' : 'Detailed product specifications...'}
-              className="w-full border border-neutral-300 rounded-lg p-2 text-sm focus:border-[#724B66] outline-none" 
-              rows={2} 
+              placeholder={modalCategory === 'subscriptions' ? 'e.g. 24/7 priority SLA, dedicated technical account manager, monthly security posture audits, and 99.99% uptime guarantee.' : 'Detailed product specifications, dimensions, features, compatibility, and warranty terms...'}
+              className="w-full border border-neutral-300 rounded-lg p-2.5 text-sm focus:border-[#724B66] focus:ring-1 focus:ring-[#724B66] outline-none leading-relaxed" 
+              rows={3} 
             />
+            <p className="text-[11px] text-neutral-500 mt-1">
+              Supports multi-line specifications and terms displayed in the expandable SKU details drawer.
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
