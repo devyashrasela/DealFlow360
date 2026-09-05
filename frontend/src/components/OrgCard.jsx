@@ -17,7 +17,7 @@ export function OrgCard({ org, role, onSelect }) {
   return (
     <div
       onClick={onSelect}
-      className="cursor-pointer w-full max-w-sm rounded-xl border border-neutral-700 bg-[#2E3141] hover:bg-[#3A3E4F] transition p-4 flex flex-col items-start"
+      className="cursor-pointer w-full  rounded-xl border border-neutral-700 bg-[#2E3141] hover:bg-[#3A3E4F] transition p-4 flex flex-col items-start "
     >
       <div className="flex items-center gap-3 mb-3">
         <div className={`w-10 h-10 rounded ${typeColor} flex items-center justify-center border`}>

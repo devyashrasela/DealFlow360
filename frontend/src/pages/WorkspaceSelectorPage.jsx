@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { OrgCard } from '../components/OrgCard.jsx';
+import { Plus } from 'lucide-react';
 
 /**
  * WorkspaceSelectorPage — displayed when a user belongs to multiple organizations.
@@ -24,13 +25,25 @@ export function WorkspaceSelectorPage() {
     }
   };
 
+  const handleCreateOrg = () => {
+    // Caveman simple placeholder for now!
+    alert('Create organization feature coming soon!');
+  };
+
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
-      <div className="bg-gray-900 border border-gray-800 rounded-xl shadow-2xl w-full max-w-lg p-8">
+    <div className="min-h-screen bg-[#111826] flex flex-col items-center justify-center p-4 py-12 sm:px-6 lg:px-8">
+      
+      <div className="sm:mx-auto sm:w-full sm:max-w-md mb-8">
+        <h1 className="text-center text-3xl font-bold tracking-tight text-white">
+          DealFlow<span className="italic text-[#724B66]">360</span>
+        </h1>
+      </div>
+
+      <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg p-8">
         {/* Header */}
         <div className="mb-8 text-center">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-indigo-600/20 mb-4">
-            <svg className="w-7 h-7 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#724B66]/20 mb-4 border border-[#724B66]/30 shadow-inner">
+            <svg className="w-8 h-8 text-[#724B66]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -39,12 +52,12 @@ export function WorkspaceSelectorPage() {
               />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-white">Select Workspace</h1>
-          <p className="text-gray-400 mt-1 text-sm">You belong to multiple organizations. Choose one to continue.</p>
+          <h2 className="text-2xl font-bold text-white tracking-wide">Select Workspace</h2>
+          <p className="text-gray-400 mt-2 text-sm">Choose an organization to continue</p>
         </div>
 
         {/* Membership cards */}
-        <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-1 gap-4 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
           {memberships.map((m) => (
             <OrgCard
               key={m.id}
@@ -53,14 +66,27 @@ export function WorkspaceSelectorPage() {
               onSelect={() => handleSelect(m)}
             />
           ))}
+          
+          {/* Empty state */}
+          {memberships.length === 0 && (
+            <div className="text-center py-6 bg-white/5 rounded-xl border border-white/10">
+              <p className="text-gray-400 text-sm">
+                No workspaces found.
+              </p>
+            </div>
+          )}
         </div>
 
-        {/* Empty state */}
-        {memberships.length === 0 && (
-          <p className="text-center text-gray-500 text-sm mt-4">
-            No workspaces found. Contact your administrator.
-          </p>
-        )}
+        {/* Create Organization Button */}
+        <div className="mt-6 pt-6 border-t border-white/10">
+          <button
+            onClick={handleCreateOrg}
+            className="w-full group flex items-center justify-center gap-2 py-3.5 px-4 border border-dashed border-[#724B66]/50 rounded-xl text-sm font-semibold text-[#724B66] hover:text-white hover:border-[#724B66] hover:bg-[#724B66] transition-all duration-300 ease-in-out cursor-pointer"
+          >
+            <Plus className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" />
+            Create New Organization
+          </button>
+        </div>
       </div>
     </div>
   );
