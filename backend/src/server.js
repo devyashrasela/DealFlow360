@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import { sequelize } from './models/index.js';
+import negotiationRoutes from './controllers/negotiation.controller.js';
+import dealHealthRoutes from './controllers/dealHealth.controller.js';
+import reportingRoutes from './controllers/reporting.controller.js';
 
 // Route imports
 import authRoutes from './routes/auth.routes.js';
@@ -26,6 +29,12 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+
+
+// API Routes
+app.use('/api/negotiations', negotiationRoutes);
+app.use('/api/deal-health', dealHealthRoutes);
+app.use('/api/reports', reportingRoutes);
 
 // Public health check route
 app.get('/', (req, res) => {
