@@ -4,7 +4,7 @@ import { ArrowLeft, Repeat, Edit2, AlertCircle } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
-import { getSubscriptionDetail, modifySubscriptionQuantity, previewProration } from '../../../api/subscriptionApi';
+import { getSubscriptionDetail, modifySubscriptionQuantity, previewProration, cancelSubscription } from '../../../api/subscriptionApi';
 
 export const SubscriptionDetailPage = () => {
   const { providerSlug, subscriptionId } = useParams();
@@ -17,6 +17,12 @@ export const SubscriptionDetailPage = () => {
   const [newQuantity, setNewQuantity] = useState('');
   const [prorationPreview, setProrationPreview] = useState(null);
   const [isModifying, setIsModifying] = useState(false);
+
+  // Cancellation State
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [cancellationType, setCancellationType] = useState('immediate');
+  const [cancelReason, setCancelReason] = useState('');
+  const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
     fetchDetail();
@@ -61,24 +67,57 @@ export const SubscriptionDetailPage = () => {
     }
   };
 
+  const handleConfirmCancel = async () => {
+    setIsCancelling(true);
+    try {
+      await cancelSubscription(subscriptionId, {
+        cancellation_type: cancellationType,
+        reason: cancelReason || 'Customer requested cancellation',
+      });
+      setIsCancelModalOpen(false);
+      fetchDetail();
+    } catch (err) {
+      console.error('Failed to cancel subscription', err);
+      alert('Failed to cancel subscription: ' + (err.message || 'Unknown error'));
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const now = new Date();
+  const end = sub?.current_period_end ? new Date(sub.current_period_end) : now;
+  const start = sub?.current_period_start ? new Date(sub.current_period_start) : now;
+  const totalDays = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+  const unusedDays = Math.max(0, Math.ceil((end - now) / (1000 * 60 * 60 * 24)));
+  const totalPeriodCharge = (sub?.lines || []).reduce((sum, li) => sum + Number(li.period_amount || 0), 0);
+  const dailyRate = totalPeriodCharge / totalDays;
+  const refundEstimate = Number((unusedDays * dailyRate).toFixed(2));
+
   if (!sub) return <div className="p-8 text-neutral-500">Loading...</div>;
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link to={`/${providerSlug || 'default'}/subscriptions`} className="p-2 hover:bg-neutral-200 rounded-lg transition-colors text-neutral-500">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-[#111826] tracking-tight flex items-center gap-3">
-            {sub.subscription_code}
-            <Badge variant="success">{sub.status}</Badge>
-          </h1>
-          <p className="text-sm text-[#2E3141]/70 mt-1">
-            Customer: {sub.customer_account?.buyer_organization?.legal_name}
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link to={`/${providerSlug || 'default'}/subscriptions`} className="p-2 hover:bg-neutral-200 rounded-lg transition-colors text-neutral-500">
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-[#111826] tracking-tight flex items-center gap-3">
+              {sub.subscription_code}
+              <Badge variant="success">{sub.status}</Badge>
+            </h1>
+            <p className="text-sm text-[#2E3141]/70 mt-1">
+              Customer: {sub.customer_account?.buyer_organization?.legal_name}
+            </p>
+          </div>
         </div>
+        {sub.status === 'active' && (
+          <Button variant="destructive" onClick={() => setIsCancelModalOpen(true)}>
+            Cancel Subscription
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -251,6 +290,87 @@ export const SubscriptionDetailPage = () => {
               disabled={isModifying || !prorationPreview}
             >
               {isModifying ? 'Applying...' : 'Confirm Modification'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Cancellation Modal */}
+      <Modal
+        isOpen={isCancelModalOpen}
+        onClose={() => setIsCancelModalOpen(false)}
+        title="Cancel Subscription"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-neutral-600">
+            Select the cancellation effective date and review proration refund details:
+          </p>
+
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer">
+              <input
+                type="radio"
+                name="cancellationType"
+                value="immediate"
+                checked={cancellationType === 'immediate'}
+                onChange={() => setCancellationType('immediate')}
+              />
+              <span className="font-medium">Immediate Cancellation</span>
+              <span className="text-xs text-neutral-500">(Terminates today, issues credit note for unused days)</span>
+            </label>
+
+            <label className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer">
+              <input
+                type="radio"
+                name="cancellationType"
+                value="period_end"
+                checked={cancellationType === 'period_end'}
+                onChange={() => setCancellationType('period_end')}
+              />
+              <span className="font-medium">Cancel at Period End</span>
+              <span className="text-xs text-neutral-500">
+                (Remains active until {new Date(sub.current_period_end).toLocaleDateString()}, no refund)
+              </span>
+            </label>
+          </div>
+
+          {cancellationType === 'immediate' && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-900 space-y-1">
+              <p className="font-semibold">Unused-Days Refund Calculation:</p>
+              <div className="flex justify-between text-xs text-amber-800">
+                <span>Days remaining in cycle:</span>
+                <span className="font-bold">{unusedDays} of {totalDays} days</span>
+              </div>
+              <div className="flex justify-between text-xs text-amber-800">
+                <span>Estimated Credit Note / Refund:</span>
+                <span className="font-bold text-sm text-emerald-700">${refundEstimate}</span>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-semibold text-neutral-600 uppercase tracking-wider mb-1">
+              Cancellation Reason
+            </label>
+            <textarea
+              rows={2}
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Provide reason for cancellation..."
+              className="w-full px-3 py-2 border border-neutral-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#724B66]"
+            />
+          </div>
+
+          <div className="pt-4 flex justify-end gap-3 border-t">
+            <Button variant="secondary" onClick={() => setIsCancelModalOpen(false)}>
+              Keep Subscription
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmCancel}
+              disabled={isCancelling}
+            >
+              {isCancelling ? 'Processing...' : 'Confirm Cancellation'}
             </Button>
           </div>
         </div>

@@ -433,7 +433,7 @@ async function runTests() {
     results.forEach(r => console.log(`${r.testId}: ${r.passed ? 'PASS' : 'FAIL'} - ${r.message}`));
 
   } catch (err) {
-    console.error('Test execution error:', err.data || err);
+    console.error('Test execution error:', err.stack, err.data || err);
   } finally {
     process.exit(0);
   }

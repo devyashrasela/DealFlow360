@@ -73,7 +73,8 @@ export const syncDatabase = async () => {
 // Centralized error handling middleware
 app.use((err, req, res, next) => {
   console.error('Unhandled Server Error:', err);
-  res.status(500).json({ error: 'Internal Server Error. Please contact support.' });
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({ error: err.message || 'Internal Server Error. Please contact support.' });
 });
 
 export default app;

@@ -21,9 +21,8 @@ import {
  */
 export const listSubscriptions = async (req, res, next) => {
   try {
-    const { organization_id, status } = req.query;
-    const where = {};
-    if (organization_id) where.organization_id = organization_id;
+    const { status } = req.query;
+    const where = { organization_id: req.orgContext.organizationId };
     if (status) where.status = status;
 
     const subscriptions = await Subscription.findAll({
@@ -149,12 +148,13 @@ export const modifyQuantity = async (req, res, next) => {
  */
 export const cancelSub = async (req, res, next) => {
   try {
-    const { cancellation_type, actor_user_id, reason } = req.body;
+    const { cancellation_type, reason } = req.body;
+    const actor_user_id = req.body.actor_user_id || req.user?.id;
 
-    if (!cancellation_type || !actor_user_id) {
+    if (!cancellation_type) {
       return res.status(400).json({
         success: false,
-        error: 'cancellation_type and actor_user_id are required.',
+        error: 'cancellation_type is required.',
       });
     }
 

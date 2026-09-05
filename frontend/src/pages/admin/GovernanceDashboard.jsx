@@ -71,7 +71,7 @@ export function GovernanceDashboard() {
               <tbody>
                 {tierCeilings.map(tc => (
                   <tr key={tc.id} className="border-b border-gray-100">
-                    <td className="p-2 capitalize">{tc.customer_tier}</td>
+                    <td className="p-2 capitalize">{tc.tier || tc.customer_tier}</td>
                     <td className="p-2">{tc.max_discount_percentage}%</td>
                   </tr>
                 ))}
@@ -92,7 +92,7 @@ export function GovernanceDashboard() {
               <tbody>
                 {categoryCeilings.map(cc => (
                   <tr key={cc.id} className="border-b border-gray-100">
-                    <td className="p-2 capitalize">{cc.product_category}</td>
+                    <td className="p-2 capitalize">{cc.category || cc.product_category}</td>
                     <td className="p-2">{cc.max_discount_percentage}%</td>
                   </tr>
                 ))}

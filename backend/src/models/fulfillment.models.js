@@ -142,6 +142,10 @@ export const FulfillmentOrder = sequelize.define('FulfillmentOrder', {
     type: DataTypes.DATE,
     allowNull: true,
   },
+  estimated_delivery_date: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
 }, {
   tableName: 'fulfillment_orders',
   timestamps: true,

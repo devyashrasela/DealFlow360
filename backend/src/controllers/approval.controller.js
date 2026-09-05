@@ -6,6 +6,8 @@ import {
   ApprovalChain,
   OrganizationMembership,
   CustomerAccount,
+  Organization,
+  Product,
   User,
   sequelize
 } from '../models/index.js';
@@ -23,7 +25,7 @@ export const submitForApproval = async (req, res) => {
 
     const quotation = await Quotation.findOne({
       where: { id: quotationId, organization_id: orgId },
-      include: [QuotationLine],
+      include: [{ model: QuotationLine, as: 'lines' }],
       transaction: t
     });
 
@@ -39,20 +41,20 @@ export const submitForApproval = async (req, res) => {
 
     let totalRevenue = 0;
     let totalCost = 0;
-    
-    const recomputedLines = quotation.QuotationLines.map(line => {
+
+    const recomputedLines = quotation.lines.map(line => {
       const computed = computeLineMath(line);
-      totalRevenue += computed.line_revenue || 0;
-      totalCost += computed.line_cost || 0;
+      totalRevenue += computed.line_net_amount || 0;
+      totalCost += computed.line_cost_total || 0;
       return computed;
     });
 
     const blendedRisk = computeBlendedRisk(recomputedLines);
-    
+
     const blendedMarginPercentage = totalRevenue > 0 ? ((totalRevenue - totalCost) / totalRevenue) * 100 : 0;
     const E_max = blendedRisk.worst_line_excess || 0;
 
-    const riskTier = determineRiskTier(orgId, blendedRisk.blendedRiskScore, E_max, blendedMarginPercentage);
+    const riskTier = await determineRiskTier(orgId, blendedRisk.blendedRiskScore, E_max, blendedMarginPercentage);
 
     if (riskTier.margin_hard_stop_breached) {
       await quotation.update({
@@ -63,11 +65,27 @@ export const submitForApproval = async (req, res) => {
         margin_hard_stop_breached: true,
         gross_total: totalRevenue
       }, { transaction: t });
-      
+
+      await ApprovalAuditLog.create({
+        organization_id: orgId,
+        quotation_id: quotation.id,
+        actor_user_id: req.user.id,
+        blended_risk_score_at_action: blendedRisk.blendedRiskScore,
+        payload_snapshot: {
+          gross_total: totalRevenue,
+          blended_risk_score: blendedRisk.blendedRiskScore,
+          worst_line_excess: E_max,
+          action: 'rejected_margin_hard_stop'
+        },
+        ip_address: req.ip,
+        user_agent: req.get('User-Agent'),
+        action_taken: 'rejected_margin_hard_stop'
+      }, { transaction: t });
+
       await t.commit();
-      return res.status(422).json({ 
-        message: 'Margin hard stop breached', 
-        explanation: 'Quotation rejected automatically due to margin hard stop.' 
+      return res.status(422).json({
+        message: 'Margin hard stop breached',
+        explanation: 'Quotation rejected automatically due to margin hard stop.'
       });
     }
 
@@ -84,7 +102,7 @@ export const submitForApproval = async (req, res) => {
       gross_total: totalRevenue,
       blended_risk_score: blendedRisk.blendedRiskScore,
       worst_line_excess: E_max,
-      lines: recomputedLines.map(l => ({ id: l.id, revenue: l.line_revenue, cost: l.line_cost }))
+      lines: recomputedLines.map(l => ({ id: l.id, revenue: l.line_net_amount, cost: l.line_cost_total }))
     };
 
     const auditLogBase = {
@@ -103,7 +121,7 @@ export const submitForApproval = async (req, res) => {
       await quotation.update({ stage: 'approved' }, { transaction: t });
       await ApprovalAuditLog.create({
         ...auditLogBase,
-        action: 'auto_approved'
+        action_taken: 'auto_approved'
       }, { transaction: t });
       await t.commit();
       return res.status(200).json({ status: 'auto_approved' });
@@ -119,10 +137,10 @@ export const submitForApproval = async (req, res) => {
         status: 'pending'
       }, { transaction: t });
       createdSteps.push(step);
-      
+
       await ApprovalAuditLog.create({
         ...auditLogBase,
-        action: 'submitted_for_approval'
+        action_taken: 'submitted_for_approval'
       }, { transaction: t });
     } else if (riskTierValue === 'high_risk_finance') {
       await quotation.update({ stage: 'pending_approval' }, { transaction: t });
@@ -139,13 +157,13 @@ export const submitForApproval = async (req, res) => {
         status: 'pending'
       }, { transaction: t });
       createdSteps.push(step1, step2);
-      
+
       await ApprovalAuditLog.create({
         ...auditLogBase,
-        action: 'submitted_for_approval'
+        action_taken: 'submitted_for_approval'
       }, { transaction: t });
     }
-    
+
     await t.commit();
     return res.status(200).json({ steps: createdSteps, riskAnalysis: riskTier });
   } catch (error) {
@@ -188,9 +206,10 @@ export const getApprovalDetail = async (req, res) => {
     const quotation = await Quotation.findOne({
       where: { id: quotationId, organization_id: orgId },
       include: [
-        QuotationLine,
-        QuotationApproval,
-        ApprovalAuditLog
+        { model: QuotationLine, as: 'lines', include: [{ model: Product, as: 'product' }] },
+        { model: QuotationApproval, as: 'approvals' },
+        { model: ApprovalAuditLog, as: 'audit_logs' },
+        { model: CustomerAccount, as: 'customer_account', include: [{ model: Organization, as: 'buyer_organization' }] }
       ]
     });
 
@@ -214,7 +233,7 @@ export const approveQuotation = async (req, res) => {
 
     const quotation = await Quotation.findOne({
       where: { id: quotationId, organization_id: orgId },
-      include: [QuotationLine],
+      include: [{ model: QuotationLine, as: 'lines' }],
       transaction: t
     });
 
@@ -243,7 +262,7 @@ export const approveQuotation = async (req, res) => {
     }, { transaction: t });
 
     const remainingSteps = pendingSteps.length - 1;
-    
+
     // Optimistic locking
     const [updatedRows] = await Quotation.update(
       {
@@ -264,7 +283,7 @@ export const approveQuotation = async (req, res) => {
     const payloadSnapshot = {
       gross_total: quotation.gross_total,
       blended_risk_score: quotation.blended_risk_score,
-      lines: quotation.QuotationLines.map(l => ({ id: l.id, revenue: l.line_revenue, cost: l.line_cost }))
+      lines: (quotation.lines || []).map(l => ({ id: l.id, revenue: l.line_net_amount, cost: l.line_cost_total }))
     };
 
     await ApprovalAuditLog.create({
@@ -275,7 +294,7 @@ export const approveQuotation = async (req, res) => {
       payload_snapshot: payloadSnapshot,
       ip_address: req.ip,
       user_agent: req.get('User-Agent'),
-      action: 'approved'
+      action_taken: 'approved'
     }, { transaction: t });
 
     await t.commit();
@@ -301,7 +320,7 @@ export const rejectQuotation = async (req, res) => {
 
     const quotation = await Quotation.findOne({
       where: { id: quotationId, organization_id: orgId },
-      include: [QuotationLine],
+      include: [{ model: QuotationLine, as: 'lines' }],
       transaction: t
     });
 
@@ -334,7 +353,7 @@ export const rejectQuotation = async (req, res) => {
     const payloadSnapshot = {
       gross_total: quotation.gross_total,
       blended_risk_score: quotation.blended_risk_score,
-      lines: quotation.QuotationLines.map(l => ({ id: l.id, revenue: l.line_revenue, cost: l.line_cost }))
+      lines: (quotation.lines || []).map(l => ({ id: l.id, revenue: l.line_net_amount, cost: l.line_cost_total }))
     };
 
     await ApprovalAuditLog.create({
@@ -345,11 +364,74 @@ export const rejectQuotation = async (req, res) => {
       payload_snapshot: payloadSnapshot,
       ip_address: req.ip,
       user_agent: req.get('User-Agent'),
-      action: 'rejected'
+      action_taken: 'rejected'
     }, { transaction: t });
 
     await t.commit();
     return res.status(200).json({ status: 'rejected' });
+  } catch (error) {
+    await t.rollback();
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+export const returnQuotation = async (req, res) => {
+  const { quotationId } = req.params;
+  const { comments } = req.body;
+  const orgId = req.orgContext.organizationId;
+
+  const t = await sequelize.transaction();
+  try {
+    const quotation = await Quotation.findOne({
+      where: { id: quotationId, organization_id: orgId },
+      include: [{ model: QuotationLine, as: 'lines' }],
+      transaction: t,
+      lock: t.LOCK.UPDATE
+    });
+
+    if (!quotation) {
+      await t.rollback();
+      return res.status(404).json({ message: 'Quotation not found' });
+    }
+
+    const pendingSteps = await QuotationApproval.findAll({
+      where: { quotation_id: quotation.id, status: 'pending' },
+      order: [['step_order', 'ASC']],
+      transaction: t,
+      lock: t.LOCK.UPDATE
+    });
+
+    const currentStep = pendingSteps[0];
+    if (currentStep) {
+      await currentStep.update({
+        status: 'rejected',
+        action_by_user_id: req.user.id,
+        action_timestamp: new Date(),
+        comments: comments || 'Returned for revision'
+      }, { transaction: t });
+    }
+
+    await quotation.update({ stage: 'draft' }, { transaction: t });
+
+    const payloadSnapshot = {
+      gross_total: quotation.gross_total,
+      blended_risk_score: quotation.blended_risk_score,
+      lines: (quotation.lines || []).map(l => ({ id: l.id, revenue: l.line_net_amount, cost: l.line_cost_total }))
+    };
+
+    await ApprovalAuditLog.create({
+      organization_id: orgId,
+      quotation_id: quotation.id,
+      actor_user_id: req.user.id,
+      blended_risk_score_at_action: quotation.blended_risk_score,
+      payload_snapshot: payloadSnapshot,
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent'),
+      action_taken: 'returned'
+    }, { transaction: t });
+
+    await t.commit();
+    return res.status(200).json({ status: 'returned', stage: 'draft' });
   } catch (error) {
     await t.rollback();
     return res.status(500).json({ error: error.message });

@@ -1,13 +1,11 @@
 import { apiClient } from './client';
 
 export const listInvoices = async (params) => {
-  const { data } = await apiClient.get('/invoices', { params });
-  return data;
+  return await apiClient.get('/invoices', params);
 };
 
 export const getInvoiceDetail = async (id) => {
-  const { data } = await apiClient.get(`/invoices/${id}`);
-  return data;
+  return await apiClient.get(`/invoices/${id}`);
 };
 
 export const generateInvoice = async (quotationId) => {

@@ -118,7 +118,7 @@ export const resolveSlugContext = async (req, res, next) => {
     }
 
     if (!membership)
-      return res.status(403).json({ error: 'No active membership in provider or customer organization' });
+      return res.status(404).json({ error: 'No active membership in provider or customer organization' });
 
     // Step 4 — ABAC: provider sales reps with assigned_only scope must be in relationship_assignments
     if (actorType === 'provider' && relationship &&

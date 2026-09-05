@@ -1,0 +1,251 @@
+# DealFlow360 — Unsolved Medium and Low Priority Bugs
+# Total Unsolved: 31 (Medium: 18, Low: 13)
+# Generated on: 2026-09-06
+
+[Sales Dashboard] — DASH2-03
+Severity: Medium
+Expected: Summary card displays actual count of At-Risk deals matching Deal Health flags (Screen 14).
+Actual: Top summary card row omits At-Risk Deals, and the middle Deal Health widget displays a hardcoded value (3) not wired to the deal-health API.
+Notes: In frontend/src/pages/DashboardPage.jsx, Deal Health risk counts are hardcoded rather than fetched from /api/deal-health.
+Logged: 2026-09-05
+---
+
+[Sales Dashboard] — DASH2-09
+Severity: Medium
+Expected: "+ New Quotation" button opens a blank Quotation Builder (Screen 4).
+Actual: No "+ New Quotation" action button exists on the Sales Dashboard.
+Notes: DashboardPage.jsx header bar omits the primary quick-actions button group.
+Logged: 2026-09-05
+---
+
+[Sales Dashboard] — DASH2-10
+Severity: Low
+Expected: "View Approvals" button navigates to Screen 5 (Approvals List).
+Actual: No standalone "View Approvals" quick action button exists on DashboardPage.
+Notes: Quick actions toolbar was omitted from DashboardPage.jsx.
+Logged: 2026-09-05
+---
+
+[Sales Dashboard] — DASH2-11
+Severity: Medium
+Expected: Recent Activity feed dynamically populates from module actions (approvals, negotiations, fulfillment), most recent first.
+Actual: Recent Activity feed renders a hardcoded static array of 5 sample events; real actions do not populate the feed.
+Notes: DashboardPage.jsx uses static mock state for recentActivity rather than querying backend audit logs or activity stream.
+Logged: 2026-09-05
+---
+
+[Sales Dashboard] — DASH2-12
+Severity: Low
+Expected: Clicking an activity feed entry deep-links to the relevant quotation/order detail screen.
+Actual: Activity items are static unclickable div elements with no navigation handlers or links.
+Notes: Missing onClick handler / Link wrapper on activity item rows in DashboardPage.jsx.
+Logged: 2026-09-05
+---
+
+[Quotations List] — QUO3-09
+Severity: Medium
+Expected: Clicking "Switch to Table View" toggles the board to a flat table view.
+Actual: Button has no onClick handler attached; clicking it does nothing.
+Notes: Table view state toggle and table rendering logic are missing from QuotationListPage.jsx.
+Logged: 2026-09-05
+---
+
+[Quotations List] — QUO3-10
+Severity: Low
+Expected: Table view supports sorting and filtering.
+Actual: Table view is not implemented; sort/filter controls do not exist.
+Notes: Feature omitted in QuotationListPage.jsx.
+Logged: 2026-09-05
+---
+
+[Quotation Detail] — QUO4-05
+Severity: Medium
+Expected: Price list / customer tier can be switched on Screen 4 to update base pricing.
+Actual: Price list is rendered as static read-only text without a dropdown or selector.
+Notes: Missing price list switcher UI control in QuotationBuilderPage.jsx.
+Logged: 2026-09-05
+---
+
+[Quotation Detail] — QUO4-10
+Severity: Low
+Expected: Clicking Dismiss on an upsell suggestion suppresses it for the current session.
+Actual: No Dismiss button exists on upsell suggestion cards in QuotationBuilderPage.jsx.
+Notes: Dismiss action omitted from upsell cards.
+Logged: 2026-09-05
+---
+
+[Approvals List] — APP5-02 / APP5-03
+Severity: Medium
+Expected: Returned and Approved summary counters accurately reflect the count of returned and approved quotations.
+Actual: Returned and Approved counters are always 0 because ApprovalListPage.jsx only fetches from /approvals/pending.
+Notes: ApprovalListPage.jsx line 18 queries /approvals/pending which excludes approved and returned records.
+Logged: 2026-09-05
+---
+
+[Approvals List] — APP5-04
+Severity: Medium
+Expected: Customer column displays buyer organization name and Assigned To displays actual assigned approver.
+Actual: Customer displays "Unknown" due to missing association include in listPendingApprovals, and Assigned To hardcodes "M. Shah" for all manager approvals.
+Notes: In backend/src/controllers/approval.controller.js include buyer_organization on CustomerAccount; in ApprovalListPage.jsx line 101 replace hardcoded "M. Shah".
+Logged: 2026-09-05
+---
+
+[Approvals List] — APP5-08
+Severity: Low
+Expected: Auto-Approved quotations display on the approvals list with Stage = "Auto-Approved" and Assigned To = "-".
+Actual: Auto-approved quotes do not generate QuotationApproval rows and never appear in the approvals list.
+Notes: QuotationApproval records are omitted for auto-approved quotes.
+Logged: 2026-09-05
+---
+
+[Approvals List] — APP5-09
+Severity: Low
+Expected: Toggling "Filter: Pending Only" checkbox narrows the table to only pending-stage rows.
+Actual: Checkbox has no onChange event handler or state binding; clicking it does nothing.
+Notes: Uncontrolled static checkbox in frontend/src/pages/approvals/ApprovalListPage.jsx line 61.
+Logged: 2026-09-05
+---
+
+[Approval Detail] — APR6-01
+Severity: Medium
+Expected: Approval Detail header displays the quotation ID, customer organization name, blended risk level, and customer pricing tier.
+Actual: Customer name is completely missing from the header, and customer tier always defaults to "Standard" because getApprovalDetail does not include customer_account or buyer_organization.
+Notes: Update getApprovalDetail in backend/src/controllers/approval.controller.js to include customer_account with nested buyer_organization, and render customer name in ApprovalDetailPage.jsx.
+Logged: 2026-09-05
+---
+
+[Approval Detail] — APR6-06
+Severity: Medium
+Expected: Approval chain tracker dynamically indicates which step is active (Sales Manager vs Finance) based on approval step status.
+Actual: Finance step is hardcoded with inactive styling (bg-gray-100) and never highlights, while Sales Manager remains highlighted as pending (bg-orange-100) even when intermediate approval has passed to Finance.
+Notes: In ApprovalDetailPage.jsx lines 114-123, tracker status is hardcoded instead of checking current pending step's required_role.
+Logged: 2026-09-05
+---
+
+[Approval Detail] — APR6-03 / APR6-04
+Severity: Low
+Expected: "Why This Quote Was Flagged" provides dynamic text identifying the specific offending product/line, and explains aggregate margin bleed when no single line exceeds limit.
+Actual: UI displays a rigid static sentence template that never names the offending product, and displays "Worst single line (0pt over)" for aggregate-bleed quotations.
+Notes: In ApprovalDetailPage.jsx lines 78-80, replace static template with dynamic line analysis and aggregate-bleed explanation.
+Logged: 2026-09-05
+---
+
+[Subscriptions List] — SUB9-06
+Severity: Medium
+Expected: Subscriptions table displays all required columns: Subscription ID, Customer, Plan Name/Product, Billing Cadence, Recurring Amount, Next Invoice Date, Status.
+Actual: SubscriptionListPage.jsx omits Plan Name/Product, Billing Cadence, and Recurring Amount columns. Only renders Code, Customer, Status, MRR, Next Invoice.
+Notes: In frontend/src/pages/features/subscriptions/SubscriptionListPage.jsx, add columns for Plan Name, Billing Cadence, and Recurring Amount.
+Logged: 2026-09-05
+---
+
+[Subscriptions List] — SUB9-07
+Severity: Low
+Expected: Status badges adhere to spec colors: Active=Green, Past Due=Red, Paused=Yellow, Cancelled=Gray.
+Actual: SubscriptionListPage.jsx renders past_due and paused as default gray (variant="default"), and renders cancelled as red (variant="danger") instead of gray.
+Notes: In SubscriptionListPage.jsx getStatusBadge(), map past_due to red, paused to yellow/warning, and cancelled to neutral/gray.
+Logged: 2026-09-05
+---
+
+[Subscription Detail] — SUB10-04
+Severity: Medium
+Expected: Billing schedule table displays granular invoice status (Paid with link to invoice, Scheduled, or Drafted).
+Actual: SubscriptionDetailPage.jsx only renders a binary "Processed: Yes / Pending" badge without linking to invoices or reflecting invoice lifecycle status.
+Notes: In SubscriptionDetailPage.jsx lines 182-184, replace binary badge with invoice status and clickable invoice link.
+Logged: 2026-09-05
+---
+
+[Subscription Detail] — SUB10-05
+Severity: Medium
+Expected: Subscription detail view displays complete contract terms: Base Product, Plan Interval, Unit Price, Seats, Applied Discount, Lifetime Value, Unbilled Accruals, Next Invoice Trigger.
+Actual: SubscriptionDetailPage.jsx sidebar displays only MRR, Cadence, Period, and Next Invoice Date. Omits Lifetime Value, Unbilled Accruals, Next Invoice Trigger, and line discount breakdown.
+Notes: Add Lifetime Value, Unbilled Accruals, and Next Invoice Trigger metrics to SubscriptionDetailPage.jsx sidebar.
+Logged: 2026-09-05
+---
+
+[Subscription Detail] — SUB10-18
+Severity: Low
+Expected: User-triggerable Pause and Resume actions with corresponding lifecycle audit entries in SubscriptionEvents.
+Actual: No Pause or Resume actions or API endpoints exist in the subscription module. Status can only be changed via manual database intervention.
+Notes: Add pause/resume endpoints in backend/src/controllers/subscription.controller.js and UI triggers in SubscriptionDetailPage.jsx.
+Logged: 2026-09-05
+---
+
+[Customer Portal] — POR11-10
+Severity: Medium
+Expected: Multiple line-level negotiation requests are bundled locally and submitted together via a single submission event (FR-POR-02).
+Actual: CustomerPortalPage.jsx lines 215-220 fires an immediate HTTP POST request for each line individually upon clicking "Save Request", without batching.
+Notes: Refactor CustomerPortalPage.jsx to stage line changes in local state and bundle them into an overall submission.
+Logged: 2026-09-05
+---
+
+[Customer Portal] — POR11-11
+Severity: Medium
+Expected: Net Amount Payable recalculates live in the customer view when entering a target overall discount % or target total in the counter box.
+Actual: CustomerPortalPage.jsx line 137 displays static activeQuote.grand_total and does not recompute or reflect proposed counter totals before submission.
+Notes: In CustomerPortalPage.jsx, bind Net Amount Payable card to compute live preview from targetTotal and counterDiscount state.
+Logged: 2026-09-05
+---
+
+[Customer Portal] — POR11-09
+Severity: Low
+Expected: Line negotiation drawer includes a "Clear" button to reset form fields without submitting.
+Actual: CustomerPortalPage.jsx line 180-224 provides no "Clear" button in the drawer.
+Notes: Add a "Clear" button in the negotiation drawer to reset local inputs.
+Logged: 2026-09-05
+---
+
+[Invoice Detail] — INV13-08/09/10
+Severity: Medium
+Expected: Sidebar financial summary block displays full reconciliation breakdown: Gross Subtotal, Applied Discounts, Total Tax, Grand Total, Amount Paid, Amount Credited, and Balance Due.
+Actual: InvoiceDetailPage.jsx lines 87-105 displays only Total Amount and Balance Due; Gross Subtotal, Applied Discounts, Total Tax, Amount Paid, and Amount Credited are omitted.
+Notes: Add Gross Subtotal, Discounts, Tax, Paid, and Credited cards to InvoiceDetailPage.jsx sidebar.
+Logged: 2026-09-05
+---
+
+[Invoice Detail] — INV13-18
+Severity: Medium
+Expected: Screen 13 provides an "Applied Credits" tab displaying linked credit notes (e.g. CR-3004) and allocated offset amounts.
+Actual: InvoiceDetailPage.jsx line 110 only defines 'lines' and 'payments' tabs; received_credit_allocations returned by the backend is never rendered.
+Notes: Add an "Applied Credits" tab to InvoiceDetailPage.jsx rendering received_credit_allocations.
+Logged: 2026-09-05
+---
+
+[Invoice Detail] — INV13-03
+Severity: Medium
+Expected: Context strip displays an Origin Reference badge linking to parent Quotation (Screen 4) or Subscription (Screen 10).
+Actual: Backend getInvoiceDetail does not include origin_quotation or origin_subscription relations, and InvoiceDetailPage.jsx lines 64-74 renders no origin badge or link.
+Notes: Include origin relations in invoice.controller.js and render deep-link badge in InvoiceDetailPage.jsx.
+Logged: 2026-09-05
+---
+
+[Invoice Detail] — INV13-22
+Severity: Low
+Expected: Payment History tab displays Payment Date, Transaction Reference ID, Method, Recorded By, and Amount.
+Actual: InvoiceDetailPage.jsx lines 151-176 omits Transaction Reference ID and Recorded By columns.
+Notes: Add Transaction Ref and Recorded By columns to the Payment History table in InvoiceDetailPage.jsx.
+Logged: 2026-09-05
+---
+
+[Invoice Detail] — INV13-02
+Severity: Low
+Expected: Status badge reflects spec colors: Posted=Orange, Paid=Green, Credited=Gray, Overdue=Red.
+Actual: InvoiceDetailPage.jsx line 66 maps status to success (paid), danger (void), or info (posted, partially_paid, credited, overdue).
+Notes: Update badge color variant mapping in InvoiceDetailPage.jsx to support posted, partially_paid, credited, and overdue.
+Logged: 2026-09-05
+---
+
+[Invoice Detail] — INV13-23
+Severity: Low
+Expected: Screen 13 includes an Activity Log tab showing timestamped invoice history (creation, status updates, payments).
+Actual: InvoiceDetailPage.jsx provides no Activity Log tab.
+Notes: Add an Activity Log tab to InvoiceDetailPage.jsx.
+Logged: 2026-09-05
+---
+
+[Discount Ceilings] — GOV17-03 / GOV17-08
+Severity: Medium
+Expected: Administrators can configure custom tiers (e.g., "Platinum") and new product categories (e.g., "Warranties") with corresponding discount ceilings.
+Actual: DiscountTierCeiling model line 15 and CustomerAccount model line 149 restrict tiers to hardcoded ENUM ('standard', 'bronze', 'silver', 'gold', 'custom'); CategoryCeiling model line 40 and Product model line 27 restrict categories to hardcoded ENUM ('hardware', 'services', 'subscriptions'). Adding new tiers or categories fails or cannot be associated with accounts or catalog products without database migrations.
+Notes: Replace rigid ENUM columns with VARCHAR or configurable lookup reference tables to allow dynamic tier and category additions.
+Logged: 2026-09-05
+---

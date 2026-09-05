@@ -1,8 +1,7 @@
 import { apiClient } from './client.js';
 
 export const listSubscriptions = async (params) => {
-  const { data } = await apiClient.get('/subscriptions', { params });
-  return data;
+  return await apiClient.get('/subscriptions', params);
 };
 
 export const getSubscriptionDetail = async (id) => {

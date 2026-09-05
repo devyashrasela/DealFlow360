@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { dealHealthApi } from '../api/dealHealthApi.js';
 import { Card } from '../components/ui/Card.jsx';
 import { Button } from '../components/ui/Button.jsx';
@@ -92,10 +93,13 @@ export function DealHealthDashboard() {
       {/* Stream A: Stalled Deals */}
       <Card title="Stream A: Stalled Deals Queue" className="bg-white">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse text-sm">
             <thead>
-              <tr className="border-b border-gray-200 text-sm font-semibold text-gray-600 bg-gray-50">
-                <th className="p-3">Title</th>
+              <tr className="border-b border-gray-200 font-semibold text-gray-600 bg-gray-50">
+                <th className="p-3">Quotation #</th>
+                <th className="p-3">Customer</th>
+                <th className="p-3">Sales Rep</th>
+                <th className="p-3">Deal Value</th>
                 <th className="p-3">Stage</th>
                 <th className="p-3">Days Inactive</th>
                 <th className="p-3">Status</th>
@@ -105,9 +109,22 @@ export function DealHealthDashboard() {
             <tbody>
               {stalledDeals.map(alert => (
                 <tr key={alert.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                  <td className="p-3 font-medium text-gray-900">{alert.title}</td>
-                  <td className="p-3"><Badge color="gray">{alert.diagnostic_payload?.stage}</Badge></td>
-                  <td className="p-3 text-red-600 font-medium">{alert.diagnostic_payload?.days_stale} days</td>
+                  <td className="p-3 font-medium text-gray-900">
+                    <Link to={`/quotations/${alert.quotation_id}`} className="text-[#724B66] hover:underline font-semibold">
+                      {alert.quotation?.quotation_number || alert.title}
+                    </Link>
+                  </td>
+                  <td className="p-3 text-gray-700">
+                    {alert.quotation?.customer_account?.buyer_organization?.legal_name || '—'}
+                  </td>
+                  <td className="p-3 text-gray-600">
+                    {alert.quotation?.assigned_sales_rep?.full_name || '—'}
+                  </td>
+                  <td className="p-3 font-medium">
+                    ${Number(alert.quotation?.grand_total || alert.quotation?.gross_total || 0).toLocaleString()}
+                  </td>
+                  <td className="p-3"><Badge color="gray">{alert.diagnostic_payload?.stage || alert.quotation?.stage}</Badge></td>
+                  <td className="p-3 text-red-600 font-medium">{alert.diagnostic_payload?.days_stale ?? 0} days</td>
                   <td className="p-3 capitalize">{alert.resolution_status}</td>
                   <td className="p-3 text-right space-x-2">
                     <Button variant="secondary" size="sm" onClick={() => handleNudge(alert.id)} disabled={alert.resolution_status !== 'active'}>
@@ -120,7 +137,7 @@ export function DealHealthDashboard() {
                 </tr>
               ))}
               {stalledDeals.length === 0 && (
-                <tr><td colSpan="5" className="p-4 text-center text-gray-500">No stalled deals detected.</td></tr>
+                <tr><td colSpan="8" className="p-4 text-center text-gray-500">No stalled deals detected.</td></tr>
               )}
             </tbody>
           </table>
@@ -130,10 +147,13 @@ export function DealHealthDashboard() {
       {/* Stream B: Discount Anomaly */}
       <Card title="Stream B: Discount Anomaly & Margin Leak Feed" className="bg-white">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse text-sm">
             <thead>
-              <tr className="border-b border-gray-200 text-sm font-semibold text-gray-600 bg-gray-50">
-                <th className="p-3">Quotation Line Alert</th>
+              <tr className="border-b border-gray-200 font-semibold text-gray-600 bg-gray-50">
+                <th className="p-3">Quotation #</th>
+                <th className="p-3">Customer</th>
+                <th className="p-3">Sales Rep</th>
+                <th className="p-3">Deal Value</th>
                 <th className="p-3 text-right">Applied %</th>
                 <th className="p-3 text-right">Threshold %</th>
                 <th className="p-3">Status</th>
@@ -143,7 +163,20 @@ export function DealHealthDashboard() {
             <tbody>
               {discountLeaks.map(alert => (
                 <tr key={alert.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                  <td className="p-3 font-medium text-gray-900">{alert.title}</td>
+                  <td className="p-3 font-medium text-gray-900">
+                    <Link to={`/quotations/${alert.quotation_id}`} className="text-[#724B66] hover:underline font-semibold">
+                      {alert.quotation?.quotation_number || alert.title}
+                    </Link>
+                  </td>
+                  <td className="p-3 text-gray-700">
+                    {alert.quotation?.customer_account?.buyer_organization?.legal_name || '—'}
+                  </td>
+                  <td className="p-3 text-gray-600">
+                    {alert.quotation?.assigned_sales_rep?.full_name || '—'}
+                  </td>
+                  <td className="p-3 font-medium">
+                    ${Number(alert.quotation?.grand_total || alert.quotation?.gross_total || 0).toLocaleString()}
+                  </td>
                   <td className="p-3 text-right text-red-600 font-bold">{alert.diagnostic_payload?.applied}%</td>
                   <td className="p-3 text-right text-gray-500">{alert.diagnostic_payload?.threshold}% ({alert.diagnostic_payload?.fallback})</td>
                   <td className="p-3 capitalize">{alert.resolution_status}</td>
@@ -155,7 +188,7 @@ export function DealHealthDashboard() {
                 </tr>
               ))}
               {discountLeaks.length === 0 && (
-                <tr><td colSpan="5" className="p-4 text-center text-gray-500">No discount anomalies detected.</td></tr>
+                <tr><td colSpan="8" className="p-4 text-center text-gray-500">No discount anomalies detected.</td></tr>
               )}
             </tbody>
           </table>
@@ -165,10 +198,13 @@ export function DealHealthDashboard() {
       {/* Stream C: Delivery Slippage */}
       <Card title="Stream C: Delivery Promise Slippage Feed" className="bg-white">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse text-sm">
             <thead>
-              <tr className="border-b border-gray-200 text-sm font-semibold text-gray-600 bg-gray-50">
-                <th className="p-3">Fulfillment Risk</th>
+              <tr className="border-b border-gray-200 font-semibold text-gray-600 bg-gray-50">
+                <th className="p-3">Fulfillment Order</th>
+                <th className="p-3">Bottleneck Location</th>
+                <th className="p-3">Customer</th>
+                <th className="p-3">Promised Delivery</th>
                 <th className="p-3">Fulfillment Status</th>
                 <th className="p-3">Slippage Window</th>
                 <th className="p-3">Status</th>
@@ -178,9 +214,22 @@ export function DealHealthDashboard() {
             <tbody>
               {slippageRisks.map(alert => (
                 <tr key={alert.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                  <td className="p-3 font-medium text-gray-900">{alert.title}</td>
-                  <td className="p-3 capitalize">{alert.diagnostic_payload?.fulfillment_status}</td>
-                  <td className="p-3 text-orange-600 font-medium">Within {alert.diagnostic_payload?.slippage_window_hours} hrs</td>
+                  <td className="p-3 font-medium text-gray-900">
+                    <Link to="/fulfillment" className="text-[#724B66] hover:underline font-semibold">
+                      {alert.fulfillment_order?.fulfillment_number || alert.title}
+                    </Link>
+                  </td>
+                  <td className="p-3 text-gray-700">
+                    {alert.fulfillment_order?.warehouse?.name || alert.fulfillment_order?.warehouse?.code || 'Main Warehouse'}
+                  </td>
+                  <td className="p-3 text-gray-700">
+                    {alert.fulfillment_order?.quotation?.customer_account?.buyer_organization?.legal_name || '—'}
+                  </td>
+                  <td className="p-3 text-gray-600">
+                    {alert.fulfillment_order?.estimated_delivery_date ? new Date(alert.fulfillment_order.estimated_delivery_date).toLocaleDateString() : '—'}
+                  </td>
+                  <td className="p-3 capitalize">{alert.diagnostic_payload?.fulfillment_status || alert.fulfillment_order?.status}</td>
+                  <td className="p-3 text-orange-600 font-medium">Within {alert.diagnostic_payload?.slippage_window_hours || 48} hrs</td>
                   <td className="p-3 capitalize">{alert.resolution_status}</td>
                   <td className="p-3 text-right space-x-2">
                     <Button variant="secondary" size="sm" onClick={() => handleNudge(alert.id)} disabled={alert.resolution_status !== 'active'}>
@@ -190,7 +239,7 @@ export function DealHealthDashboard() {
                 </tr>
               ))}
               {slippageRisks.length === 0 && (
-                <tr><td colSpan="5" className="p-4 text-center text-gray-500">No slippage risks detected.</td></tr>
+                <tr><td colSpan="8" className="p-4 text-center text-gray-500">No slippage risks detected.</td></tr>
               )}
             </tbody>
           </table>

@@ -90,7 +90,7 @@ export function QuotationListPage() {
 
       <div className="flex-1 flex space-x-4 overflow-x-auto">
         {stages.map(stage => {
-          const columnQuotes = quotations.filter(q => q.status === stage);
+          const columnQuotes = quotations.filter(q => q.stage === stage);
           return (
             <div key={stage} className="flex-shrink-0 w-80 bg-gray-50 rounded-lg p-4 flex flex-col">
               <h2 className="font-semibold text-gray-700 mb-4">{stageDisplayNames[stage]} <span className="text-gray-400 text-sm font-normal">({columnQuotes.length})</span></h2>

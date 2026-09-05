@@ -1,4 +1,4 @@
-import { Product, ProductVariant, PriceList, PriceListItem, UpsellRule, ProductAttachment } from '../models/index.js';
+import { Product, ProductVariant, PriceList, PriceListItem, UpsellRule, ProductAttachment, ApprovalChain } from '../models/index.js';
 
 // --- Products CRUD ---
 
@@ -76,7 +76,7 @@ export const getProduct = async (req, res) => {
       where: { id: productId, organization_id },
       include: [
         { model: ProductVariant, as: 'variants' },
-        { model: PriceListItem, as: 'priceListItems' }
+        { model: PriceListItem, as: 'price_list_items' }
       ]
     });
 
@@ -434,3 +434,94 @@ export const resolvePrice = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// --- Upsell & Cross-Sell Engine CRUD ---
+
+export const listUpsellRules = async (req, res) => {
+  try {
+    const organization_id = req.orgContext.organizationId;
+    const rules = await UpsellRule.findAll({
+      where: { organization_id },
+      include: [
+        { model: Product, as: 'trigger_product' },
+        { model: Product, as: 'recommended_product' }
+      ],
+      order: [['priority_rank', 'ASC']]
+    });
+    res.status(200).json(rules);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const createUpsellRule = async (req, res) => {
+  try {
+    const organization_id = req.orgContext.organizationId;
+    const { trigger_product_id, recommended_product_id, priority_rank = 1, promotional_discount_percent = 0, is_active = true } = req.body;
+    const rule = await UpsellRule.create({
+      organization_id,
+      trigger_product_id,
+      recommended_product_id,
+      priority_rank,
+      promotional_discount_percent,
+      is_active
+    });
+    res.status(201).json(rule);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const updateUpsellRule = async (req, res) => {
+  try {
+    const organization_id = req.orgContext.organizationId;
+    const { ruleId } = req.params;
+    const rule = await UpsellRule.findOne({ where: { id: ruleId, organization_id } });
+    if (!rule) return res.status(404).json({ error: 'Upsell rule not found' });
+    await rule.update(req.body);
+    res.status(200).json(rule);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const deleteUpsellRule = async (req, res) => {
+  try {
+    const organization_id = req.orgContext.organizationId;
+    const { ruleId } = req.params;
+    const rule = await UpsellRule.findOne({ where: { id: ruleId, organization_id } });
+    if (!rule) return res.status(404).json({ error: 'Upsell rule not found' });
+    await rule.destroy();
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getUpsellConfig = async (req, res) => {
+  try {
+    const organization_id = req.orgContext.organizationId;
+    const chain = await ApprovalChain.findOne({ where: { organization_id } });
+    const minimum_margin_threshold = chain ? parseFloat(chain.minimum_upsell_margin_threshold || 20) : 20;
+    res.status(200).json({ minimum_margin_threshold });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const updateUpsellConfig = async (req, res) => {
+  try {
+    const organization_id = req.orgContext.organizationId;
+    const { minimum_margin_threshold } = req.body;
+    if (minimum_margin_threshold !== undefined) {
+      await ApprovalChain.update(
+        { minimum_upsell_margin_threshold },
+        { where: { organization_id } }
+      );
+    }
+    res.status(200).json({ minimum_margin_threshold });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
