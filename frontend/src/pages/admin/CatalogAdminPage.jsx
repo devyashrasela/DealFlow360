@@ -9,7 +9,7 @@ import { Card } from '../../components/ui/Card';
 import { 
   Plus, Edit2, Trash2, ChevronDown, ChevronRight, 
   Settings, DollarSign, PackageOpen, Layers, CheckCircle2,
-  AlertCircle, Sparkles, X, RefreshCw, Clock, ArrowUpRight
+  AlertCircle, Sparkles, X, RefreshCw, ArrowUpRight
 } from 'lucide-react';
 
 export function CatalogAdminPage({ initialTab }) {
@@ -151,9 +151,6 @@ export function CatalogAdminPage({ initialTab }) {
   );
 
   const activePlansCount = subscriptionPlans.filter(p => p.is_active !== false).length;
-  const monthlyPlansCount = subscriptionPlans.filter(p => (p.billing_cadence || 'monthly').toLowerCase() === 'monthly').length;
-  const annualPlansCount = subscriptionPlans.filter(p => ['annual', 'yearly'].includes((p.billing_cadence || '').toLowerCase())).length;
-  const quarterlyPlansCount = subscriptionPlans.filter(p => (p.billing_cadence || '').toLowerCase() === 'quarterly').length;
 
   const handleOpenCreateProduct = () => {
     setCurrentProduct(null);
@@ -738,7 +735,7 @@ export function CatalogAdminPage({ initialTab }) {
             {activeTab === 'plans' && (
               <div className="space-y-6">
                 {/* KPI Stats Strip */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Card 1: Configured Plan Tiers */}
                   <div className="bg-white p-5 rounded-xl border border-neutral-200/60 shadow-xs">
                     <div className="flex items-center justify-between text-neutral-500 text-xs font-semibold uppercase tracking-wider">
@@ -755,23 +752,7 @@ export function CatalogAdminPage({ initialTab }) {
                     </p>
                   </div>
 
-                  {/* Card 2: Billing Cadences */}
-                  <div className="bg-white p-5 rounded-xl border border-neutral-200/60 shadow-xs">
-                    <div className="flex items-center justify-between text-neutral-500 text-xs font-semibold uppercase tracking-wider">
-                      <span>Cadence Coverage</span>
-                      <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600">
-                        <Clock className="w-4 h-4" />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-bold text-[#111826] mt-2">
-                      {monthlyPlansCount} Monthly{annualPlansCount > 0 ? ` • ${annualPlansCount} Annual` : ''}{quarterlyPlansCount > 0 ? ` • ${quarterlyPlansCount} Qtr` : ''}
-                    </p>
-                    <p className="text-xs text-neutral-500 mt-1">
-                      Automated recurring contract cycles
-                    </p>
-                  </div>
-
-                  {/* Card 3: Live Contracts Hub */}
+                  {/* Card 2: Live Contracts Hub */}
                   <div className="bg-white p-5 rounded-xl border border-neutral-200/60 shadow-xs flex flex-col justify-between">
                     <div>
                       <div className="flex items-center justify-between text-neutral-500 text-xs font-semibold uppercase tracking-wider">
