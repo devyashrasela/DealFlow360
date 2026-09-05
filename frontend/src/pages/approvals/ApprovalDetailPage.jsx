@@ -17,8 +17,8 @@ export function ApprovalDetailPage() {
   const fetchData = async () => {
     try {
       const [qRes, logsRes] = await Promise.all([
-        apiClient.get(`/api/approvals/${id}/approval`),
-        apiClient.get(`/api/approvals/${id}/audit-logs`)
+        apiClient.get(`/approvals/${id}/approval`),
+        apiClient.get(`/approvals/${id}/audit-logs`)
       ]);
       setQuotation(qRes);
       setAuditLogs(logsRes || []);
@@ -32,13 +32,13 @@ export function ApprovalDetailPage() {
   const handleAction = async (actionType) => {
     try {
       if (actionType === 'approve') {
-        await apiClient.post(`/api/approvals/${id}/approve`, { comments });
+        await apiClient.post(`/approvals/${id}/approve`, { comments });
       } else {
         if (!comments && actionType === 'reject') {
           alert('Comments are required for rejection');
           return;
         }
-        await apiClient.post(`/api/approvals/${id}/reject`, { comments });
+        await apiClient.post(`/approvals/${id}/reject`, { comments });
       }
       navigate('/approvals');
     } catch (err) {

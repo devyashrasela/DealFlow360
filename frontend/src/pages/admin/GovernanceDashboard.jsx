@@ -18,13 +18,13 @@ export function GovernanceDashboard() {
     try {
       if (activeTab === 'ceilings') {
         const [tc, cc] = await Promise.all([
-          apiClient.get('/api/governance/tier-ceilings'),
-          apiClient.get('/api/governance/category-ceilings')
+          apiClient.get('/governance/tier-ceilings'),
+          apiClient.get('/governance/category-ceilings')
         ]);
         setTierCeilings(tc || []);
         setCategoryCeilings(cc || []);
       } else if (activeTab === 'slabs') {
-        const ac = await apiClient.get('/api/governance/approval-chains');
+        const ac = await apiClient.get('/governance/approval-chains');
         setApprovalChains(ac || []);
       }
     } catch (err) {

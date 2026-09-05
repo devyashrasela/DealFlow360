@@ -15,7 +15,7 @@ export function ApprovalListPage() {
 
   const fetchApprovals = async () => {
     try {
-      const res = await apiClient.get('/api/approvals/pending');
+      const res = await apiClient.get('/approvals/pending');
       setApprovals(res || []);
     } catch (err) {
       setError(err.message);

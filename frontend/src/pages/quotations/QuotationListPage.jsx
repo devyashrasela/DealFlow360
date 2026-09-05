@@ -23,7 +23,7 @@ export function QuotationListPage() {
 
   const fetchQuotations = async () => {
     try {
-      const res = await apiClient.get('/api/quotations?limit=100');
+      const res = await apiClient.get('/quotations?limit=100');
       setQuotations(res.quotations || []);
     } catch (err) {
       setError(err.message);
@@ -36,8 +36,8 @@ export function QuotationListPage() {
     try {
       setIsModalOpen(true);
       const [custRes, plRes] = await Promise.all([
-        apiClient.get('/api/customers'),
-        apiClient.get('/api/catalog/price-lists')
+        apiClient.get('/customers'),
+        apiClient.get('/catalog/price-lists')
       ]);
       setCustomers(custRes);
       setPriceLists(plRes.priceLists || []);
@@ -52,7 +52,7 @@ export function QuotationListPage() {
     try {
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 30);
-      const res = await apiClient.post('/api/quotations', {
+      const res = await apiClient.post('/quotations', {
         customer_account_id: selectedCustomer,
         price_list_id: selectedPriceList,
         expiration_date: futureDate.toISOString()

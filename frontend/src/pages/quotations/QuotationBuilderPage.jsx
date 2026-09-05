@@ -22,9 +22,9 @@ export function QuotationBuilderPage() {
   const fetchData = async () => {
     try {
       const [qRes, pRes, uRes] = await Promise.all([
-        apiClient.get(`/api/quotations/${id}`),
-        apiClient.get('/api/catalog'),
-        apiClient.get(`/api/quotations/${id}/upsells`)
+        apiClient.get(`/quotations/${id}`),
+        apiClient.get('/catalog'),
+        apiClient.get(`/quotations/${id}/upsells`)
       ]);
       setQuotation(qRes);
       setProducts(pRes.products || []);
@@ -41,7 +41,7 @@ export function QuotationBuilderPage() {
 
   const addLine = async () => {
     try {
-      await apiClient.post(`/api/quotations/${id}/lines`, {
+      await apiClient.post(`/quotations/${id}/lines`, {
         product_id: newLineProductId,
         quantity: Number(newLineQty),
         applied_discount_percentage: Number(newLineDiscount)
@@ -55,7 +55,7 @@ export function QuotationBuilderPage() {
 
   const addUpsell = async (productId) => {
     try {
-      await apiClient.post(`/api/quotations/${id}/lines`, {
+      await apiClient.post(`/quotations/${id}/lines`, {
         product_id: productId,
         quantity: 1,
         applied_discount_percentage: 0
@@ -69,7 +69,7 @@ export function QuotationBuilderPage() {
 
   const updateLineDiscount = async (lineId, qty, discount) => {
     try {
-      await apiClient.put(`/api/quotations/${id}/lines/${lineId}`, {
+      await apiClient.put(`/quotations/${id}/lines/${lineId}`, {
         quantity: Number(qty),
         applied_discount_percentage: Number(discount)
       });
@@ -81,7 +81,7 @@ export function QuotationBuilderPage() {
 
   const removeLine = async (lineId) => {
     try {
-      await apiClient.delete(`/api/quotations/${id}/lines/${lineId}`);
+      await apiClient.delete(`/quotations/${id}/lines/${lineId}`);
       fetchData();
     } catch (err) {
       console.error(err);
