@@ -33,7 +33,7 @@ export const Sidebar = () => {
 
   // ── Nav definitions with role-gated paths ────────────────────────────────
   const MAIN_NAV = [
-    { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Quotations', path: '/quotations', icon: FileText },
     { name: 'Approvals', path: '/approvals', icon: Users },
     { name: 'Fulfillment', path: '/fulfillment', icon: Package },

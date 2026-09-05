@@ -39,7 +39,7 @@ export function GovernanceDashboard({ initialTab }) {
   const [tierModal, setTierModal] = useState({ isOpen: false, data: null });
   const [categoryModal, setCategoryModal] = useState({ isOpen: false, data: null });
   const [slabModal, setSlabModal] = useState({ isOpen: false, data: null });
-  
+
   // Guardrails state (inline edit)
   const [guardrails, setGuardrails] = useState({
     absolute_margin_hard_stop: 10,
@@ -176,7 +176,7 @@ export function GovernanceDashboard({ initialTab }) {
 
   return (
     <div className="p-8 max-w-7xl mx-auto h-full flex flex-col space-y-6">
-      
+
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
@@ -195,18 +195,18 @@ export function GovernanceDashboard({ initialTab }) {
 
       {/* Tabs */}
       <div className="flex border-b border-neutral-200/60 gap-8">
-        <button 
+        <button
           className={`pb-3 font-medium text-sm transition-colors relative ${activeTab === 'ceilings' ? 'text-[#724B66]' : 'text-[#2E3141]/60 hover:text-[#2E3141]'}`}
           onClick={() => setActiveTab('ceilings')}
         >
-          <span>Screen 17: Discount Ceilings</span>
+          <span>Discount Ceilings</span>
           {activeTab === 'ceilings' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#724B66] rounded-t-full" />}
         </button>
-        <button 
+        <button
           className={`pb-3 font-medium text-sm transition-colors relative ${activeTab === 'slabs' ? 'text-[#724B66]' : 'text-[#2E3141]/60 hover:text-[#2E3141]'}`}
           onClick={() => setActiveTab('slabs')}
         >
-          <span>Screen 18: Risk Slabs & Margins</span>
+          <span>Risk Slabs & Margins</span>
           {activeTab === 'slabs' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#724B66] rounded-t-full" />}
         </button>
       </div>
@@ -221,14 +221,14 @@ export function GovernanceDashboard({ initialTab }) {
       {/* TAB 1: DISCOUNT CEILINGS */}
       {!loading && activeTab === 'ceilings' && (
         <div className="space-y-6">
-          <Card 
-            title="Customer Tier Ceilings" 
+          <Card
+            title="Customer Tier Ceilings"
             subtitle="Maximum allowed discount percentage authorized per customer classification"
             action={
-              <Button 
-                variant="primary" 
-                size="sm" 
-                icon={Plus} 
+              <Button
+                variant="primary"
+                size="sm"
+                icon={Plus}
                 onClick={() => setTierModal({ isOpen: true, data: { tier: 'bronze', max_discount_percentage: 15 } })}
               >
                 Add Tier Ceiling
@@ -262,17 +262,17 @@ export function GovernanceDashboard({ initialTab }) {
                           Active Policy Limit
                         </td>
                         <td className="p-3.5 text-right space-x-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => setTierModal({ isOpen: true, data: { id: tc.id, tier: tierName, max_discount_percentage: tc.max_discount_percentage } })}
                             icon={Edit2}
                           >
                             Edit
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             className="text-rose-600 hover:bg-rose-50"
                             onClick={() => handleDeleteTier(tc.id, tierName)}
                             icon={Trash2}
@@ -289,14 +289,14 @@ export function GovernanceDashboard({ initialTab }) {
             </div>
           </Card>
 
-          <Card 
-            title="Product Category Ceilings" 
+          <Card
+            title="Product Category Ceilings"
             subtitle="Cap discount thresholds across distinct product lines"
             action={
-              <Button 
-                variant="primary" 
-                size="sm" 
-                icon={Plus} 
+              <Button
+                variant="primary"
+                size="sm"
+                icon={Plus}
                 onClick={() => setCategoryModal({ isOpen: true, data: { category: 'hardware', max_discount_percentage: 20 } })}
               >
                 Add Category Ceiling
@@ -330,17 +330,17 @@ export function GovernanceDashboard({ initialTab }) {
                           All {catName} quotation lines
                         </td>
                         <td className="p-3.5 text-right space-x-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => setCategoryModal({ isOpen: true, data: { id: cc.id, category: catName, max_discount_percentage: cc.max_discount_percentage } })}
                             icon={Edit2}
                           >
                             Edit
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             className="text-rose-600 hover:bg-rose-50"
                             onClick={() => handleDeleteCategory(cc.id, catName)}
                             icon={Trash2}
@@ -362,23 +362,23 @@ export function GovernanceDashboard({ initialTab }) {
       {/* TAB 2: RISK SLABS & MARGIN GUARDRAILS */}
       {!loading && activeTab === 'slabs' && (
         <div className="space-y-6">
-          <Card 
-            title="Blended Risk Routing Slabs" 
+          <Card
+            title="Blended Risk Routing Slabs"
             subtitle="Automatic escalation routing driven by Blended Risk Score points"
             action={
-              <Button 
-                variant="primary" 
-                size="sm" 
-                icon={Plus} 
-                onClick={() => setSlabModal({ 
-                  isOpen: true, 
-                  data: { 
-                    risk_tier: 'low_risk_auto', 
-                    min_risk_score: 0, 
-                    max_risk_score: 30, 
-                    requires_manager_approval: false, 
-                    requires_finance_approval: false 
-                  } 
+              <Button
+                variant="primary"
+                size="sm"
+                icon={Plus}
+                onClick={() => setSlabModal({
+                  isOpen: true,
+                  data: {
+                    risk_tier: 'low_risk_auto',
+                    min_risk_score: 0,
+                    max_risk_score: 30,
+                    requires_manager_approval: false,
+                    requires_finance_approval: false
+                  }
                 })}
               >
                 Add Routing Slab
@@ -397,17 +397,17 @@ export function GovernanceDashboard({ initialTab }) {
                 </thead>
                 <tbody className="divide-y divide-neutral-200/60">
                   {approvalChains.map(ac => {
-                    const routingLabel = ac.requires_manager_approval && ac.requires_finance_approval 
+                    const routingLabel = ac.requires_manager_approval && ac.requires_finance_approval
                       ? 'Tier 3: Sales Manager + Finance VP'
-                      : ac.requires_manager_approval 
-                      ? 'Tier 2: Sales Manager Approval' 
-                      : 'Tier 1: Rep Autonomy (Auto-Approve)';
+                      : ac.requires_manager_approval
+                        ? 'Tier 2: Sales Manager Approval'
+                        : 'Tier 1: Rep Autonomy (Auto-Approve)';
 
-                    const routingBadge = ac.requires_manager_approval && ac.requires_finance_approval 
-                      ? 'open' 
-                      : ac.requires_manager_approval 
-                      ? 'pickpack' 
-                      : 'active';
+                    const routingBadge = ac.requires_manager_approval && ac.requires_finance_approval
+                      ? 'open'
+                      : ac.requires_manager_approval
+                        ? 'pickpack'
+                        : 'active';
 
                     return (
                       <tr key={ac.id} className="hover:bg-neutral-50/50 transition-colors">
@@ -423,17 +423,17 @@ export function GovernanceDashboard({ initialTab }) {
                           {routingLabel}
                         </td>
                         <td className="p-3.5 text-right space-x-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => setSlabModal({ isOpen: true, data: { ...ac } })}
                             icon={Edit2}
                           >
                             Edit
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             className="text-rose-600 hover:bg-rose-50"
                             onClick={() => handleDeleteSlab(ac.id)}
                             icon={Trash2}
@@ -449,9 +449,9 @@ export function GovernanceDashboard({ initialTab }) {
               </table>
             </div>
           </Card>
-          
-          <Card 
-            title="Global Margin Guardrails" 
+
+          <Card
+            title="Global Margin Guardrails"
             subtitle="Hard boundaries that prevent deal confirmation regardless of risk points"
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -460,8 +460,8 @@ export function GovernanceDashboard({ initialTab }) {
                   Absolute Margin Hard Stop (%)
                 </label>
                 <div className="flex gap-2 mt-1">
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     className="flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:border-[#724B66] bg-white font-mono font-bold"
                     value={guardrails.absolute_margin_hard_stop}
                     onChange={(e) => setGuardrails(g => ({ ...g, absolute_margin_hard_stop: Number(e.target.value) }))}
@@ -482,8 +482,8 @@ export function GovernanceDashboard({ initialTab }) {
                   Minimum Upsell Margin Threshold (%)
                 </label>
                 <div className="flex gap-2 mt-1">
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     className="flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:border-[#724B66] bg-white font-mono font-bold"
                     value={guardrails.minimum_upsell_margin_threshold}
                     onChange={(e) => setGuardrails(g => ({ ...g, minimum_upsell_margin_threshold: Number(e.target.value) }))}
@@ -506,8 +506,8 @@ export function GovernanceDashboard({ initialTab }) {
       {/* --- MODALS --- */}
 
       {/* Tier Modal */}
-      <Modal 
-        isOpen={tierModal.isOpen} 
+      <Modal
+        isOpen={tierModal.isOpen}
         onClose={() => setTierModal({ isOpen: false, data: null })}
         title={tierModal.data?.id ? "Edit Customer Tier Ceiling" : "Add Customer Tier Ceiling"}
         maxWidth="max-w-md"
@@ -515,7 +515,7 @@ export function GovernanceDashboard({ initialTab }) {
         <form onSubmit={handleSaveTier} className="space-y-4 mt-2">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-[#111826] mb-1">Customer Tier</label>
-            <select 
+            <select
               className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-[#724B66] outline-none bg-white"
               value={tierModal.data?.tier || 'bronze'}
               onChange={(e) => setTierModal(m => ({ ...m, data: { ...m.data, tier: e.target.value } }))}
@@ -530,13 +530,13 @@ export function GovernanceDashboard({ initialTab }) {
           </div>
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-[#111826] mb-1">Max Authorized Discount (%)</label>
-            <input 
-              type="number" 
+            <input
+              type="number"
               className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-[#724B66] outline-none font-mono"
               value={tierModal.data?.max_discount_percentage || 0}
               onChange={(e) => setTierModal(m => ({ ...m, data: { ...m.data, max_discount_percentage: Number(e.target.value) } }))}
-              min="0" 
-              max="100" 
+              min="0"
+              max="100"
               required
             />
           </div>
@@ -548,8 +548,8 @@ export function GovernanceDashboard({ initialTab }) {
       </Modal>
 
       {/* Category Modal */}
-      <Modal 
-        isOpen={categoryModal.isOpen} 
+      <Modal
+        isOpen={categoryModal.isOpen}
         onClose={() => setCategoryModal({ isOpen: false, data: null })}
         title={categoryModal.data?.id ? "Edit Category Ceiling" : "Add Product Category Ceiling"}
         maxWidth="max-w-md"
@@ -557,7 +557,7 @@ export function GovernanceDashboard({ initialTab }) {
         <form onSubmit={handleSaveCategory} className="space-y-4 mt-2">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-[#111826] mb-1">Product Category</label>
-            <select 
+            <select
               className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-[#724B66] outline-none bg-white"
               value={categoryModal.data?.category || 'hardware'}
               onChange={(e) => setCategoryModal(m => ({ ...m, data: { ...m.data, category: e.target.value } }))}
@@ -570,13 +570,13 @@ export function GovernanceDashboard({ initialTab }) {
           </div>
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-[#111826] mb-1">Max Category Discount (%)</label>
-            <input 
-              type="number" 
+            <input
+              type="number"
               className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-[#724B66] outline-none font-mono"
               value={categoryModal.data?.max_discount_percentage || 0}
               onChange={(e) => setCategoryModal(m => ({ ...m, data: { ...m.data, max_discount_percentage: Number(e.target.value) } }))}
-              min="0" 
-              max="100" 
+              min="0"
+              max="100"
               required
             />
           </div>
@@ -588,8 +588,8 @@ export function GovernanceDashboard({ initialTab }) {
       </Modal>
 
       {/* Slab Modal */}
-      <Modal 
-        isOpen={slabModal.isOpen} 
+      <Modal
+        isOpen={slabModal.isOpen}
         onClose={() => setSlabModal({ isOpen: false, data: null })}
         title={slabModal.data?.id ? "Edit Risk Slab" : "Add Risk Routing Slab"}
         maxWidth="max-w-lg"
@@ -597,7 +597,7 @@ export function GovernanceDashboard({ initialTab }) {
         <form onSubmit={handleSaveSlab} className="space-y-4 mt-2">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-[#111826] mb-1">Risk Tier Classification</label>
-            <select 
+            <select
               className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-[#724B66] outline-none bg-white"
               value={slabModal.data?.risk_tier || 'low_risk_auto'}
               onChange={(e) => setSlabModal(m => ({ ...m, data: { ...m.data, risk_tier: e.target.value } }))}
@@ -611,8 +611,8 @@ export function GovernanceDashboard({ initialTab }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-[#111826] mb-1">Min Score (pt)</label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-[#724B66] outline-none font-mono"
                 value={slabModal.data?.min_risk_score || 0}
                 onChange={(e) => setSlabModal(m => ({ ...m, data: { ...m.data, min_risk_score: Number(e.target.value) } }))}
@@ -621,8 +621,8 @@ export function GovernanceDashboard({ initialTab }) {
             </div>
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-[#111826] mb-1">Max Score (pt)</label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-[#724B66] outline-none font-mono"
                 value={slabModal.data?.max_risk_score ?? ''}
                 onChange={(e) => setSlabModal(m => ({ ...m, data: { ...m.data, max_risk_score: e.target.value === '' ? null : Number(e.target.value) } }))}
@@ -632,8 +632,8 @@ export function GovernanceDashboard({ initialTab }) {
           </div>
           <div className="space-y-3 pt-2 bg-neutral-50 p-3 rounded-lg border border-neutral-200/60">
             <label className="flex items-center gap-2 cursor-pointer">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 className="rounded border-neutral-300 text-[#724B66] focus:ring-[#724B66]"
                 checked={slabModal.data?.requires_manager_approval || false}
                 onChange={(e) => setSlabModal(m => ({ ...m, data: { ...m.data, requires_manager_approval: e.target.checked } }))}
@@ -641,8 +641,8 @@ export function GovernanceDashboard({ initialTab }) {
               <span className="text-sm font-medium text-[#111826]">Escalate to Sales Manager</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 className="rounded border-neutral-300 text-[#724B66] focus:ring-[#724B66]"
                 checked={slabModal.data?.requires_finance_approval || false}
                 onChange={(e) => setSlabModal(m => ({ ...m, data: { ...m.data, requires_finance_approval: e.target.checked } }))}

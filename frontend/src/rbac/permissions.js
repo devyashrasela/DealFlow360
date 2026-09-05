@@ -9,22 +9,22 @@
 
 export const ROLE_PERMISSIONS = {
   sales_rep: {
-    routes: ['/', '/quotations', '/deal-health'],
+    routes: ['/', '/dashboard', '/quotations', '/deal-health'],
     sidebarSections: ['main'],
     description: 'Sales Representative',
   },
   sales_manager: {
-    routes: ['/', '/quotations', '/approvals', '/deal-health', '/reports'],
+    routes: ['/', '/dashboard', '/quotations', '/approvals', '/deal-health', '/reports'],
     sidebarSections: ['main'],
     description: 'Sales Manager',
   },
   finance_ops: {
-    routes: ['/', '/approvals', '/fulfillment', '/subscriptions', '/invoices'],
+    routes: ['/', '/dashboard', '/approvals', '/fulfillment', '/subscriptions', '/invoices'],
     sidebarSections: ['main'],
     description: 'Finance / Operations',
   },
   admin: {
-    routes: ['/', '/quotations', '/approvals', '/fulfillment', '/subscriptions', '/invoices', '/deal-health', '/reports', '/admin', '/products', '/price-lists', '/discount-rules', '/approval-chains', '/warehouses', '/subscription-plans', '/settings'],
+    routes: ['/', '/dashboard', '/quotations', '/approvals', '/fulfillment', '/subscriptions', '/invoices', '/deal-health', '/reports', '/admin', '/products', '/price-lists', '/discount-rules', '/approval-chains', '/warehouses', '/subscription-plans', '/settings'],
     sidebarSections: ['main', 'config'],
     description: 'Administrator',
   },
@@ -64,7 +64,7 @@ export function canAccess(role, pathname) {
  */
 function normalizePath(pathname) {
   // Static paths pass through
-  const staticPrefixes = ['/', '/quotations', '/approvals', '/fulfillment', '/deal-health', '/reports', '/admin', '/login', '/register', '/portal', '/select-workspace', '/invite', '/settings', '/products', '/price-lists', '/discount-rules', '/approval-chains', '/warehouses', '/subscription-plans'];
+  const staticPrefixes = ['/', '/dashboard', '/landing', '/quotations', '/approvals', '/fulfillment', '/deal-health', '/reports', '/admin', '/login', '/register', '/portal', '/select-workspace', '/invite', '/settings', '/products', '/price-lists', '/discount-rules', '/approval-chains', '/warehouses', '/subscription-plans'];
   for (const prefix of staticPrefixes) {
     if (prefix === '/' && pathname === '/') return '/';
     if (prefix !== '/' && pathname.startsWith(prefix)) return pathname;
