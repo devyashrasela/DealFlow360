@@ -4,6 +4,9 @@ import { AppLayout } from './components/layout/AppLayout.jsx';
 import { DashboardPage } from './pages/DashboardPage.jsx';
 import { FulfillmentCockpitPage } from './pages/fulfillment/FulfillmentCockpitPage.jsx';
 import { WarehouseSplitDetailPage } from './pages/fulfillment/WarehouseSplitDetailPage.jsx';
+import { CustomerPortalPage } from './pages/CustomerPortalPage.jsx';
+import { DealHealthDashboard } from './pages/DealHealthDashboard.jsx';
+import { ReportingDashboard } from './pages/ReportingDashboard.jsx';
 
 export default function App() {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -18,6 +21,10 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* External Customer Portal (No AppLayout) */}
+        <Route path="/portal" element={<CustomerPortalPage />} />
+
+        {/* Internal Workspace */}
         <Route
           element={
             <AppLayout
@@ -30,6 +37,8 @@ export default function App() {
           <Route index element={<DashboardPage />} />
           <Route path="fulfillment" element={<FulfillmentCockpitPage />} />
           <Route path="fulfillment/orders/:id" element={<WarehouseSplitDetailPage />} />
+          <Route path="deal-health" element={<DealHealthDashboard />} />
+          <Route path="reports" element={<ReportingDashboard />} />
 
           {/* Placeholders for upcoming features */}
           <Route

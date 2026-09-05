@@ -1,6 +1,15 @@
 const BASE_URL = '/api';
 
 export const apiClient = {
+  getHeaders() {
+    const token = localStorage.getItem('token');
+    return {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+  },
+
   async get(endpoint, params = {}) {
     const url = new URL(BASE_URL + endpoint, window.location.origin);
     Object.keys(params).forEach((key) => {
@@ -10,9 +19,7 @@ export const apiClient = {
     });
 
     const res = await fetch(url.toString(), {
-      headers: {
-        'Accept': 'application/json',
-      },
+      headers: this.getHeaders(),
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
@@ -24,10 +31,7 @@ export const apiClient = {
   async post(endpoint, data = {}) {
     const res = await fetch(BASE_URL + endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
+      headers: this.getHeaders(),
       body: JSON.stringify(data),
     });
     if (!res.ok) {
@@ -40,10 +44,7 @@ export const apiClient = {
   async patch(endpoint, data = {}) {
     const res = await fetch(BASE_URL + endpoint, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
+      headers: this.getHeaders(),
       body: JSON.stringify(data),
     });
     if (!res.ok) {
