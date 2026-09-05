@@ -31,10 +31,6 @@ export const syncDatabase = async () => {
     console.log('Syncing Sequelize models with MySQL Database...');
     await sequelize.sync();
     console.log('Sequelize database models synchronized successfully!');
-
-    // Start the scheduled background booking scheduler
-    startBookingScheduler();
-
   } catch (err) {
     console.error('Failed to sync Sequelize database models:', err);
     throw err;
