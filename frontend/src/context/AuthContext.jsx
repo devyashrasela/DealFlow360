@@ -67,12 +67,15 @@ export function AuthProvider({ children }) {
     localStorage.setItem('activeOrgId', orgId);
   };
 
+  const activeOrg = memberships.find(m => m.organization_id === activeOrgId)?.organization || null;
+
   return (
     <AuthContext.Provider value={{
       user,
       memberships,
       token,
       activeOrgId,
+      activeOrg,
       activeRole,
       login,
       logout,

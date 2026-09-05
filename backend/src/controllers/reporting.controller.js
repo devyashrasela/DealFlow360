@@ -4,17 +4,17 @@ import {
   sequelize, Quotation, QuotationLine, Subscription,
   Invoice, FulfillmentOrder, Backorder,
 } from '../models/index.js';
-import { authenticate, requireInternal } from '../middleware/auth.js';
+import { authenticate, resolveOrgContext, requireRoles } from '../middleware/auth.middleware.js';
 
 const router = Router();
-router.use(authenticate, requireInternal('admin', 'sales_manager', 'finance_ops'));
+router.use(authenticate, resolveOrgContext, requireRoles('admin', 'sales_manager', 'finance_ops'));
 
 // ──────────────────────────────────────────────
 // GET /api/reports/kpi-summary
 // Aggregate: Pipeline Value, Active MRR, Avg Margin %, Slippage Rate
 // ──────────────────────────────────────────────
 router.get('/kpi-summary', async (req, res) => {
-  const org = req.user.organization_id;
+  const org = req.orgContext.organizationId;
 
   // Total pipeline value: sum grand_total of non-terminal quotes
   const pipeline = await Quotation.findOne({
@@ -63,7 +63,7 @@ router.get('/kpi-summary', async (req, res) => {
 // ──────────────────────────────────────────────
 router.get('/pipeline-by-stage', async (req, res) => {
   const results = await Quotation.findAll({
-    where: { organization_id: req.user.organization_id },
+    where: { organization_id: req.orgContext.organizationId },
     attributes: [
       'stage',
       [fn('COUNT', col('id')), 'count'],
@@ -85,7 +85,7 @@ router.get('/revenue-by-month', async (req, res) => {
 
   const invoices = await Invoice.findAll({
     where: {
-      organization_id: req.user.organization_id,
+      organization_id: req.orgContext.organizationId,
       status: { [Op.in]: ['posted', 'partially_paid', 'paid'] },
       issue_date: { [Op.gte]: twelveMonthsAgo },
     },

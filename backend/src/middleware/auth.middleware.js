@@ -83,12 +83,13 @@ export const resolveOrgContext = async (req, res, next) => {
 };
 
 export const requireRoles = (...allowedRoles) => {
+  const flattenedRoles = allowedRoles.flat();
   return (req, res, next) => {
     if (!req.orgContext || !req.orgContext.membership) {
       return res.status(403).json({ error: 'Organization context required' });
     }
 
-    if (!allowedRoles.includes(req.orgContext.membership.role)) {
+    if (!flattenedRoles.includes(req.orgContext.membership.role)) {
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
 

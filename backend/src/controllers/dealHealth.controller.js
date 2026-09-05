@@ -4,10 +4,10 @@ import {
   Quotation, QuotationLine, DealHealthAlert, RepDiscountBaseline,
   FulfillmentOrder, Backorder,
 } from '../models/index.js';
-import { authenticate, requireInternal } from '../middleware/auth.js';
+import { authenticate, resolveOrgContext, requireRoles } from '../middleware/auth.middleware.js';
 
 const router = Router();
-router.use(authenticate, requireInternal('admin', 'sales_manager', 'finance_ops'));
+router.use(authenticate, resolveOrgContext, requireRoles('admin', 'sales_manager', 'finance_ops'));
 
 const STALE_DAYS = 5;
 const SLIPPAGE_HOURS = 48;
@@ -17,7 +17,7 @@ const SLIPPAGE_HOURS = 48;
 // Run all three diagnostic checks, persist alerts
 // ──────────────────────────────────────────────
 router.post('/scan', async (req, res) => {
-  const org = req.user.organization_id;
+  const org = req.orgContext.organizationId;
   const alerts = [];
 
   // 1. Stalled deals
@@ -122,7 +122,7 @@ router.post('/scan', async (req, res) => {
 router.get('/alerts', async (req, res) => {
   const alerts = await DealHealthAlert.findAll({
     where: {
-      organization_id: req.user.organization_id,
+      organization_id: req.orgContext.organizationId,
       resolution_status: { [Op.in]: ['active', 'acknowledged', 'escalated'] },
     },
     order: [['created_at', 'DESC']],
@@ -139,7 +139,7 @@ router.post('/send-nudge', async (req, res) => {
   if (!alert_id) return res.status(400).json({ error: 'alert_id required' });
 
   const alert = await DealHealthAlert.findOne({
-    where: { id: alert_id, organization_id: req.user.organization_id },
+    where: { id: alert_id, organization_id: req.orgContext.organizationId },
   });
   if (!alert) return res.status(404).json({ error: 'Alert not found' });
 
@@ -160,7 +160,7 @@ router.post('/escalate-to-finance', async (req, res) => {
   if (!alert_id) return res.status(400).json({ error: 'alert_id required' });
 
   const alert = await DealHealthAlert.findOne({
-    where: { id: alert_id, organization_id: req.user.organization_id },
+    where: { id: alert_id, organization_id: req.orgContext.organizationId },
   });
   if (!alert) return res.status(404).json({ error: 'Alert not found' });
 

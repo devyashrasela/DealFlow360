@@ -5,6 +5,7 @@ import {
   ApprovalAuditLog,
   ApprovalChain,
   OrganizationMembership,
+  CustomerAccount,
   User,
   sequelize
 } from '../models/index.js';
@@ -112,7 +113,6 @@ export const submitForApproval = async (req, res) => {
     if (riskTierValue === 'medium_risk_manager') {
       await quotation.update({ stage: 'pending_approval' }, { transaction: t });
       const step = await QuotationApproval.create({
-        organization_id: orgId,
         quotation_id: quotation.id,
         step_order: 1,
         required_role: 'sales_manager',
@@ -127,14 +127,12 @@ export const submitForApproval = async (req, res) => {
     } else if (riskTierValue === 'high_risk_finance') {
       await quotation.update({ stage: 'pending_approval' }, { transaction: t });
       const step1 = await QuotationApproval.create({
-        organization_id: orgId,
         quotation_id: quotation.id,
         step_order: 1,
         required_role: 'sales_manager',
         status: 'pending'
       }, { transaction: t });
       const step2 = await QuotationApproval.create({
-        organization_id: orgId,
         quotation_id: quotation.id,
         step_order: 2,
         required_role: 'finance_ops',
@@ -161,15 +159,18 @@ export const listPendingApprovals = async (req, res) => {
     const orgId = req.orgContext.organizationId;
     const userRole = req.orgContext.membership.role;
 
+    const roleWhere = userRole === 'admin' ? {} : { required_role: userRole };
+
     const pending = await QuotationApproval.findAll({
       where: {
-        organization_id: orgId,
         status: 'pending',
-        required_role: userRole
+        ...roleWhere
       },
       include: [{
         model: Quotation,
-        include: ['customer_account']
+        as: 'quotation',
+        where: { organization_id: orgId },
+        include: [{ model: CustomerAccount, as: 'customer_account' }]
       }]
     });
 
@@ -223,7 +224,7 @@ export const approveQuotation = async (req, res) => {
     }
 
     const pendingSteps = await QuotationApproval.findAll({
-      where: { quotation_id: quotation.id, status: 'pending', organization_id: orgId },
+      where: { quotation_id: quotation.id, status: 'pending' },
       order: [['step_order', 'ASC']],
       transaction: t
     });
@@ -310,7 +311,7 @@ export const rejectQuotation = async (req, res) => {
     }
 
     const pendingSteps = await QuotationApproval.findAll({
-      where: { quotation_id: quotation.id, status: 'pending', organization_id: orgId },
+      where: { quotation_id: quotation.id, status: 'pending' },
       order: [['step_order', 'ASC']],
       transaction: t
     });

@@ -1,5 +1,6 @@
-import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext.jsx';
 import {
   LayoutDashboard,
   FileText,
@@ -18,38 +19,51 @@ import {
   Settings,
   ChevronDown,
   MessageSquare,
-  User
+  User,
+  LogOut,
+  Building
 } from 'lucide-react';
-
-const MAIN_NAV = [
-  { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-  { name: 'Quotations', path: '/quotations', icon: FileText },
-  { name: 'Approvals', path: '/approvals', icon: Users },
-  { name: 'Fulfillment', path: '/fulfillment', icon: Package },
-  { name: 'Subscriptions', path: '/acme/subscriptions', icon: Repeat },
-  { name: 'Invoices', path: '/acme/invoices', icon: Receipt },
-  { name: 'Deal Health', path: '/deal-health', icon: Activity },
-  { name: 'Reports', path: '/reports', icon: BarChart3 },
-];
-
-const CUSTOMER_PORTAL_NAV = [
-  { name: 'Portal Dashboard', path: '/acme/techstart/dashboard', icon: LayoutDashboard },
-  { name: 'My Quotes', path: '/acme/techstart/quotes', icon: FileText },
-  { name: 'Messages', path: '/acme/techstart/messages', icon: MessageSquare },
-  { name: 'Company Profile', path: '/acme/techstart/profile', icon: User },
-];
-
-const CONFIG_NAV = [
-  { name: 'Products', path: '/products', icon: Box },
-  { name: 'Price Lists', path: '/price-lists', icon: Tags },
-  { name: 'Discount Rules', path: '/discount-rules', icon: Percent },
-  { name: 'Approval Chains', path: '/approval-chains', icon: GitBranch },
-  { name: 'Warehouses', path: '/warehouses', icon: WarehouseIcon },
-  { name: 'Subscription Plans', path: '/subscription-plans', icon: Layers },
-];
 
 export const Sidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { activeOrg, memberships, switchWorkspace, logout } = useAuth();
+  const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
+
+  const orgSlug = activeOrg?.slug || 'acme';
+  const orgName = activeOrg?.trading_name || activeOrg?.legal_name || 'Organization';
+
+  const MAIN_NAV = [
+    { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+    { name: 'Quotations', path: '/quotations', icon: FileText },
+    { name: 'Approvals', path: '/approvals', icon: Users },
+    { name: 'Fulfillment', path: '/fulfillment', icon: Package },
+    { name: 'Subscriptions', path: `/${orgSlug}/subscriptions`, icon: Repeat },
+    { name: 'Invoices', path: `/${orgSlug}/invoices`, icon: Receipt },
+    { name: 'Deal Health', path: '/deal-health', icon: Activity },
+    { name: 'Reports', path: '/reports', icon: BarChart3 },
+  ];
+
+  const CUSTOMER_PORTAL_NAV = [
+    { name: 'Portal Dashboard', path: `/${orgSlug}/techstart/dashboard`, icon: LayoutDashboard },
+    { name: 'My Quotes', path: `/${orgSlug}/techstart/quotes`, icon: FileText },
+    { name: 'Messages', path: `/${orgSlug}/techstart/messages`, icon: MessageSquare },
+    { name: 'Company Profile', path: `/${orgSlug}/techstart/profile`, icon: User },
+  ];
+
+  const CONFIG_NAV = [
+    { name: 'Products', path: '/products', icon: Box },
+    { name: 'Price Lists', path: '/price-lists', icon: Tags },
+    { name: 'Discount Rules', path: '/discount-rules', icon: Percent },
+    { name: 'Approval Chains', path: '/approval-chains', icon: GitBranch },
+    { name: 'Warehouses', path: '/warehouses', icon: WarehouseIcon },
+    { name: 'Subscription Plans', path: '/subscription-plans', icon: Layers },
+  ];
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <aside className="w-64 bg-[#111826] text-[#FFFFFF] flex flex-col h-screen shrink-0 select-none border-r border-neutral-800">
@@ -61,16 +75,40 @@ export const Sidebar = () => {
       </div>
 
       {/* Organization Switcher */}
-      <div className="px-4 py-3 border-b border-neutral-800/50">
-        <button className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium bg-[#2E3141]/50 hover:bg-[#2E3141] rounded-lg text-neutral-200 transition">
+      <div className="px-4 py-3 border-b border-neutral-800/50 relative">
+        <button
+          onClick={() => memberships.length > 1 && setOrgDropdownOpen((prev) => !prev)}
+          className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium bg-[#2E3141]/50 hover:bg-[#2E3141] rounded-lg text-neutral-200 transition ${memberships.length > 1 ? 'cursor-pointer' : 'cursor-default'}`}
+        >
           <div className="flex items-center gap-2.5 truncate">
             <div className="w-6 h-6 rounded bg-[#724B66] text-[#FFFFFF] flex items-center justify-center text-xs font-bold shrink-0">
-              A
+              {orgName.charAt(0).toUpperCase()}
             </div>
-            <span className="truncate">ACME Corp</span>
+            <span className="truncate">{orgName}</span>
           </div>
-          <ChevronDown className="w-4 h-4 text-neutral-400 shrink-0" />
+          {memberships.length > 1 && (
+            <ChevronDown className="w-4 h-4 text-neutral-400 shrink-0" />
+          )}
         </button>
+
+        {/* Dropdown for org switcher */}
+        {orgDropdownOpen && memberships.length > 1 && (
+          <div className="absolute left-4 right-4 top-14 bg-[#2E3141] border border-neutral-700 rounded-lg shadow-xl py-1 z-50">
+            {memberships.map((m) => (
+              <button
+                key={m.organization_id}
+                onClick={() => {
+                  switchWorkspace(m.organization_id);
+                  setOrgDropdownOpen(false);
+                }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-[#111826] text-neutral-200 flex items-center justify-between"
+              >
+                <span className="truncate">{m.organization?.trading_name || m.organization?.legal_name}</span>
+                <span className="text-[10px] text-neutral-400 uppercase font-mono">{m.role}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Navigation Links */}
@@ -149,15 +187,22 @@ export const Sidebar = () => {
         </div>
       </div>
 
-      {/* Settings Footer */}
-      <div className="p-3 border-t border-neutral-800/80">
+      {/* Footer (Settings & Logout) */}
+      <div className="p-3 border-t border-neutral-800/80 space-y-1">
         <NavLink
           to="/settings"
-          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-neutral-400 hover:text-[#FFFFFF] hover:bg-[#2E3141]/40 transition"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-neutral-400 hover:text-[#FFFFFF] hover:bg-[#2E3141]/40 transition"
         >
           <Settings className="w-4 h-4 shrink-0" />
           <span>Settings</span>
         </NavLink>
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 transition cursor-pointer"
+        >
+          <LogOut className="w-4 h-4 shrink-0" />
+          <span>Sign Out</span>
+        </button>
       </div>
     </aside>
   );

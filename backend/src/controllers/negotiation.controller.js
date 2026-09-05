@@ -4,14 +4,17 @@ import {
   Quotation, QuotationLine, NegotiationThread,
   FulfillmentOrder, Invoice, InvoiceLine,
 } from '../models/index.js';
-import { authenticate, requireCustomerPortal } from '../middleware/auth.js';
+import { authenticate, resolveOrgContext } from '../middleware/auth.middleware.js';
 
 const router = Router();
-router.use(authenticate, requireCustomerPortal);
+router.use(authenticate, resolveOrgContext);
 
-// ── Scope helper: only quotes belonging to caller's customer_account_id ──
+// ── Scope helper: quotes belonging to caller's org or customer account ──
 function scopeWhere(req) {
-  return { customer_account_id: req.user.customer_account_id };
+  if (req.headers['x-customer-account-id']) {
+    return { customer_account_id: req.headers['x-customer-account-id'] };
+  }
+  return { organization_id: req.orgContext.organizationId };
 }
 
 // ──────────────────────────────────────────────
