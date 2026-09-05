@@ -17,6 +17,8 @@ import {
   Layers,
   Settings,
   ChevronDown,
+  MessageSquare,
+  User
 } from 'lucide-react';
 
 const MAIN_NAV = [
@@ -24,10 +26,17 @@ const MAIN_NAV = [
   { name: 'Quotations', path: '/quotations', icon: FileText },
   { name: 'Approvals', path: '/approvals', icon: Users },
   { name: 'Fulfillment', path: '/fulfillment', icon: Package },
-  { name: 'Subscriptions', path: '/subscriptions', icon: Repeat },
-  { name: 'Invoices', path: '/invoices', icon: Receipt },
+  { name: 'Subscriptions', path: '/acme/subscriptions', icon: Repeat },
+  { name: 'Invoices', path: '/acme/invoices', icon: Receipt },
   { name: 'Deal Health', path: '/deal-health', icon: Activity },
   { name: 'Reports', path: '/reports', icon: BarChart3 },
+];
+
+const CUSTOMER_PORTAL_NAV = [
+  { name: 'Portal Dashboard', path: '/acme/techstart/dashboard', icon: LayoutDashboard },
+  { name: 'My Quotes', path: '/acme/techstart/quotes', icon: FileText },
+  { name: 'Messages', path: '/acme/techstart/messages', icon: MessageSquare },
+  { name: 'Company Profile', path: '/acme/techstart/profile', icon: User },
 ];
 
 const CONFIG_NAV = [
@@ -90,9 +99,34 @@ export const Sidebar = () => {
             );
           })}
         </div>
+        
+        {/* Customer Portal Demo Section */}
+        <div className="pt-2 border-t border-neutral-800/60 space-y-1">
+          <p className="px-3 text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-2">Customer View Demo</p>
+          {CUSTOMER_PORTAL_NAV.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname.startsWith(item.path);
+
+            return (
+              <NavLink
+                key={item.name}
+                to={item.path}
+                className={`flex items-center gap-3 px-3.5 py-2 rounded-lg text-xs font-medium transition duration-150 ${
+                  isActive
+                    ? 'bg-[#724B66] text-[#FFFFFF]'
+                    : 'text-neutral-400 hover:text-[#FFFFFF] hover:bg-[#2E3141]/40'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5 shrink-0" />
+                <span>{item.name}</span>
+              </NavLink>
+            );
+          })}
+        </div>
 
         {/* Configuration Section */}
         <div className="pt-2 border-t border-neutral-800/60 space-y-1">
+           <p className="px-3 text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-2">Configuration</p>
           {CONFIG_NAV.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname.startsWith(item.path);
