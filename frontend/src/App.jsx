@@ -23,6 +23,7 @@ import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import { LoginPage } from './pages/LoginPage.jsx';
 import { WorkspaceSelectorPage } from './pages/WorkspaceSelectorPage.jsx';
 import { AcceptInvitePage } from './pages/AcceptInvitePage.jsx';
+import { RegisterPage } from './pages/RegisterPage.jsx';
 
 function ProtectedRoute({ children }) {
   const { token } = useAuth();
@@ -48,6 +49,7 @@ export default function App() {
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
           <Route path="/portal" element={<CustomerPortalPage />} />
           <Route path="/select-workspace" element={<WorkspaceSelectorPage />} />
           <Route path="/invite/accept" element={<AcceptInvitePage />} />

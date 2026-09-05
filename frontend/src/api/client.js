@@ -1,21 +1,21 @@
-const BASE_URL = '/api';
+const BASE_URL = 'http://localhost:3000/api';
 
 function getHeaders() {
   const headers = {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
   };
-  
+
   const token = localStorage.getItem('token');
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  
+
   const activeOrgId = localStorage.getItem('activeOrgId');
   if (activeOrgId) {
     headers['x-organization-id'] = activeOrgId;
   }
-  
+
   return headers;
 }
 
@@ -26,7 +26,7 @@ function handleResponse(res, isLoginRequest) {
     localStorage.removeItem('memberships');
     localStorage.removeItem('activeOrgId');
     if (window.location.pathname !== '/login') {
-        window.location.reload();
+      window.location.reload();
     }
   }
 }
@@ -46,9 +46,9 @@ export const apiClient = {
     const res = await fetch(url.toString(), {
       headers,
     });
-    
+
     handleResponse(res);
-    
+
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error ${res.status}`);
@@ -62,9 +62,9 @@ export const apiClient = {
       headers: getHeaders(),
       body: JSON.stringify(data),
     });
-    
+
     handleResponse(res, endpoint.includes('/auth/login'));
-    
+
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error ${res.status}`);
@@ -78,9 +78,9 @@ export const apiClient = {
       headers: getHeaders(),
       body: JSON.stringify(data),
     });
-    
+
     handleResponse(res);
-    
+
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error ${res.status}`);
