@@ -24,12 +24,35 @@ import { LoginPage } from './pages/LoginPage.jsx';
 import { WorkspaceSelectorPage } from './pages/WorkspaceSelectorPage.jsx';
 import { AcceptInvitePage } from './pages/AcceptInvitePage.jsx';
 import { RegisterPage } from './pages/RegisterPage.jsx';
+import { RoleGate } from './rbac/RoleGate.jsx';
 
-function ProtectedRoute({ children }) {
+/**
+ * RequireAuth — simple auth gate, no role logic.
+ */
+function RequireAuth({ children }) {
   const { token } = useAuth();
-  if (!token) {
-    return <Navigate to="/login" replace />;
+  if (!token) return <Navigate to="/login" replace />;
+  return children;
+}
+
+/**
+ * ProtectedRoute — requires auth + an active org context.
+ * If no activeOrgId is set the user hasn't picked a workspace yet → bounce them
+ * to /select-workspace so they see the org selection card (PRD FR-1.3).
+ * Customer portal users are routed to /portal.
+ */
+function ProtectedRoute({ children }) {
+  const { token, activeRole, activeOrgId } = useAuth();
+  if (!token) return <Navigate to="/login" replace />;
+
+  // Must pick a workspace first
+  if (!activeOrgId) return <Navigate to="/select-workspace" replace />;
+
+  // Customer portal users always go to /portal — they never see the internal layout
+  if (activeRole === 'customer_portal') {
+    return <Navigate to="/portal" replace />;
   }
+
   return children;
 }
 
@@ -47,14 +70,16 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Public routes */}
+          {/* Public routes — no auth required */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/portal" element={<CustomerPortalPage />} />
-          <Route path="/select-workspace" element={<WorkspaceSelectorPage />} />
+          <Route path="/select-workspace" element={<RequireAuth><WorkspaceSelectorPage /></RequireAuth>} />
           <Route path="/invite/accept" element={<AcceptInvitePage />} />
 
-          {/* Protected internal workspace */}
+          {/* Customer Portal — isolated layout, no internal sidebar */}
+          <Route path="/portal" element={<CustomerPortalPage />} />
+
+          {/* Protected internal workspace — role-gated */}
           <Route
             element={
               <ProtectedRoute>
@@ -67,30 +92,39 @@ export default function App() {
             }
           >
             <Route index element={<DashboardPage />} />
+            <Route path=":providerSlug/dashboard" element={<DashboardPage />} />
 
-            {/* Fulfillment Routes */}
-            <Route path="fulfillment" element={<FulfillmentCockpitPage />} />
-            <Route path="fulfillment/orders/:id" element={<WarehouseSplitDetailPage />} />
-            <Route path="deal-health" element={<DealHealthDashboard />} />
-            <Route path="reports" element={<ReportingDashboard />} />
-            <Route path="quotations" element={<QuotationListPage />} />
-            <Route path="quotations/:id" element={<QuotationBuilderPage />} />
-            <Route path="approvals" element={<ApprovalListPage />} />
-            <Route path="approvals/:id" element={<ApprovalDetailPage />} />
-            <Route path="admin/catalog" element={<CatalogAdminPage />} />
-            <Route path="admin/governance" element={<GovernanceDashboard />} />
+            {/* Quotations — sales_rep, sales_manager, admin */}
+            <Route path="quotations" element={<RoleGate><QuotationListPage /></RoleGate>} />
+            <Route path="quotations/:id" element={<RoleGate><QuotationBuilderPage /></RoleGate>} />
 
-            {/* Provider Routes */}
-            <Route path=":providerSlug/subscriptions" element={<SubscriptionListPage />} />
-            <Route path=":providerSlug/subscriptions/:subscriptionId" element={<SubscriptionDetailPage />} />
+            {/* Approvals — sales_manager, finance_ops, admin */}
+            <Route path="approvals" element={<RoleGate><ApprovalListPage /></RoleGate>} />
+            <Route path="approvals/:id" element={<RoleGate><ApprovalDetailPage /></RoleGate>} />
 
-            <Route path=":providerSlug/invoices" element={<InvoiceListPage />} />
-            <Route path=":providerSlug/invoices/:invoiceId" element={<InvoiceDetailPage />} />
+            {/* Fulfillment — finance_ops, admin */}
+            <Route path="fulfillment" element={<RoleGate><FulfillmentCockpitPage /></RoleGate>} />
+            <Route path="fulfillment/orders/:id" element={<RoleGate><WarehouseSplitDetailPage /></RoleGate>} />
 
-            {/* Customer Portal Routes */}
-            <Route path=":providerSlug/:customerSlug/messages" element={<CustomerMessagesPage />} />
-            <Route path=":providerSlug/:customerSlug/profile" element={<CustomerProfilePage />} />
+            {/* Deal Health — sales_rep, sales_manager, admin */}
+            <Route path="deal-health" element={<RoleGate><DealHealthDashboard /></RoleGate>} />
 
+            {/* Reports — sales_manager, admin */}
+            <Route path="reports" element={<RoleGate><ReportingDashboard /></RoleGate>} />
+
+            {/* Admin — admin only */}
+            <Route path="admin/catalog" element={<RoleGate><CatalogAdminPage /></RoleGate>} />
+            <Route path="admin/governance" element={<RoleGate><GovernanceDashboard /></RoleGate>} />
+
+            {/* Subscriptions — finance_ops, admin */}
+            <Route path=":providerSlug/subscriptions" element={<RoleGate><SubscriptionListPage /></RoleGate>} />
+            <Route path=":providerSlug/subscriptions/:subscriptionId" element={<RoleGate><SubscriptionDetailPage /></RoleGate>} />
+
+            {/* Invoices — finance_ops, admin */}
+            <Route path=":providerSlug/invoices" element={<RoleGate><InvoiceListPage /></RoleGate>} />
+            <Route path=":providerSlug/invoices/:invoiceId" element={<RoleGate><InvoiceDetailPage /></RoleGate>} />
+
+            {/* Catch-all */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
@@ -98,3 +132,4 @@ export default function App() {
     </AuthProvider>
   );
 }
+

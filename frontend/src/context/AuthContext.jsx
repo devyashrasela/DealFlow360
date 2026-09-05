@@ -47,11 +47,14 @@ export function AuthProvider({ children }) {
     localStorage.setItem('user', JSON.stringify(newUser));
     localStorage.setItem('memberships', JSON.stringify(newMemberships || []));
 
-    if ((newMemberships || []).length > 0) {
-      const defaultOrgId = newMemberships[0].organization_id;
-      setActiveOrgId(defaultOrgId);
-      localStorage.setItem('activeOrgId', defaultOrgId);
-    }
+    // Clear any stale org context so the selector card is forced
+    setActiveOrgId(null);
+    setActiveRole(null);
+    localStorage.removeItem('activeOrgId');
+
+    // Do NOT auto-select an org here. The user must explicitly
+    // pick a workspace on the /select-workspace card screen.
+    // activeOrgId remains null until switchWorkspace() is called.
 
     return { ...response, redirect };
   };

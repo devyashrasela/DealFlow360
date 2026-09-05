@@ -20,15 +20,10 @@ export function LoginPage() {
     
     try {
       const response = await login(identifier, password);
-      const { redirect, memberships: mems } = response;
 
-      if (redirect) {
-        navigate(redirect);
-      } else if (mems && mems.length > 1) {
-        navigate('/select-workspace');
-      } else {
-        navigate('/');
-      }
+      // PRD FR-1.3: Always show the workspace selector card after login.
+      // Even single-membership users must explicitly confirm their org context.
+      navigate('/select-workspace');
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Login failed');
     } finally {
