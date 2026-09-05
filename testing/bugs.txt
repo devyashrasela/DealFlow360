@@ -1,0 +1,707 @@
+[Authentication] — AUTH-28 / AUTH-EC5
+Severity: Medium
+Expected: Request to access unrelated customer relationship should be denied with HTTP 404 Not Found (enumeration protection, not 403).
+Actual: Server returned HTTP 403 Forbidden ("No active membership in provider or customer organization").
+Notes: In backend/src/middleware/auth.middleware.js, resolveSlugContext defaults to 403 when user has no membership in the customer org slug, confirming the resource exists instead of returning 404.
+Logged: 2026-09-05
+---
+[Authentication] — AUTH-07
+Severity: Low
+Expected: Token payload should contain only user_id and session_id (minimalism, no roles/orgs/permissions).
+Actual: Token contains only user_id (sub), iat, and exp; session_id is omitted.
+Notes: issueAccessToken in backend/src/controllers/auth.controller.js signs { sub: user.id } without attaching session.id.
+Logged: 2026-09-05
+---
+[Sales Dashboard] — DASH2-03
+Severity: Medium
+Expected: Summary card displays actual count of At-Risk deals matching Deal Health flags (Screen 14).
+Actual: Top summary card row omits At-Risk Deals, and the middle Deal Health widget displays a hardcoded value (3) not wired to the deal-health API.
+Notes: In frontend/src/pages/DashboardPage.jsx, Deal Health risk counts are hardcoded rather than fetched from /api/deal-health.
+Logged: 2026-09-05
+---
+[Sales Dashboard] — DASH2-09
+Severity: Medium
+Expected: "+ New Quotation" button opens a blank Quotation Builder (Screen 4).
+Actual: No "+ New Quotation" action button exists on the Sales Dashboard.
+Notes: DashboardPage.jsx header bar omits the primary quick-actions button group.
+Logged: 2026-09-05
+---
+[Sales Dashboard] — DASH2-10
+Severity: Low
+Expected: "View Approvals" button navigates to Screen 5 (Approvals List).
+Actual: No standalone "View Approvals" quick action button exists on DashboardPage.
+Notes: Quick actions toolbar was omitted from DashboardPage.jsx.
+Logged: 2026-09-05
+---
+[Sales Dashboard] — DASH2-11
+Severity: Medium
+Expected: Recent Activity feed dynamically populates from module actions (approvals, negotiations, fulfillment), most recent first.
+Actual: Recent Activity feed renders a hardcoded static array of 5 sample events; real actions do not populate the feed.
+Notes: DashboardPage.jsx uses static mock state for recentActivity rather than querying backend audit logs or activity stream.
+Logged: 2026-09-05
+---
+[Sales Dashboard] — DASH2-12
+Severity: Low
+Expected: Clicking an activity feed entry deep-links to the relevant quotation/order detail screen.
+Actual: Activity items are static unclickable div elements with no navigation handlers or links.
+Notes: Missing onClick handler / Link wrapper on activity item rows in DashboardPage.jsx.
+Logged: 2026-09-05
+---
+[Quotations List] — QUO3-01
+Severity: Critical
+Expected: Quotation cards appear in their corresponding Kanban stage columns.
+Actual: All 5 Kanban columns display (0) and are completely empty because the frontend filters on q.status instead of q.stage.
+Notes: In frontend/src/pages/quotations/QuotationListPage.jsx line 93, change q.status === stage to q.stage === stage.
+Logged: 2026-09-05
+---
+[Quotations List] — QUO3-09
+Severity: Medium
+Expected: Clicking "Switch to Table View" toggles the board to a flat table view.
+Actual: Button has no onClick handler attached; clicking it does nothing.
+Notes: Table view state toggle and table rendering logic are missing from QuotationListPage.jsx.
+Logged: 2026-09-05
+---
+[Quotations List] — QUO3-10
+Severity: Low
+Expected: Table view supports sorting and filtering.
+Actual: Table view is not implemented; sort/filter controls do not exist.
+Notes: Feature omitted in QuotationListPage.jsx.
+Logged: 2026-09-05
+---
+[Quotation Detail] — QUO4-01
+Severity: Critical
+Expected: Opening a quotation loads detail data and shows Quotation ID and Customer Name in ID (Customer) format.
+Actual: GET /api/quotations/:id fails with HTTP 500 ("ProductVariant is associated to QuotationLine using an alias. You've included an alias (variant)...").
+Notes: In backend/src/controllers/quotation.controller.js line 133, change association alias from 'variant' to 'product_variant'.
+Logged: 2026-09-05
+---
+[Quotation Detail] — QUO4-02
+Severity: Critical
+Expected: Adding a product line item persists the line and recalculates quotation totals.
+Actual: POST /api/quotations/:id/lines fails with HTTP 500 (notNull Violation: QuotationLine.unit_cost_price cannot be null).
+Notes: In backend/src/controllers/quotation.controller.js line 222, change product.unit_cost to product.standard_unit_cost.
+Logged: 2026-09-05
+---
+[Quotation Detail] — QUO4-12 / QUO4-13
+Severity: Critical
+Expected: Clicking "Submit for Approval" submits the quotation for approval routing or fulfillment.
+Actual: Submitting fails with HTTP 404 because submitForApproval calls apiClient.post('/api/approvals/${id}/submit'), generating duplicate /api/api/ path.
+Notes: In frontend/src/pages/quotations/QuotationBuilderPage.jsx lines 93 and 100, remove leading '/api' from endpoints since apiClient already prepends BASE_URL = '/api'.
+Logged: 2026-09-05
+---
+[Quotation Detail] — QUO4-05
+Severity: Medium
+Expected: Price list / customer tier can be switched on Screen 4 to update base pricing.
+Actual: Price list is rendered as static read-only text without a dropdown or selector.
+Notes: Missing price list switcher UI control in QuotationBuilderPage.jsx.
+Logged: 2026-09-05
+---
+[Quotation Detail] — QUO4-17
+Severity: Medium
+Expected: Running order-level margin total / percentage displayed in builder.
+Actual: Quotation summary card omits order-level margin total and margin percentage.
+Notes: In frontend/src/pages/quotations/QuotationBuilderPage.jsx, add quotation.blended_margin_percentage to the header summary cards.
+Logged: 2026-09-05
+---
+[Quotation Detail] — QUO4-10
+Severity: Low
+Expected: Clicking Dismiss on an upsell suggestion suppresses it for the current session.
+Actual: No Dismiss button exists on upsell suggestion cards in QuotationBuilderPage.jsx.
+Notes: Dismiss action omitted from upsell cards.
+Logged: 2026-09-05
+---
+[Approvals List] — APP5-02 / APP5-03
+Severity: Medium
+Expected: Returned and Approved summary counters accurately reflect the count of returned and approved quotations.
+Actual: Returned and Approved counters are always 0 because ApprovalListPage.jsx only fetches from /approvals/pending.
+Notes: ApprovalListPage.jsx line 18 queries /approvals/pending which excludes approved and returned records.
+Logged: 2026-09-05
+---
+[Approvals List] — APP5-04
+Severity: Medium
+Expected: Customer column displays buyer organization name and Assigned To displays actual assigned approver.
+Actual: Customer displays "Unknown" due to missing association include in listPendingApprovals, and Assigned To hardcodes "M. Shah" for all manager approvals.
+Notes: In backend/src/controllers/approval.controller.js include buyer_organization on CustomerAccount; in ApprovalListPage.jsx line 101 replace hardcoded "M. Shah".
+Logged: 2026-09-05
+---
+[Approvals List] — APP5-08
+Severity: Low
+Expected: Auto-Approved quotations display on the approvals list with Stage = "Auto-Approved" and Assigned To = "-".
+Actual: Auto-approved quotes do not generate QuotationApproval rows and never appear in the approvals list.
+Notes: QuotationApproval records are omitted for auto-approved quotes.
+Logged: 2026-09-05
+---
+[Approvals List] — APP5-09
+Severity: Low
+Expected: Toggling "Filter: Pending Only" checkbox narrows the table to only pending-stage rows.
+Actual: Checkbox has no onChange event handler or state binding; clicking it does nothing.
+Notes: Uncontrolled static checkbox in frontend/src/pages/approvals/ApprovalListPage.jsx line 61.
+Logged: 2026-09-05
+---
+[Approval Detail] — APR6-01 / APR6-02 / APR6-09 / APR6-10 / APR6-12 / APR6-13
+Severity: Critical
+Expected: Approval endpoints (/approvals/:id/submit, /approvals/:id/approval, /approvals/:id/approve, /approvals/:id/reject) execute successfully without internal server errors.
+Actual: All approval controller queries fail with HTTP 500 (SequelizeEagerLoadingError: QuotationLine is associated to Quotation using an alias. You must use the 'as' keyword to specify the alias within your include statement.).
+Notes: In backend/src/controllers/approval.controller.js, lines 26, 190, 217, and 304 include QuotationLine without { model: QuotationLine, as: 'lines' }. Also approvals and audit_logs must specify their respective aliases.
+Logged: 2026-09-05
+---
+[Approval Detail] — APR6-07 / APR6-NFR2
+Severity: Critical
+Expected: Actions (submit, auto-approve, approve, reject) append audit log entries to ApprovalAuditLog table.
+Actual: All audit log creations crash with notNull Violation: ApprovalAuditLog.action_taken cannot be null because the controller passes action instead of action_taken.
+Notes: In backend/src/controllers/approval.controller.js (lines 106, 125, 146, 278, 348), replace action: with action_taken: to match the model definition in quotation.models.js.
+Logged: 2026-09-05
+---
+[Approval Detail] — APR6-11
+Severity: High
+Expected: Clicking "Return for Revision" with a note returns the quotation to the sales rep as Draft, records a "returned" audit trail entry, and increments the Returned counter on Screen 5.
+Actual: No return endpoint exists on backend. Frontend "Return for Revision" button calls handleAction('reject'), permanently marking the quotation as "rejected" rather than returning to rep for revision.
+Notes: Frontend ApprovalDetailPage.jsx line 164 binds Return button to handleAction('reject'). Backend lacks a /approvals/:id/return endpoint to transition quotation back to draft/returned.
+Logged: 2026-09-05
+---
+[Approval Detail] — APR6-01
+Severity: Medium
+Expected: Approval Detail header displays the quotation ID, customer organization name, blended risk level, and customer pricing tier.
+Actual: Customer name is completely missing from the header, and customer tier always defaults to "Standard" because getApprovalDetail does not include customer_account or buyer_organization.
+Notes: Update getApprovalDetail in backend/src/controllers/approval.controller.js to include customer_account with nested buyer_organization, and render customer name in ApprovalDetailPage.jsx.
+Logged: 2026-09-05
+---
+[Approval Detail] — APR6-02
+Severity: Medium
+Expected: Line-level breakdown displays product names (e.g., "Enterprise Laptop Pro", "Standard Setup Service") alongside category and discount ceilings.
+Actual: Every line displays "Product <uuid>" because getApprovalDetail does not include the nested Product association on quotation lines.
+Notes: In getApprovalDetail, include { model: Product, as: 'product' } inside quotation lines include.
+Logged: 2026-09-05
+---
+[Approval Detail] — APR6-06
+Severity: Medium
+Expected: Approval chain tracker dynamically indicates which step is active (Sales Manager vs Finance) based on approval step status.
+Actual: Finance step is hardcoded with inactive styling (bg-gray-100) and never highlights, while Sales Manager remains highlighted as pending (bg-orange-100) even when intermediate approval has passed to Finance.
+Notes: In ApprovalDetailPage.jsx lines 114-123, tracker status is hardcoded instead of checking current pending step's required_role.
+Logged: 2026-09-05
+---
+[Approval Detail] — APR6-03 / APR6-04
+Severity: Low
+Expected: "Why This Quote Was Flagged" provides dynamic text identifying the specific offending product/line, and explains aggregate margin bleed when no single line exceeds limit.
+Actual: UI displays a rigid static sentence template that never names the offending product, and displays "Worst single line (0pt over)" for aggregate-bleed quotations.
+Notes: In ApprovalDetailPage.jsx lines 78-80, replace static template with dynamic line analysis and aggregate-bleed explanation.
+Logged: 2026-09-05
+---
+[Fulfillment List] — FUL7-05
+Severity: High
+Expected: Confirming a quotation automatically generates fulfillment orders via warehouse allocation and displays them in the "Orders Awaiting Fulfillment" queue.
+Actual: Confirming a quotation (POST /api/negotiations/confirm) updates quotation stage to "confirmed" but never generates a fulfillment order. The controller contains a placeholder comment (// ponytail: downstream fulfillment/billing events are placeholder console.log) and does not invoke executeFulfillmentAllocation or ingestConfirmedQuote. The fulfillment queue remains empty.
+Notes: In backend/src/controllers/negotiation.controller.js lines 115-117, wire quotation confirmation to call executeFulfillmentAllocation(quote.organization_id, { quotationId: quote.id }) so that confirmed orders immediately appear in the fulfillment queue.
+Logged: 2026-09-05
+---
+[Subscriptions List] — SUB9-10
+Severity: Critical
+Expected: GET /subscriptions enforces organization context through authentication middleware (authenticate, resolveOrgContext), scoping returned subscriptions strictly to req.orgContext.organizationId.
+Actual: subscription.routes.js omits authentication and tenancy middleware. listSubscriptions accepts optional ?organization_id= query param; when omitted (default frontend behavior), it returns all subscriptions across all tenant organizations in the database, causing critical multi-tenant data leakage.
+Notes: Apply authenticate and resolveOrgContext in backend/src/routes/subscription.routes.js and enforce where: { organization_id: req.orgContext.organizationId } in listSubscriptions.
+Logged: 2026-09-05
+---
+[Subscriptions List] — SUB9-FE-BUG
+Severity: High
+Expected: listSubscriptions() in subscriptionApi.js returns the full response object { data, kpis } so SubscriptionListPage.jsx can populate setSubscriptions(res.data) and setKpis(res.kpis).
+Actual: subscriptionApi.js line 4 returns only { data } (the raw subscriptions array). In SubscriptionListPage.jsx, res is an Array, causing res.data to be undefined (table shows "No subscriptions found.") and res.kpis to be undefined (KPI cards never render).
+Notes: In frontend/src/api/subscriptionApi.js line 4, return the entire response object from apiClient.get('/subscriptions').
+Logged: 2026-09-05
+---
+[Subscriptions List] — SUB9-01
+Severity: High
+Expected: Confirming a quotation with recurring lines auto-provisions a new subscription record visible on Screen 9.
+Actual: Confirming a quotation in /api/negotiations/confirm only executes console.log('[EVENT] quotation_confirmed') and never calls provisionSubscriptionFromQuote. No subscription record is created upon quotation confirmation.
+Notes: In backend/src/controllers/negotiation.controller.js line 115, invoke provisionSubscriptionFromQuote(quote.id) for quotations containing recurring subscription lines.
+Logged: 2026-09-05
+---
+[Subscriptions List] — SUB9-06
+Severity: Medium
+Expected: Subscriptions table displays all required columns: Subscription ID, Customer, Plan Name/Product, Billing Cadence, Recurring Amount, Next Invoice Date, Status.
+Actual: SubscriptionListPage.jsx omits Plan Name/Product, Billing Cadence, and Recurring Amount columns. Only renders Code, Customer, Status, MRR, Next Invoice.
+Notes: In frontend/src/pages/features/subscriptions/SubscriptionListPage.jsx, add columns for Plan Name, Billing Cadence, and Recurring Amount.
+Logged: 2026-09-05
+---
+[Subscriptions List] — SUB9-07
+Severity: Low
+Expected: Status badges adhere to spec colors: Active=Green, Past Due=Red, Paused=Yellow, Cancelled=Gray.
+Actual: SubscriptionListPage.jsx renders past_due and paused as default gray (variant="default"), and renders cancelled as red (variant="danger") instead of gray.
+Notes: In SubscriptionListPage.jsx getStatusBadge(), map past_due to red, paused to yellow/warning, and cancelled to neutral/gray.
+Logged: 2026-09-05
+---
+[Subscription Detail] — SUB10-13 / SUB10-15
+Severity: High
+Expected: Screen 10 provides a cancellation modal allowing the operator to select Immediate (displaying live unused-days refund calculation) or Period End, with a "Keep Subscription" button to abort.
+Actual: SubscriptionDetailPage.jsx contains no Cancel Subscription button or cancellation modal in the UI, preventing users from executing or aborting cancellations from the detail view.
+Notes: Frontend lacks cancellation UI in frontend/src/pages/features/subscriptions/SubscriptionDetailPage.jsx, though backend endpoint POST /api/subscriptions/:id/cancel exists.
+Logged: 2026-09-05
+---
+[Subscription Detail] — SUB10-04
+Severity: Medium
+Expected: Billing schedule table displays granular invoice status (Paid with link to invoice, Scheduled, or Drafted).
+Actual: SubscriptionDetailPage.jsx only renders a binary "Processed: Yes / Pending" badge without linking to invoices or reflecting invoice lifecycle status.
+Notes: In SubscriptionDetailPage.jsx lines 182-184, replace binary badge with invoice status and clickable invoice link.
+Logged: 2026-09-05
+---
+[Subscription Detail] — SUB10-05
+Severity: Medium
+Expected: Subscription detail view displays complete contract terms: Base Product, Plan Interval, Unit Price, Seats, Applied Discount, Lifetime Value, Unbilled Accruals, Next Invoice Trigger.
+Actual: SubscriptionDetailPage.jsx sidebar displays only MRR, Cadence, Period, and Next Invoice Date. Omits Lifetime Value, Unbilled Accruals, Next Invoice Trigger, and line discount breakdown.
+Notes: Add Lifetime Value, Unbilled Accruals, and Next Invoice Trigger metrics to SubscriptionDetailPage.jsx sidebar.
+Logged: 2026-09-05
+---
+[Subscription Detail] — SUB10-18
+Severity: Low
+Expected: User-triggerable Pause and Resume actions with corresponding lifecycle audit entries in SubscriptionEvents.
+Actual: No Pause or Resume actions or API endpoints exist in the subscription module. Status can only be changed via manual database intervention.
+Notes: Add pause/resume endpoints in backend/src/controllers/subscription.controller.js and UI triggers in SubscriptionDetailPage.jsx.
+Logged: 2026-09-05
+---
+[Customer Portal] — POR11-04
+Severity: Critical
+Expected: Data delivered to Customer Portal on GET /api/negotiations/my-quotes must have provider cost prices, margin percentages, and internal discount ceilings strictly redacted per AUTH-29.
+Actual: Backend returns raw Quotation and QuotationLine records exposing unit_cost_price, line_margin_percentage, line_cost_total, line_margin_amount, effective_ceiling_limit, blended_margin_percentage, and blended_risk_score directly to customer users.
+Notes: In backend/src/controllers/negotiation.controller.js line 126, define strict projection attributes for Quotation and QuotationLine to exclude cost, margin, and ceiling columns.
+Logged: 2026-09-05
+---
+[Customer Portal] — POR11-13
+Severity: Critical
+Expected: "Confirm Quotation" action is disabled/blocked while a quote is in "under_negotiation" status until the sales rep reviews and accepts the customer's counter-proposal (FR-POR-04).
+Actual: Both backend (/api/negotiations/confirm line 109) and frontend (CustomerPortalPage.jsx line 288) allow customers to confirm quotations while stage is "under_negotiation", allowing customers to unilaterally lock in unapproved terms without sales rep review.
+Notes: In negotiation.controller.js line 109, disallow stage === 'under_negotiation' in confirm endpoint, and disable the confirm button in CustomerPortalPage.jsx when quote is under_negotiation.
+Logged: 2026-09-05
+---
+[Customer Portal] — POR11-16 / POR11-17
+Severity: Critical
+Expected: Customer counter-discounts exceeding customer tier ceilings (e.g. 22% requested vs 15% Gold ceiling) or category ceilings automatically re-route the quotation to Manager/Finance approval (Screens 5/6).
+Actual: No approval re-routing hook exists in the negotiations module. Counter proposals are only logged as chat threads without invoking the risk engine or generating QuotationApproval steps.
+Notes: Connect negotiation acceptance to blended risk engine and approval workflow when counter-offers breach discount ceilings.
+Logged: 2026-09-05
+---
+[Customer Portal] — POR11-20 / POR11-21 / POR11-22 / POR11-23
+Severity: High
+Expected: Quotation confirmation automatically triggers downstream fulfillment order allocation, subscription provisioning, and ledger invoice generation.
+Actual: Downstream events in negotiation.controller.js lines 115-117 are placeholder console.log statements; confirming a quotation creates no fulfillment orders, subscriptions, or invoices.
+Notes: In backend/src/controllers/negotiation.controller.js line 115, invoke executeFulfillmentAllocation, provisionSubscriptionFromQuote, and invoice generation upon quote confirmation.
+Logged: 2026-09-05
+---
+[Customer Portal] — POR11-10
+Severity: Medium
+Expected: Multiple line-level negotiation requests are bundled locally and submitted together via a single submission event (FR-POR-02).
+Actual: CustomerPortalPage.jsx lines 215-220 fires an immediate HTTP POST request for each line individually upon clicking "Save Request", without batching.
+Notes: Refactor CustomerPortalPage.jsx to stage line changes in local state and bundle them into an overall submission.
+Logged: 2026-09-05
+---
+[Customer Portal] — POR11-11
+Severity: Medium
+Expected: Net Amount Payable recalculates live in the customer view when entering a target overall discount % or target total in the counter box.
+Actual: CustomerPortalPage.jsx line 137 displays static activeQuote.grand_total and does not recompute or reflect proposed counter totals before submission.
+Notes: In CustomerPortalPage.jsx, bind Net Amount Payable card to compute live preview from targetTotal and counterDiscount state.
+Logged: 2026-09-05
+---
+[Customer Portal] — POR11-09
+Severity: Low
+Expected: Line negotiation drawer includes a "Clear" button to reset form fields without submitting.
+Actual: CustomerPortalPage.jsx line 180-224 provides no "Clear" button in the drawer.
+Notes: Add a "Clear" button in the negotiation drawer to reset local inputs.
+Logged: 2026-09-05
+---
+[Invoices List] — INV12-NFR3
+Severity: Critical
+Expected: Invoices and financial ledger endpoints require authentication and strictly scope queries to the authenticated tenant's organization.
+Actual: invoice.routes.js leaves GET /api/invoices unauthenticated, invoice.controller.js only filters organization_id if provided in req.query, and InvoiceListPage.jsx line 20 calls listInvoices() without query params, leaking all invoices, customers, and receivables across all organizations on the platform.
+Notes: Mount authentication middleware on invoice.routes.js and enforce req.user.organization_id in where clause; update InvoiceListPage.jsx to pass provider organization context.
+Logged: 2026-09-05
+---
+[Invoices List] — INV12-23
+Severity: Critical
+Expected: Confirming a quotation on Screen 11 (Customer Portal) or Screen 4 (Quotation Detail) automatically triggers generateInvoiceFromQuote() to post standard one-time invoice lines to the ledger.
+Actual: POST /api/negotiations/confirm in negotiation.controller.js only executes console.log('[EVENT] quotation_confirmed') without creating an invoice, leaving the financial ledger unpopulated upon deal confirmation.
+Notes: Wire quotation confirmation handler to call generateInvoiceFromQuote(quotationId) inside transaction.
+Logged: 2026-09-05
+---
+[Invoices List] — INV12-03
+Severity: High
+Expected: Unified ledger table displays all mandated columns: Invoice #, Source Ref, Customer, Type, Issued Date, Due Date, Amount, Status, and Action.
+Actual: InvoiceListPage.jsx lines 89-96 omits Source Ref, Issued Date, and Due Date columns; furthermore line 120 reads inv.invoice_type instead of DB property inv.document_type, causing the Type column to render completely blank.
+Notes: Add missing columns to table header/body and bind Type column to inv.document_type in InvoiceListPage.jsx.
+Logged: 2026-09-05
+---
+[Invoices List] — INV12-06/07/08/09/10/11
+Severity: High
+Expected: Interactive filter pills ("All Invoices", "Standard / One-Time", "Recurring Subscription", "Proration Delta", "Credit Notes") allow instant filtering of ledger items by document type without full page reload.
+Actual: InvoiceListPage.jsx lines 79-82 provides only an inert placeholder button with no filter pills, no document_type state, and no filtering capability.
+Notes: Implement filter pills component in InvoiceListPage.jsx bound to active document_type filter state.
+Logged: 2026-09-05
+---
+[Invoices List] — INV12-12/13/14
+Severity: High
+Expected: Source Ref column displays a single clickable origin link navigating to parent Quotation detail (Screen 4) for standard invoices or Subscription detail (Screen 10) for recurring/proration invoices.
+Actual: Backend listInvoices does not join origin_quotation or origin_subscription relations, and InvoiceListPage.jsx has no Source Ref column or deep-links to origin records.
+Notes: Include origin_quotation and origin_subscription in Invoice.findAll in invoice.controller.js, and render deep-links in InvoiceListPage.jsx.
+Logged: 2026-09-05
+---
+[Invoices List] — INV12-15/16/18/19/20
+Severity: High
+Expected: Operators can click "Record Payment" on any unpaid invoice row in Screen 12 to open an inline modal displaying invoice details, enter amount/method (including credit note offset), capture transaction ref, and record payment without page navigation.
+Actual: InvoiceListPage.jsx does not include a "Record Payment" action button or inline payment modal in the list view (only a "View Details →" link).
+Notes: Add inline payment recording modal to InvoiceListPage.jsx and wire to recordPayment API.
+Logged: 2026-09-05
+---
+[Invoices List] — INV12-21/22
+Severity: High
+Expected: Operators can click "Apply Credit" on any credit note row in Screen 12 to reconcile and offset it against open customer invoices via modal/drawer.
+Actual: InvoiceListPage.jsx provides no "Apply Credit" action or modal, leaving credit notes unreconcilable from the list page despite backend applyCreditNoteOffset API support.
+Notes: Add "Apply Credit" action button on credit note rows in InvoiceListPage.jsx with reconciliation modal.
+Logged: 2026-09-05
+---
+[Invoices List] — INV12-05
+Severity: Medium
+Expected: Header cards display "Total Outstanding Receivables", "Overdue Invoices Count", and "Total Credited" (or Unapplied Credits) accurately computed for the active organization.
+Actual: Backend invoice.controller.js lines 62-67 does not compute or return total_credited / unapplied_credits (returns total_collected instead); frontend InvoiceListPage.jsx lines 58-64 looks up mismatched key kpis.total_overdue (rendering $0) and kpis.unapplied_credits (rendering $0), and omits Overdue Invoices Count.
+Notes: Compute unapplied_credits in invoice.controller.js and align KPI keys between backend and InvoiceListPage.jsx.
+Logged: 2026-09-05
+---
+[Invoices List] — INV12-02
+Severity: Medium
+Expected: Credit note rows render with negative currency amounts (e.g. -$200.00) and distinct visual styling (e.g. red font) to visually distinguish credits from debit invoices.
+Actual: InvoiceListPage.jsx line 126 formats all rows as positive values without negative sign or visual differentiation for credit notes.
+Notes: Format negative currency and red styling when inv.document_type === 'credit_note' in InvoiceListPage.jsx.
+Logged: 2026-09-05
+---
+[Invoices List] — INV12-04
+Severity: Medium
+Expected: Status badge colors match spec: Posted=Orange, Paid=Green, Credited=Gray, Overdue=Red.
+Actual: InvoiceListPage.jsx lines 30-38 only defines badge mappings for draft, issued, paid, void; actual ledger statuses (posted, partially_paid, credited, overdue) all fall through to default neutral badge.
+Notes: Update getStatusBadge in InvoiceListPage.jsx to map posted to warning/orange, partially_paid to info, credited to default/gray, and overdue to danger/red.
+Logged: 2026-09-05
+---
+[Invoices List] — INV12-17
+Severity: Medium
+Expected: Submitting invalid payments (e.g., amount exceeding balance due or non-positive amount) or invalid credit allocations returns HTTP 400 Bad Request with descriptive message.
+Actual: Centralized error middleware in server.js lines 74-77 ignores err.status / err.statusCode thrown by invoice.service.js and converts all validation errors into HTTP 500 Internal Server Error.
+Notes: Update centralized error handler in server.js to respect err.status || err.statusCode if present.
+Logged: 2026-09-05
+---
+[Invoice Detail] — INV13-SEC-01
+Severity: Critical
+Expected: GET /api/invoices/:id requires authentication and strictly enforces multi-tenant access control, blocking users from accessing invoices belonging to another organization.
+Actual: invoice.routes.js leaves GET /:id unauthenticated, and invoice.controller.js line 80 retrieves Invoice.findByPk(req.params.id) without verifying tenant ownership, allowing any caller to inspect invoice details, customer data, and payments of other tenants.
+Notes: Add auth middleware and verify invoice.organization_id === req.user.organization_id in getInvoiceDetail.
+Logged: 2026-09-05
+---
+[Invoice Detail] — INV13-13
+Severity: High
+Expected: Submitting payment via the "Record Payment" modal on Screen 13 succeeds and updates invoice balance.
+Actual: InvoiceDetailPage.jsx line 42 passes actor_user_id instead of recorded_by_user_id in payload, causing backend recordPaymentHandler to fail with HTTP 400 'amount, payment_method, and recorded_by_user_id are required'.
+Notes: In InvoiceDetailPage.jsx handleRecordPayment, rename actor_user_id to recorded_by_user_id.
+Logged: 2026-09-05
+---
+[Invoice Detail] — INV13-04/05/06/07
+Severity: High
+Expected: Hybrid line item table displays Description, Category, Billing Type/Cadence (recurring vs one-time), Unit Price, Discount, Net Amount, Tax Rate, and Line Total.
+Actual: InvoiceDetailPage.jsx lines 128-145 accesses li.description (blank, DB column is line_description) and li.line_total (renders $0, DB column is line_total_with_tax); columns for Category, Billing Cadence, Discount, Tax Rate, and Net Amount are completely missing.
+Notes: Fix field names to li.line_description and li.line_total_with_tax, and add columns for Category, Billing Type, Discount, and Tax in InvoiceDetailPage.jsx.
+Logged: 2026-09-05
+---
+[Invoice Detail] — INV13-08/09/10
+Severity: Medium
+Expected: Sidebar financial summary block displays full reconciliation breakdown: Gross Subtotal, Applied Discounts, Total Tax, Grand Total, Amount Paid, Amount Credited, and Balance Due.
+Actual: InvoiceDetailPage.jsx lines 87-105 displays only Total Amount and Balance Due; Gross Subtotal, Applied Discounts, Total Tax, Amount Paid, and Amount Credited are omitted.
+Notes: Add Gross Subtotal, Discounts, Tax, Paid, and Credited cards to InvoiceDetailPage.jsx sidebar.
+Logged: 2026-09-05
+---
+[Invoice Detail] — INV13-18
+Severity: Medium
+Expected: Screen 13 provides an "Applied Credits" tab displaying linked credit notes (e.g. CR-3004) and allocated offset amounts.
+Actual: InvoiceDetailPage.jsx line 110 only defines 'lines' and 'payments' tabs; received_credit_allocations returned by the backend is never rendered.
+Notes: Add an "Applied Credits" tab to InvoiceDetailPage.jsx rendering received_credit_allocations.
+Logged: 2026-09-05
+---
+[Invoice Detail] — INV13-03
+Severity: Medium
+Expected: Context strip displays an Origin Reference badge linking to parent Quotation (Screen 4) or Subscription (Screen 10).
+Actual: Backend getInvoiceDetail does not include origin_quotation or origin_subscription relations, and InvoiceDetailPage.jsx lines 64-74 renders no origin badge or link.
+Notes: Include origin relations in invoice.controller.js and render deep-link badge in InvoiceDetailPage.jsx.
+Logged: 2026-09-05
+---
+[Invoice Detail] — INV13-22
+Severity: Low
+Expected: Payment History tab displays Payment Date, Transaction Reference ID, Method, Recorded By, and Amount.
+Actual: InvoiceDetailPage.jsx lines 151-176 omits Transaction Reference ID and Recorded By columns.
+Notes: Add Transaction Ref and Recorded By columns to the Payment History table in InvoiceDetailPage.jsx.
+Logged: 2026-09-05
+---
+[Invoice Detail] — INV13-02
+Severity: Low
+Expected: Status badge reflects spec colors: Posted=Orange, Paid=Green, Credited=Gray, Overdue=Red.
+Actual: InvoiceDetailPage.jsx line 66 maps status to success (paid), danger (void), or info (posted, partially_paid, credited, overdue).
+Notes: Update badge color variant mapping in InvoiceDetailPage.jsx to support posted, partially_paid, credited, and overdue.
+Logged: 2026-09-05
+---
+[Invoice Detail] — INV13-23
+Severity: Low
+Expected: Screen 13 includes an Activity Log tab showing timestamped invoice history (creation, status updates, payments).
+Actual: InvoiceDetailPage.jsx provides no Activity Log tab.
+Notes: Add an Activity Log tab to InvoiceDetailPage.jsx.
+Logged: 2026-09-05
+---
+[Deal Health] — HLT14-01/04
+Severity: Critical
+Expected: Diagnostic scan (POST /api/deal-health/scan) identifies stalled quotations older than STALE_DAYS without crashing.
+Actual: dealHealth.controller.js line 39 accesses q.updated_at.toISOString(), but the Sequelize model instance property is updatedAt (q.updated_at is undefined), causing an unhandled TypeError that crashes the diagnostic scan with HTTP 500 whenever a stalled quotation exists.
+Notes: Fix dealHealth.controller.js line 39 to reference (q.updatedAt || q.updated_at).toISOString().
+Logged: 2026-09-05
+---
+[Deal Health] — HLT14-IDEMPOTENCY
+Severity: High
+Expected: Diagnostic scan deduplicates or updates active alerts rather than generating duplicate spam records on successive runs.
+Actual: dealHealth.controller.js line 113 executes DealHealthAlert.bulkCreate(alerts) unconditionally on every scan without checking if an active alert already exists for the quotation or fulfillment order, creating duplicate alerts on every scan.
+Notes: Add deduplication check or upsert logic before persisting alerts in dealHealth.controller.js scan handler.
+Logged: 2026-09-05
+---
+[Deal Health] — HLT14-18/19
+Severity: High
+Expected: Delivery slippage stream only flags fulfillments when backordered items have delivery deadlines within 48 hours (or past due) per FR-HLT-03.
+Actual: dealHealth.controller.js lines 84-98 defines slippageCutoff = new Date(Date.now() + SLIPPAGE_HOURS * 3600000) on line 84 but never uses it in the database query, flagging any order with an open backorder even if estimated delivery is months in the future.
+Notes: Add estimated_delivery_date: { [Op.lte]: slippageCutoff } to the FulfillmentOrder query in dealHealth.controller.js.
+Logged: 2026-09-05
+---
+[Deal Health] — HLT14-16
+Severity: High
+Expected: Clicking "Route to Finance" on a discount anomaly alert routes the quotation into the Finance approval queue (Screen 5/6) and updates quotation stage to pending_approval.
+Actual: POST /api/deal-health/escalate-to-finance in dealHealth.controller.js lines 158-172 only updates alert.resolution_status = 'escalated' without creating an ApprovalRequest or updating quotation.stage, leaving the quotation in its current unrouted stage.
+Notes: Update escalate-to-finance handler to create an ApprovalRequest and set quotation.stage = 'pending_approval'.
+Logged: 2026-09-05
+---
+[Deal Health] — HLT14-11/25/26
+Severity: High
+Expected: Alert rows across all 3 streams provide clickable deep-links to their source entities: Stalled Deals → Screen 4, Discount Anomaly → Screen 4, Delivery Slippage → Screen 8.
+Actual: DealHealthDashboard.jsx provides no clickable links, IDs, or deep-link navigation to Screen 4 or Screen 8 in any stream table.
+Notes: Add deep-link Link components in DealHealthDashboard.jsx routing to Quotation Detail and Fulfillment Split pages.
+Logged: 2026-09-05
+---
+[Deal Health] — HLT14-08/14/20
+Severity: High
+Expected: Alert tables display essential business context: Quotation #, Customer Name, Sales Rep Name, Deal Value, Promised Delivery Date, and Bottleneck Location.
+Actual: Backend GET /api/deal-health/alerts does not join quotation, customer_account, assigned_sales_rep, or fulfillment_order relations; DealHealthDashboard.jsx tables omit customer name, rep name, deal value, and delivery dates across all 3 streams.
+Notes: Include relations in DealHealthAlert.findAll in dealHealth.controller.js and render context columns in DealHealthDashboard.jsx.
+Logged: 2026-09-05
+---
+[Deal Health] — HLT14-08-STALE
+Severity: Medium
+Expected: Stalled deals feed displays the actual elapsed days the deal has been inactive (e.g. 6 days, 14 days, 30 days).
+Actual: dealHealth.controller.js line 40 hardcodes days_stale: STALE_DAYS (5), causing DealHealthDashboard.jsx line 110 to display "5 days" for every stalled deal regardless of actual inactive age.
+Notes: Calculate actual elapsed days inactive: Math.floor((Date.now() - new Date(q.updatedAt).getTime()) / 86400000).
+Logged: 2026-09-05
+---
+[Deal Health] — HLT14-02
+Severity: Medium
+Expected: Admin can click "Configure Thresholds" to adjust Stalled Deal Aging Days, Anomaly Sensitivity, and Delivery SLA Windows (FR-HLT-01 to FR-HLT-03).
+Actual: Thresholds STALE_DAYS = 5 and SLIPPAGE_HOURS = 48 are hardcoded constants in dealHealth.controller.js; no threshold management API or UI configuration modal exists.
+Notes: Implement GET/PUT /api/deal-health/thresholds backed by database settings and add configuration modal in DealHealthDashboard.jsx.
+Logged: 2026-09-05
+---
+[Deal Health] — HLT14-09/23
+Severity: Medium
+Expected: "Send Nudge" dispatches notification to the assigned sales rep and writes a "Management nudge dispatched" entry to the deal audit log.
+Actual: dealHealth.controller.js lines 146-150 only updates alert.resolution_status to 'acknowledged' and logs to console without writing to QuotationAuditLog or notifying the rep.
+Notes: Wire send-nudge handler to insert a deal audit log entry and dispatch real-time rep notification.
+Logged: 2026-09-05
+---
+[Deal Health] — HLT14-12-COHORT
+Severity: Low
+Expected: Anomaly threshold formula for reps with < 20 deals uses cohort_mean + 1.5 * cohort_std_dev per standard 1.5σ rule.
+Actual: dealHealth.controller.js line 59 calculates baseline.cohort_mean_discount_percentage + baseline.cohort_std_dev_percentage (1.0σ instead of 1.5σ).
+Notes: Multiply cohort_std_dev_percentage by 1.5 in dealHealth.controller.js line 59.
+Logged: 2026-09-05
+---
+[Reports & Analytics] — REP15-12/13/14/15
+Severity: Critical
+Expected: Tab 1 displays the "Sales Rep & Discount Discipline Report" matrix showing Sales Rep, Team, Deals Closed, Net Revenue, Avg Discount Given, Quotes Flagged (Risk), and Realized Margin % (FR-REP-01).
+Actual: Completely unimplemented in both backend and frontend; reporting.controller.js lacks an endpoint for rep performance, and ReportingDashboard.jsx lines 80-125 renders a generic "Pipeline By Stage" table instead.
+Notes: Implement GET /api/reports/sales-rep-discipline aggregation in reporting.controller.js and build Tab 1 table in ReportingDashboard.jsx.
+Logged: 2026-09-05
+---
+[Reports & Analytics] — REP15-16/17/18
+Severity: Critical
+Expected: Tab 2 displays the "Product & Category Performance Report" matrix showing Product Name, Category, Units Sold, Gross Revenue, Total Discount Given ($), Avg Discount %, and Realized Gross Margin % (FR-REP-01).
+Actual: Completely unimplemented in both backend and frontend; reporting.controller.js lacks a product performance endpoint, and ReportingDashboard.jsx lines 80-148 renders a generic "Confirmed Revenue By Month" table instead.
+Notes: Implement GET /api/reports/product-category-performance in reporting.controller.js and build Tab 2 table in ReportingDashboard.jsx.
+Logged: 2026-09-05
+---
+[Reports & Analytics] — REP15-20/21/22/23
+Severity: High
+Expected: Clicking "Export to PDF" or "Export to XLS" downloads a formatted report matching active filters and tables (FR-REP-02, FR-REP-03).
+Actual: ReportingDashboard.jsx lines 44-45 contains buttons without onClick handlers or download triggers; backend reporting.controller.js provides no PDF or XLS export endpoints.
+Notes: Add export endpoints in reporting.controller.js and bind export buttons in ReportingDashboard.jsx.
+Logged: 2026-09-05
+---
+[Reports & Analytics] — REP15-01/02/03/04/05/06/07
+Severity: High
+Expected: Filter bar enables multi-dimensional filtering across Period (Today, This Week, Custom Range), Sales Team/Rep, Approval Status, and Product Category, combining with AND logic.
+Actual: ReportingDashboard.jsx lines 50-57 contains hardcoded static options with no state bindings or event handlers, and omits Approval Status pills; backend reporting endpoints completely ignore all query parameters.
+Notes: Wire filter inputs to state in ReportingDashboard.jsx and implement query parameter filtering across all reporting endpoints in reporting.controller.js.
+Logged: 2026-09-05
+---
+[Reports & Analytics] — REP15-08/10
+Severity: High
+Expected: KPI summary cards display Total Bookings (sum of confirmed deals) and Total Discount Leakage (sum of dollar discounts given) alongside Gross Margin % (FR-REP-01).
+Actual: Backend kpi-summary computes total_pipeline_value (unconfirmed pipeline) instead of total_bookings, and omits total_discount_leakage entirely; frontend renders pipeline value and slippage rate instead.
+Notes: Compute total_bookings and total_discount_leakage in reporting.controller.js and update cards in ReportingDashboard.jsx.
+Logged: 2026-09-05
+---
+[Reports & Analytics] — REP15-24
+Severity: Medium
+Expected: Sales Reps can access Screen 15 with reporting data scoped to their own deals, redacting peer discounting data.
+Actual: reporting.controller.js line 10 strictly enforces requireRoles('admin', 'sales_manager', 'finance_ops'), blocking all sales reps with HTTP 403 Forbidden.
+Notes: Allow sales_rep role on reporting endpoints and scope queries to req.user.id when caller is a rep.
+Logged: 2026-09-05
+---
+[Product & Pricing Admin] — PRD16-01_detail
+Severity: Critical
+Expected: GET /api/catalog/:productId returns full product details, variants, and associated price list items.
+Actual: catalog.controller.js line 79 queries with alias as: 'priceListItems', which mismatches the alias defined in models/index.js line 44 (price_list_items), throwing a SequelizeEagerLoadingError and crashing every product detail request with HTTP 500.
+Notes: Fix alias in catalog.controller.js line 79 to as: 'price_list_items'.
+Logged: 2026-09-05
+---
+[Product & Pricing Admin] — PRD16-11/12/13/14/15/16/17
+Severity: Critical
+Expected: Screen 16 Tab 3 provides Upsell & Cross-Sell Engine Setup with Minimum Margin Threshold configuration and Co-Purchase Rule Pairing Table with Promoted tags (FR-PRD-03, FR-PRD-04, FR-PRD-05).
+Actual: Completely unimplemented in both backend and frontend; CatalogAdminPage.jsx omits Tab 3 entirely, and catalog.controller.js / catalog.routes.js provide zero endpoints for UpsellRule management or threshold configuration.
+Notes: Implement UpsellRule CRUD endpoints in catalog controller and add Tab 3 to CatalogAdminPage.jsx.
+Logged: 2026-09-05
+---
+[Product & Pricing Admin] — PRD16-03/04/05
+Severity: High
+Expected: Admins can configure product variants with attributes and price deltas (e.g. "Pack" with +$50 delta) directly from the UI, and see updated Variant Count in the master table.
+Actual: CatalogAdminPage.jsx contains no variant management interface, no modal or form to add/edit variants, and omits the Variant Count column from the catalog table.
+Notes: Add variant management drawer/modal and Variant Count column to CatalogAdminPage.jsx.
+Logged: 2026-09-05
+---
+[Product & Pricing Admin] — PRD16-07/08/10
+Severity: High
+Expected: Admins can configure tier-based price lists (Bronze/Silver/Gold) and define custom product-level prices per price list from the UI.
+Actual: CatalogAdminPage.jsx lines 108-125 omits Tier column and provides no interface to view or add custom price items to a price list; creating a price list uses a simple prompt() without tier or currency fields.
+Notes: Add tier column, price list item drawer, and full creation modal in CatalogAdminPage.jsx.
+Logged: 2026-09-05
+---
+[Product & Pricing Admin] — PRD16-01/02
+Severity: High
+Expected: Master catalog table displays SKU Code, Product Name, Category, Base Price, Unit Cost, Tax Rate, Variant Count, Actions; clicking "+ Create Product" opens a structured modal.
+Actual: CatalogAdminPage.jsx lines 81-86 omits Tax Rate, Variant Count, and row Action buttons; creating a product uses browser prompt('Enter Product Name:') and submits hardcoded invalid field unit_cost (DB column is standard_unit_cost).
+Notes: Replace prompt() with a structured product modal and add missing table columns and action buttons in CatalogAdminPage.jsx.
+Logged: 2026-09-05
+---
+[Product & Pricing Admin] — PRD16-ROUTE-ORDER
+Severity: Medium
+Expected: Specific static routes like /price-lists and /resolve-price are mounted before parameterized route /:productId.
+Actual: catalog.routes.js line 16 mounts router.get('/:productId', ...) before router.get('/price-lists', ...), creating route shadowing risks where single-segment paths are captured by the productId parameter.
+Notes: Reorder routes in catalog.routes.js so static subpaths are declared before parameterized /:productId routes.
+Logged: 2026-09-05
+---
+[Discount Ceilings] — GOV17-UI-READONLY
+Severity: Critical
+Expected: Governance Screen 17 provides interactive controls for administrators to edit ceiling percentages, add new tiers, add new categories, and delete/deactivate ceilings.
+Actual: GovernanceDashboard.jsx lines 60-104 renders purely static HTML tables with zero interactive controls (no Edit button or input, no "+ Add Tier" button, no "+ Add Category" button, and no Delete button). Administrators cannot configure safe zones from the UI.
+Notes: Implement interactive inline edit forms or modal dialogs for customer tier ceilings and product category ceilings in GovernanceDashboard.jsx.
+Logged: 2026-09-05
+---
+[Discount Ceilings] — GOV17-01_FE / GOV17-06_FE
+Severity: High
+Expected: Customer Tier Ceilings table displays tier names (Standard, Bronze, Silver, Gold), and Category Ceilings table displays category names (Hardware, Services, Subscriptions).
+Actual: GovernanceDashboard.jsx line 74 binds {tc.customer_tier} (backend returns tier) and line 95 binds {cc.product_category} (backend returns category). Both tables render completely blank names for every row.
+Notes: Update GovernanceDashboard.jsx lines 74 and 95 to reference tc.tier and cc.category.
+Logged: 2026-09-05
+---
+[Discount Ceilings] — GOV17-01 / GOV17-06
+Severity: High
+Expected: Default seeded discount ceilings match specification: Tiers: Bronze=5%, Silver=10%, Gold=15%; Categories: Hardware=15%, Services=10%, Subscriptions=5%.
+Actual: seed.js lines 110-120 seeds discordant values: Tiers: Standard=5%, Bronze=8%, Silver=12%, Gold=18%, Custom=25%; Categories: Hardware=10%, Services=15%, Subscriptions=20% (completely inverted from specification).
+Notes: Align seed values in seed.js with FR-GOV-01 and Section 2 test plan specification.
+Logged: 2026-09-05
+---
+[Discount Ceilings] — GOV17-03 / GOV17-08
+Severity: Medium
+Expected: Administrators can configure custom tiers (e.g., "Platinum") and new product categories (e.g., "Warranties") with corresponding discount ceilings.
+Actual: DiscountTierCeiling model line 15 and CustomerAccount model line 149 restrict tiers to hardcoded ENUM ('standard', 'bronze', 'silver', 'gold', 'custom'); CategoryCeiling model line 40 and Product model line 27 restrict categories to hardcoded ENUM ('hardware', 'services', 'subscriptions'). Adding new tiers or categories fails or cannot be associated with accounts or catalog products without database migrations.
+Notes: Replace rigid ENUM columns with VARCHAR or configurable lookup reference tables to allow dynamic tier and category additions.
+Logged: 2026-09-05
+---
+[Discount Ceilings] — GOV17-04
+Severity: Medium
+Expected: Submitting out-of-bounds discount percentages (< 0% or > 100%) returns a 400 Bad Request with descriptive validation error messages.
+Actual: governance.controller.js lines 21-44 and 77-100 do not catch SequelizeValidationError, causing invalid inputs (e.g., -5% or 150%) to trigger uncaught exceptions that return HTTP 500 Internal Server Error.
+Notes: Add request validation middleware or catch SequelizeValidationError in governance.controller.js to return HTTP 400 with field-level errors.
+Logged: 2026-09-05
+---
+[Discount Ceilings] — GOV17-05
+Severity: Medium
+Expected: Deleting or deactivating a tier ceiling is guarded against active customer assignments or gracefully handles missing limits.
+Actual: DELETE /api/governance/tier-ceilings/:id deletes the ceiling record with no foreign-key check against CustomerAccount. When deleted, resolveCeiling silently falls back to 100% or category limit without warning, effectively disabling tier-based governance for affected accounts.
+Notes: Check for existing customer account assignments before deleting a tier ceiling, or implement soft-deletion / deactivation with default fallback limits.
+Logged: 2026-09-05
+---
+[Discount Ceilings] — GOV17-NFR2
+Severity: Medium
+Expected: Modifications to tier and category discount ceilings are recorded in an audit trail with timestamp, actor user ID, prior value, and updated value.
+Actual: governance.controller.js performs upsert and delete operations on DiscountTierCeiling and CategoryCeiling without logging any audit trail entries.
+Notes: Add audit log entries on ceiling creations, updates, and deletions in governance.controller.js per FR-GOV-06.
+Logged: 2026-09-05
+---
+[Discount Ceilings] — GOV17-NFR3
+Severity: Medium
+Expected: Role permissions enforce write access strictly for Admin, while Finance Ops and Sales Managers have read/consult permissions.
+Actual: governance.routes.js line 24 applies router.use(requireRoles('admin', 'sales_manager')) globally. Sales Manager is granted full write (PUT, DELETE) permissions to alter ceilings, while Finance Ops is denied all access with HTTP 403 Forbidden.
+Notes: Restrict PUT and DELETE routes to 'admin', and permit GET routes for 'admin', 'finance_ops', and 'sales_manager'.
+Logged: 2026-09-05
+---
+[Risk Slabs & Margins] — GOV18-SUBMIT-CRASH
+Severity: Critical
+Expected: Submitting a quotation via POST /api/approvals/:quotationId/submit recomputes line metrics, calculates blended risk score, determines risk tier, transitions quotation stage, and creates required QuotationApproval steps.
+Actual: approval.controller.js line 26 queries Quotation with include: [QuotationLine] without alias 'lines', causing Sequelize to throw an association alias error that crashes with HTTP 500. Furthermore, line 43 references undefined QuotationLines, lines 45-46 reference nonexistent line_revenue/line_cost, line 55 calls determineRiskTier without await, and lines 55/94 reference nonexistent blendedRiskScore. As a result, quotation submission never succeeds.
+Notes: Fix include to use alias 'lines', await determineRiskTier, and align property names (line_net_amount, line_cost_total, blended_risk_score) in approval.controller.js.
+Logged: 2026-09-05
+---
+[Risk Slabs & Margins] — GOV18-UI-STATIC
+Severity: Critical
+Expected: Governance Screen 18 provides interactive controls to configure Risk Routing Slabs (min score, max score, manager/finance approval requirements) and Global Margin Guardrails (Absolute Margin Hard Stop, Minimum Upsell Margin Threshold).
+Actual: GovernanceDashboard.jsx lines 105-156 renders purely static HTML tables and read-only text cards with zero inputs, edit modals, or save buttons. Administrators cannot adjust routing thresholds or margin guardrails from the UI.
+Notes: Implement interactive edit controls and save actions for approval chains and global margin guardrails in GovernanceDashboard.jsx.
+Logged: 2026-09-05
+---
+[Risk Slabs & Margins] — GOV18-FE-SUBMIT-URL
+Severity: High
+Expected: Clicking "Submit for Approval" on Screen 4 successfully sends a POST request to /api/approvals/:id/submit.
+Actual: QuotationBuilderPage.jsx lines 93 and 100 call apiClient.post('/api/approvals/${id}/submit') and apiClient.patch('/api/quotations/${id}/status'). Because apiClient has BASE_URL = '/api', requests are sent to /api/api/approvals/... resulting in HTTP 404 Not Found errors.
+Notes: Remove redundant '/api' prefix from API calls in QuotationBuilderPage.jsx (use '/approvals/:id/submit' and '/quotations/:id/status').
+Logged: 2026-09-05
+---
+[Risk Slabs & Margins] — GOV18-SEED-SLABS
+Severity: High
+Expected: Default seeded approval chains match specification: Slab 1: 0pt (Auto-Approve), Slab 2: >0-5pt (Sales Manager), Slab 3: >5pt (Manager + Finance).
+Actual: seed.js lines 123-127 seeds Slab 1: 0-30pt, Slab 2: 30.01-65pt, Slab 3: >65.01pt. This causes heavily discounted quotations with scores up to 30pt (far exceeding safe zones) to be automatically approved without review.
+Notes: Update seed.js to seed standard risk slab boundaries: Slab 1 (0 to 0), Slab 2 (0.01 to 5.00), Slab 3 (5.01+).
+Logged: 2026-09-05
+---
+[Risk Slabs & Margins] — GOV18-ROUTING-BOUNDARIES
+Severity: High
+Expected: Clean quotations with Blended Risk Score = 0.0 resolve to low_risk_auto, and quotations landing exactly at 5.0 points resolve to medium_risk_manager (Slab 2).
+Actual: riskEngine.service.js line 190 checks blendedRiskScore >= min && blendedRiskScore < max. For score = 0.0 with Slab 1 max = 0, 0 < 0 evaluates to false; for score = 5.0 with Slab 2 max = 5, 5 < 5 evaluates to false. In both cases, the algorithm falls through to chains[chains.length - 1] (high_risk_finance), escalating clean zero-discount quotes directly to Finance approval.
+Notes: In determineRiskTier, explicitly handle score === 0 or use inclusive upper bounds (score <= max) and handle null max for the final tier.
+Logged: 2026-09-05
+---
+[Risk Slabs & Margins] — GOV18-HARDSTOP-UI
+Severity: High
+Expected: When a quotation's net margin breaches the Absolute Margin Hard Stop (10%), Screen 4 disables the "Submit for Approval" button and displays "Margin error: Minimum threshold of 10% breached".
+Actual: QuotationBuilderPage.jsx lines 119-123 leaves "Submit for Approval" enabled regardless of cart margin, and contains zero UI logic or error messages checking against margin floors.
+Notes: Add net margin calculation and hard-stop validation in QuotationBuilderPage.jsx to disable submission and show the required margin error banner.
+Logged: 2026-09-05
+---
+[Risk Slabs & Margins] — GOV18-GUARDRAILS-STORAGE
+Severity: Medium
+Expected: Global margin guardrails (Absolute Hard Stop, Minimum Upsell Margin) are stored in a centralized singleton configuration.
+Actual: ApprovalChain model lines 87-96 stores absolute_margin_hard_stop and minimum_upsell_margin_threshold as duplicate columns on each individual approval chain row. Updating one chain does not update others, causing guardrail settings to drift out of sync.
+Notes: Extract margin guardrails into a dedicated OrganizationGovernanceSettings model or enforce uniform updates across all chains.
+Logged: 2026-09-05
+---
