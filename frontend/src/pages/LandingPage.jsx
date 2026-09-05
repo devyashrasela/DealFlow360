@@ -321,8 +321,8 @@ export const LandingPage = () => {
                 </svg>
 
                 {/* Origami Paper Airplane */}
-                <div className="relative z-10 transform -rotate-12 hover:scale-105 transition-transform duration-300">
-                  <svg className="w-48 h-48 drop-shadow-xl" viewBox="0 0 200 200" fill="none">
+                <div className="relative z-10 transform -rotate-6 hover:scale-105 transition-transform duration-300">
+                  <svg className="w-48 h-48 drop-shadow-xl" viewBox="0 0 200  200" fill="none">
                     {/* Origami folds in #724B66 shades */}
                     <polygon points="170,30 30,120 90,140" fill="#724B66" />
                     <polygon points="170,30 90,140 130,170" fill="#5E3D54" />

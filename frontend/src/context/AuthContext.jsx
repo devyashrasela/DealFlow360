@@ -100,11 +100,41 @@ export function AuthProvider({ children }) {
   };
 
   // ── workspace switch ───────────────────────────────────────────────────────
-  const switchWorkspace = (orgId) => {
+  const switchWorkspace = (orgId, membershipList = memberships) => {
     setActiveOrgId(orgId);
     localStorage.setItem('activeOrgId', orgId);
-    const m = memberships.find(m => m.organization_id === orgId);
-    if (m) setActiveRole(m.role);
+    const m = membershipList.find(item => item.organization_id === orgId);
+    if (m) {
+      setActiveRole(m.role);
+    } else {
+      setActiveRole('admin');
+    }
+  };
+
+  // ── refresh user profile & memberships ─────────────────────────────────────
+  const refreshProfile = async () => {
+    try {
+      const profile = await apiClient.get('/auth/profile');
+      if (profile?.memberships) {
+        setMemberships(profile.memberships);
+        localStorage.setItem('memberships', JSON.stringify(profile.memberships));
+        return profile.memberships;
+      }
+    } catch (err) {
+      console.error('Failed to refresh profile:', err);
+    }
+    return [];
+  };
+
+  // ── create workspace ───────────────────────────────────────────────────────
+  const createWorkspace = async (payload) => {
+    const response = await apiClient.post('/auth/organizations', payload);
+    const updatedMemberships = await refreshProfile();
+    const newOrg = response.organization;
+    if (newOrg) {
+      switchWorkspace(newOrg.id, updatedMemberships);
+    }
+    return { ...response, memberships: updatedMemberships };
   };
 
   const activeOrg = memberships.find(m => m.organization_id === activeOrgId)?.organization || null;
@@ -122,6 +152,8 @@ export function AuthProvider({ children }) {
       logout,
       switchWorkspace,
       refreshAccessToken,
+      refreshProfile,
+      createWorkspace,
     }}>
       {children}
     </AuthContext.Provider>
