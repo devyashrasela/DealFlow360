@@ -13,6 +13,8 @@ import { InvoiceListPage } from './pages/features/invoices/InvoiceListPage.jsx';
 import { InvoiceDetailPage } from './pages/features/invoices/InvoiceDetailPage.jsx';
 import { CustomerMessagesPage } from './pages/customer/CustomerMessagesPage.jsx';
 import { CustomerProfilePage } from './pages/customer/CustomerProfilePage.jsx';
+import { QuotationListPage } from './pages/quotations/QuotationListPage.jsx';
+import { QuotationBuilderPage } from './pages/quotations/QuotationBuilderPage.jsx';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import { LoginPage } from './pages/LoginPage.jsx';
 
@@ -61,6 +63,8 @@ export default function App() {
             <Route path="fulfillment/orders/:id" element={<WarehouseSplitDetailPage />} />
             <Route path="deal-health" element={<DealHealthDashboard />} />
             <Route path="reports" element={<ReportingDashboard />} />
+            <Route path="quotations" element={<QuotationListPage />} />
+            <Route path="quotations/:id" element={<QuotationBuilderPage />} />
 
             {/* Provider Routes */}
             <Route path=":providerSlug/subscriptions" element={<SubscriptionListPage />} />

@@ -11,6 +11,7 @@ import catalogRoutes from './routes/catalog.routes.js';
 import governanceRoutes from './routes/governance.routes.js';
 import quotationRoutes from './routes/quotation.routes.js';
 import approvalRoutes from './routes/approval.routes.js';
+import customerRoutes from './routes/customer.routes.js';
 
 import fulfillmentRoutes from './routes/fulfillment.routes.js';
 import subscriptionRoutes from './routes/subscription.routes.js';
@@ -47,6 +48,7 @@ app.get('/', (req, res) => {
 app.use('/api/fulfillment', fulfillmentRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/catalog', catalogRoutes);
+app.use('/api/customers', customerRoutes);
 app.use('/api/governance', governanceRoutes);
 app.use('/api/quotations', quotationRoutes);
 app.use('/api/approvals', approvalRoutes);

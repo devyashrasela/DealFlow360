@@ -24,17 +24,18 @@ router.put('/:productId/variants/:variantId', productRoles, catalogController.up
 router.delete('/:productId/variants/:variantId', productRoles, catalogController.deleteVariant);
 
 // --- Price Lists CRUD ---
-const priceListRoles = requireRoles(['admin', 'sales_manager']);
+const priceListManageRoles = requireRoles(['admin', 'sales_manager']);
+const priceListReadRoles = requireRoles(['admin', 'sales_manager', 'sales_rep']);
 
-router.post('/price-lists', priceListRoles, catalogController.createPriceList);
-router.get('/price-lists', priceListRoles, catalogController.listPriceLists);
-router.get('/price-lists/:priceListId', priceListRoles, catalogController.getPriceList);
-router.put('/price-lists/:priceListId', priceListRoles, catalogController.updatePriceList);
+router.post('/price-lists', priceListManageRoles, catalogController.createPriceList);
+router.get('/price-lists', priceListReadRoles, catalogController.listPriceLists);
+router.get('/price-lists/:priceListId', priceListReadRoles, catalogController.getPriceList);
+router.put('/price-lists/:priceListId', priceListManageRoles, catalogController.updatePriceList);
 
 // --- Price List Items CRUD ---
-router.post('/price-lists/:priceListId/items', priceListRoles, catalogController.addPriceListItem);
-router.put('/price-lists/:priceListId/items/:itemId', priceListRoles, catalogController.updatePriceListItem);
-router.delete('/price-lists/:priceListId/items/:itemId', priceListRoles, catalogController.removePriceListItem);
+router.post('/price-lists/:priceListId/items', priceListManageRoles, catalogController.addPriceListItem);
+router.put('/price-lists/:priceListId/items/:itemId', priceListManageRoles, catalogController.updatePriceListItem);
+router.delete('/price-lists/:priceListId/items/:itemId', priceListManageRoles, catalogController.removePriceListItem);
 
 // --- Dynamic Price Resolver ---
 router.post('/resolve-price', productRoles, catalogController.resolvePrice);
