@@ -20,6 +20,9 @@ import {
   Settings, ShieldCheck,
   ChevronDown,
   LogOut,
+  Plus,
+  Check,
+  ArrowLeftRight,
 } from 'lucide-react';
 
 export const Sidebar = () => {
@@ -75,8 +78,8 @@ export const Sidebar = () => {
       {/* Organization Switcher */}
       <div className="px-4 py-3 border-b border-neutral-800/50 relative">
         <button
-          onClick={() => memberships.length > 1 && setOrgDropdownOpen((prev) => !prev)}
-          className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium bg-[#2E3141]/50 hover:bg-[#2E3141] rounded-lg text-neutral-200 transition ${memberships.length > 1 ? 'cursor-pointer' : 'cursor-default'}`}
+          onClick={() => setOrgDropdownOpen((prev) => !prev)}
+          className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium bg-[#2E3141]/50 hover:bg-[#2E3141] rounded-lg text-neutral-200 transition cursor-pointer"
         >
           <div className="flex items-center gap-2.5 truncate">
             <div className="w-6 h-6 rounded bg-[#724B66] text-[#FFFFFF] flex items-center justify-center text-xs font-bold shrink-0">
@@ -84,9 +87,7 @@ export const Sidebar = () => {
             </div>
             <span className="truncate">{orgName}</span>
           </div>
-          {memberships.length > 1 && (
-            <ChevronDown className="w-4 h-4 text-neutral-400 shrink-0" />
-          )}
+          <ChevronDown className={`w-4 h-4 text-neutral-400 shrink-0 transition-transform ${orgDropdownOpen ? 'rotate-180' : ''}`} />
         </button>
 
         {/* Role Badge */}
@@ -99,22 +100,64 @@ export const Sidebar = () => {
         )}
 
         {/* Dropdown for org switcher */}
-        {orgDropdownOpen && memberships.length > 1 && (
-          <div className="absolute left-4 right-4 top-14 bg-[#2E3141] border border-neutral-700 rounded-lg shadow-xl py-1 z-50">
-            {memberships.map((m) => (
-              <button
-                key={m.organization_id}
-                onClick={() => {
-                  switchWorkspace(m.organization_id);
-                  setOrgDropdownOpen(false);
-                }}
-                className="w-full text-left px-3 py-2 text-xs hover:bg-[#111826] text-neutral-200 flex items-center justify-between"
-              >
-                <span className="truncate">{m.organization?.trading_name || m.organization?.legal_name}</span>
-                <span className="text-[10px] text-neutral-400 uppercase font-mono">{m.role}</span>
-              </button>
-            ))}
-          </div>
+        {orgDropdownOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setOrgDropdownOpen(false)}
+            />
+            <div className="absolute left-4 right-4 top-14 bg-[#1b2230] border border-neutral-700 rounded-lg shadow-2xl py-1.5 z-50">
+              <div className="px-3 py-1 text-[10px] font-semibold text-neutral-400 uppercase tracking-wider border-b border-neutral-800">
+                Workspaces ({memberships.length})
+              </div>
+              <div className="max-h-48 overflow-y-auto divide-y divide-neutral-800/40">
+                {memberships.map((m) => {
+                  const isCurrent = m.organization_id === activeOrg?.id;
+                  return (
+                    <button
+                      key={m.organization_id}
+                      onClick={() => {
+                        switchWorkspace(m.organization_id);
+                        setOrgDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 text-xs hover:bg-[#2E3141] text-neutral-200 flex items-center justify-between transition cursor-pointer ${
+                        isCurrent ? 'bg-[#2E3141]/60 font-semibold text-white' : ''
+                      }`}
+                    >
+                      <div className="truncate flex items-center gap-1.5">
+                        {isCurrent && <Check className="w-3.5 h-3.5 text-[#E892A2] shrink-0" />}
+                        <span className="truncate">{m.organization?.trading_name || m.organization?.legal_name}</span>
+                      </div>
+                      <span className="text-[10px] text-neutral-400 uppercase font-mono ml-2 shrink-0">{m.role}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="border-t border-neutral-800 mt-1 pt-1 space-y-0.5">
+                <button
+                  onClick={() => {
+                    setOrgDropdownOpen(false);
+                    navigate('/select-workspace?create=true');
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs text-[#E892A2] hover:bg-[#2E3141] flex items-center gap-2 font-medium transition cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 shrink-0" />
+                  <span>Create Workspace</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setOrgDropdownOpen(false);
+                    navigate('/select-workspace');
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs text-neutral-300 hover:bg-[#2E3141] flex items-center gap-2 transition cursor-pointer"
+                >
+                  <ArrowLeftRight className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                  <span>Switch Workspace</span>
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
