@@ -23,7 +23,7 @@ function generateRefreshToken() {
 function issueAccessToken(user, sessionId) {
   const payload = { sub: user.id };
   if (sessionId) payload.session_id = sessionId;
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '15m' });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '24h' });
 }
 
 async function createSession(user, req) {
