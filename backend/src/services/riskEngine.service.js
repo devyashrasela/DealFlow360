@@ -224,7 +224,7 @@ export const getUpsellSuggestions = async (organizationId, productIds, minimumMa
       },
       include: [{
         model: Product,
-        as: 'recommendedProduct' // Include using standard alias or default association
+        as: 'recommended_product'
       }],
       order: [['priority_rank', 'ASC']]
     });
@@ -232,7 +232,7 @@ export const getUpsellSuggestions = async (organizationId, productIds, minimumMa
     const suggestions = [];
 
     for (const rule of rules) {
-      const recProduct = rule.recommendedProduct || rule.Product;
+      const recProduct = rule.recommended_product;
       if (!recProduct) continue;
 
       const baseList = parseFloat(recProduct.base_list_price);

@@ -15,10 +15,8 @@ import { Quotation, QuotationLine, NegotiationThread } from '../models/quotation
 import { Subscription, SubscriptionLineItem, BillingSchedule } from '../models/subscription.models.js';
 import { Invoice, InvoiceLine } from '../models/ledger.models.js';
 import { RepDiscountBaseline } from '../models/dealHealth.models.js';
-import bcrypt from 'bcryptjs';
-
-const hash = (pw) => bcrypt.hashSync(pw, 10);
-
+  import argon2 from 'argon2';
+  
 async function seed() {
   console.log('Syncing database...');
   await sequelize.sync({ force: true });
@@ -47,17 +45,27 @@ async function seed() {
     shipping_address: { line1: '200 Commerce St', city: 'Delhi', state: 'DL', zip: '110001', country: 'IN' },
   });
 
+  const hash = async (pw) => await argon2.hash(pw, { type: argon2.argon2id });
+
   // ── Users ──
-  const admin = await User.create({ email: 'admin@acme.com', password_hash: hash('admin123'), full_name: 'Alex Sharma' });
-  const manager = await User.create({ email: 'manager@acme.com', password_hash: hash('manager123'), full_name: 'Sarah Kim' });
-  const rep = await User.create({ email: 'rep@acme.com', password_hash: hash('rep123'), full_name: 'Dev Patel' });
-  const portal = await User.create({ email: 'portal@beta.com', password_hash: hash('portal123'), full_name: 'Rita Gupta' });
+  const admin = await User.create({ email: 'admin@acme.com', password_hash: await hash('admin123'), full_name: 'Alex Sharma' });
+  const manager = await User.create({ email: 'manager@acme.com', password_hash: await hash('manager123'), full_name: 'Sarah Kim' });
+  const manager2 = await User.create({ email: 'sales.lead@acme.com', password_hash: await hash('manager123'), full_name: 'Michael Chen' });
+  const finance = await User.create({ email: 'finance@acme.com', password_hash: await hash('finance123'), full_name: 'Priya Desai' });
+  const rep = await User.create({ email: 'rep@acme.com', password_hash: await hash('rep123'), full_name: 'Dev Patel' });
+  const rep2 = await User.create({ email: 'jessica.rep@acme.com', password_hash: await hash('rep123'), full_name: 'Jessica Wong' });
+  const rep3 = await User.create({ email: 'omar.rep@acme.com', password_hash: await hash('rep123'), full_name: 'Omar Hassan' });
+  const portal = await User.create({ email: 'portal@beta.com', password_hash: await hash('portal123'), full_name: 'Rita Gupta' });
 
   // ── Memberships ──
   await OrganizationMembership.bulkCreate([
     { organization_id: acme.id, user_id: admin.id, role: 'admin' },
     { organization_id: acme.id, user_id: manager.id, role: 'sales_manager' },
+    { organization_id: acme.id, user_id: manager2.id, role: 'sales_manager' },
+    { organization_id: acme.id, user_id: finance.id, role: 'finance_ops' },
     { organization_id: acme.id, user_id: rep.id, role: 'sales_rep' },
+    { organization_id: acme.id, user_id: rep2.id, role: 'sales_rep' },
+    { organization_id: acme.id, user_id: rep3.id, role: 'sales_rep' },
     { organization_id: beta.id, user_id: portal.id, role: 'customer_portal' },
   ]);
 
@@ -108,22 +116,33 @@ async function seed() {
 
   // ── Tier & Category Ceilings ──
   const tiers = ['standard', 'bronze', 'silver', 'gold', 'custom'];
-  const tierMaxes = [5, 8, 12, 18, 25];
+  const tierMaxes = [5, 8, 12, 15, 25]; // Gold is now 15
   await DiscountTierCeiling.bulkCreate(tiers.map((t, i) => ({
     organization_id: acme.id, tier: t, max_discount_percentage: tierMaxes[i],
   })));
 
   await CategoryCeiling.bulkCreate([
-    { organization_id: acme.id, category: 'hardware', max_discount_percentage: 10 },
-    { organization_id: acme.id, category: 'services', max_discount_percentage: 15 },
+    { organization_id: acme.id, category: 'hardware', max_discount_percentage: 15 }, // Hardware up to 15
+    { organization_id: acme.id, category: 'services', max_discount_percentage: 10 }, // Services up to 10
     { organization_id: acme.id, category: 'subscriptions', max_discount_percentage: 20 },
   ]);
 
+  // ── Upsell Rules ──
+  const { UpsellRule } = await import('../models/catalog.models.js');
+  await UpsellRule.create({
+    organization_id: acme.id,
+    trigger_product_id: hwServer.id,
+    recommended_product_id: svcTrain.id, // Recommends Team Training when buying Enterprise Server
+    promotional_discount_percent: 5,
+    priority_rank: 1,
+    is_active: true,
+  });
+
   // ── Approval Chains ──
   await ApprovalChain.bulkCreate([
-    { organization_id: acme.id, risk_tier: 'low_risk_auto', min_risk_score: 0, max_risk_score: 30, requires_manager_approval: false, requires_finance_approval: false },
-    { organization_id: acme.id, risk_tier: 'medium_risk_manager', min_risk_score: 30.01, max_risk_score: 65, requires_manager_approval: true, requires_finance_approval: false },
-    { organization_id: acme.id, risk_tier: 'high_risk_finance', min_risk_score: 65.01, max_risk_score: null, requires_manager_approval: true, requires_finance_approval: true },
+    { organization_id: acme.id, risk_tier: 'low_risk_auto', min_risk_score: 0, max_risk_score: 0, requires_manager_approval: false, requires_finance_approval: false }, // Only perfectly clean quotes (score 0) auto-approve
+    { organization_id: acme.id, risk_tier: 'medium_risk_manager', min_risk_score: 0.01, max_risk_score: 25, requires_manager_approval: true, requires_finance_approval: false }, // Any excess triggers manager
+    { organization_id: acme.id, risk_tier: 'high_risk_finance', min_risk_score: 25.01, max_risk_score: null, requires_manager_approval: true, requires_finance_approval: true },
   ]);
 
   // ── Warehouses ──
@@ -174,7 +193,9 @@ async function seed() {
     blended_margin_percentage: 38, blended_risk_score: 12,
   });
   // Force stale updated_at
-  await sequelize.query(`UPDATE quotations SET updated_at = '${staleDate.toISOString()}' WHERE id = '${qDraft.id}'`);
+  await sequelize.query(`UPDATE quotations SET updated_at = :staleDate WHERE id = :id`, {
+    replacements: { staleDate, id: qDraft.id }
+  });
   await QuotationLine.bulkCreate(makeLines(qDraft.id, 5));
 
   // Pending approval
