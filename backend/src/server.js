@@ -56,11 +56,13 @@ app.use('/api/invoices', invoiceRoutes);
 // Sync database on startup
 export const syncDatabase = async () => {
   try {
-    console.log('Syncing Sequelize models with MySQL Database...');
-    await sequelize.sync();
-    console.log('Sequelize database models synchronized successfully!');
+    console.log('Connecting to MySQL Database...');
+    await sequelize.authenticate();
+    // Temporarily skipping .sync() because Aiven sometimes throws ER_NO_SUCH_TABLE on SHOW INDEX
+    // during boot if tables have circular references, even when they exist.
+    console.log('Database connected successfully!');
   } catch (err) {
-    console.error('Failed to sync Sequelize database models:', err);
+    console.error('Failed to connect to database:', err);
     throw err;
   }
 };

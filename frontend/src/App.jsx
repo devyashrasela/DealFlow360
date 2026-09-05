@@ -13,6 +13,16 @@ import { InvoiceListPage } from './pages/features/invoices/InvoiceListPage.jsx';
 import { InvoiceDetailPage } from './pages/features/invoices/InvoiceDetailPage.jsx';
 import { CustomerMessagesPage } from './pages/customer/CustomerMessagesPage.jsx';
 import { CustomerProfilePage } from './pages/customer/CustomerProfilePage.jsx';
+import { AuthProvider, useAuth } from './context/AuthContext.jsx';
+import { LoginPage } from './pages/LoginPage.jsx';
+
+function ProtectedRoute({ children }) {
+  const { token } = useAuth();
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+}
 
 export default function App() {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -25,43 +35,48 @@ export default function App() {
   };
 
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* External Customer Portal (No AppLayout) */}
-        <Route path="/portal" element={<CustomerPortalPage />} />
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/portal" element={<CustomerPortalPage />} />
 
-        {/* Internal Workspace */}
-        <Route
-          element={
-            <AppLayout
-              key={refreshKey}
-              onRefresh={handleGlobalRefresh}
-              isRefreshing={isRefreshing}
-            />
-          }
-        >
-          <Route index element={<DashboardPage />} />
-          
-          {/* Fulfillment Routes */}
-          <Route path="fulfillment" element={<FulfillmentCockpitPage />} />
-          <Route path="fulfillment/orders/:id" element={<WarehouseSplitDetailPage />} />
-          <Route path="deal-health" element={<DealHealthDashboard />} />
-          <Route path="reports" element={<ReportingDashboard />} />
+          {/* Protected internal workspace */}
+          <Route
+            element={
+              <ProtectedRoute>
+                <AppLayout
+                  key={refreshKey}
+                  onRefresh={handleGlobalRefresh}
+                  isRefreshing={isRefreshing}
+                />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<DashboardPage />} />
 
-          {/* Provider Routes (assuming 'acme' as default provider slug for now) */}
-          <Route path=":providerSlug/subscriptions" element={<SubscriptionListPage />} />
-          <Route path=":providerSlug/subscriptions/:subscriptionId" element={<SubscriptionDetailPage />} />
-          
-          <Route path=":providerSlug/invoices" element={<InvoiceListPage />} />
-          <Route path=":providerSlug/invoices/:invoiceId" element={<InvoiceDetailPage />} />
+            {/* Fulfillment Routes */}
+            <Route path="fulfillment" element={<FulfillmentCockpitPage />} />
+            <Route path="fulfillment/orders/:id" element={<WarehouseSplitDetailPage />} />
+            <Route path="deal-health" element={<DealHealthDashboard />} />
+            <Route path="reports" element={<ReportingDashboard />} />
 
-          {/* Customer Portal Routes */}
-          <Route path=":providerSlug/:customerSlug/messages" element={<CustomerMessagesPage />} />
-          <Route path=":providerSlug/:customerSlug/profile" element={<CustomerProfilePage />} />
+            {/* Provider Routes */}
+            <Route path=":providerSlug/subscriptions" element={<SubscriptionListPage />} />
+            <Route path=":providerSlug/subscriptions/:subscriptionId" element={<SubscriptionDetailPage />} />
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+            <Route path=":providerSlug/invoices" element={<InvoiceListPage />} />
+            <Route path=":providerSlug/invoices/:invoiceId" element={<InvoiceDetailPage />} />
+
+            {/* Customer Portal Routes */}
+            <Route path=":providerSlug/:customerSlug/messages" element={<CustomerMessagesPage />} />
+            <Route path=":providerSlug/:customerSlug/profile" element={<CustomerProfilePage />} />
+
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }

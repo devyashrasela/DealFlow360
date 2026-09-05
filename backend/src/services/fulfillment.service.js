@@ -19,13 +19,12 @@ import {
 /**
  * Real-time stock lookup with computed available_to_fulfill
  */
-export const getStockBalances = async ({ organization_id, warehouse_id, product_id }) => {
+export const getStockBalances = async (orgId, { warehouse_id, product_id }) => {
   const where = {};
   if (warehouse_id) where.warehouse_id = warehouse_id;
   if (product_id) where.product_id = product_id;
 
-  const warehouseWhere = {};
-  if (organization_id) warehouseWhere.organization_id = organization_id;
+  const warehouseWhere = { organization_id: orgId };
 
   const stocks = await WarehouseStock.findAll({
     where,
@@ -202,8 +201,9 @@ export const optimizeFulfillmentSplit = (physicalLines, activeWarehouses, stockM
 /**
  * Preview optimal split for an order without committing locks
  */
-export const previewQuoteSplit = async (quotationId) => {
-  const quotation = await Quotation.findByPk(quotationId, {
+export const previewQuoteSplit = async (orgId, quotationId) => {
+  const quotation = await Quotation.findOne({
+    where: { id: quotationId, organization_id: orgId },
     include: [
       {
         model: QuotationLine,
@@ -277,7 +277,7 @@ export const previewQuoteSplit = async (quotationId) => {
  * Execute Stock Allocation with strict SELECT ... FOR UPDATE concurrency locking.
  * Enforces deterministic ascending PK order to prevent deadlocks.
  */
-export const executeFulfillmentAllocation = async ({
+export const executeFulfillmentAllocation = async (orgId, {
   quotationId,
   isManualOverride = false,
   manualAllocations = null,
@@ -286,7 +286,8 @@ export const executeFulfillmentAllocation = async ({
 }) => {
   const runInTransaction = async (t) => {
     // 1. Fetch quote and physical lines
-    const quotation = await Quotation.findByPk(quotationId, {
+    const quotation = await Quotation.findOne({
+      where: { id: quotationId, organization_id: orgId },
       include: [
         {
           model: QuotationLine,
@@ -580,14 +581,15 @@ export const findConsolidationPrompts = async (organizationId) => {
  * Mid-fulfillment consolidation:
  * Merges open backorder into existing active parcel (< pickpack) under row locks.
  */
-export const consolidateBackorder = async ({
+export const consolidateBackorder = async (orgId, {
   backorderId,
   targetWarehouseId,
   targetFulfillmentOrderId,
 }) => {
   return sequelize.transaction(async (t) => {
     // 1. Lock Backorder
-    const backorder = await Backorder.findByPk(backorderId, {
+    const backorder = await Backorder.findOne({
+      where: { id: backorderId, organization_id: orgId },
       lock: t.LOCK.UPDATE,
       transaction: t,
     });
@@ -605,7 +607,8 @@ export const consolidateBackorder = async ({
     }
 
     // 2. Lock Target Fulfillment Order
-    const fulfillmentOrder = await FulfillmentOrder.findByPk(targetFulfillmentOrderId, {
+    const fulfillmentOrder = await FulfillmentOrder.findOne({
+      where: { id: targetFulfillmentOrderId, organization_id: orgId },
       lock: t.LOCK.UPDATE,
       transaction: t,
     });
@@ -697,8 +700,11 @@ export const consolidateBackorder = async ({
 /**
  * Record replenishment inward stock receipt & trigger consolidation flags
  */
-export const receiveInwardStockReceipt = async ({ warehouseId, productId, productVariantId, quantity }) => {
+export const receiveInwardStockReceipt = async (orgId, { warehouseId, productId, productVariantId, quantity }) => {
   return sequelize.transaction(async (t) => {
+    const warehouse = await Warehouse.findOne({ where: { id: warehouseId, organization_id: orgId }, transaction: t });
+    if (!warehouse) throw new Error('Warehouse not found');
+
     let stock = await WarehouseStock.findOne({
       where: {
         warehouse_id: warehouseId,

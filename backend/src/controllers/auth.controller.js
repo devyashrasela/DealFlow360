@@ -6,9 +6,13 @@ export const register = async (req, res) => {
   try {
     const { email, password, full_name, phone_number } = req.body;
 
+    if (!email || !password || !full_name) {
+      return res.status(400).json({ error: 'email, password, and full_name are required' });
+    }
+
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
-      return res.status(409).json({ message: 'Email already exists' });
+      return res.status(409).json({ error: 'Email already exists' });
     }
 
     const password_hash = await argon2.hash(password, { type: argon2.argon2id });
@@ -29,13 +33,18 @@ export const register = async (req, res) => {
     });
   } catch (error) {
     console.error('Register error:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
 export const login = async (req, res) => {
   try {
     const { identifier, password } = req.body;
+
+    if (!identifier || !password) {
+      return res.status(400).json({ error: 'identifier and password are required' });
+    }
+
     let user = null;
 
     if (identifier.includes('@')) {
@@ -57,12 +66,12 @@ export const login = async (req, res) => {
     }
 
     if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const isValid = await argon2.verify(user.password_hash, password);
     if (!isValid) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     await user.update({ last_login_at: new Date() });
@@ -75,16 +84,16 @@ export const login = async (req, res) => {
 
     const memberships = await OrganizationMembership.findAll({
       where: { user_id: user.id, status: 'active' },
-      include: [{ model: Organization }]
+      include: [{ model: Organization, as: 'organization' }]
     });
 
     let redirect = null;
     if (memberships.length === 1) {
       const membership = memberships[0];
-      const orgType = membership.Organization ? membership.Organization.organization_type : null;
+      const orgType = membership.organization ? membership.organization.organization_type : null;
       
       // Fallback in case include doesn't auto-resolve as Organization
-      const org = membership.Organization || await Organization.findByPk(membership.organization_id);
+      const org = membership.organization || await Organization.findByPk(membership.organization_id);
 
       if (org && org.organization_type === 'provider') {
         redirect = `/${org.slug}/dashboard`;
@@ -114,20 +123,24 @@ export const login = async (req, res) => {
 
   } catch (error) {
     console.error('Login error:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
 export const getProfile = async (req, res) => {
   try {
-    const user = req.user;
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const user = await User.findByPk(req.user.id);
     if (!user) {
-      return res.status(401).json({ message: 'Unauthorized' });
+      return res.status(401).json({ error: 'User not found' });
     }
 
     const memberships = await OrganizationMembership.findAll({
       where: { user_id: user.id },
-      include: [{ model: Organization }]
+      include: [{ model: Organization, as: 'organization' }]
     });
 
     return res.status(200).json({
@@ -143,7 +156,7 @@ export const getProfile = async (req, res) => {
     });
   } catch (error) {
     console.error('Get profile error:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
@@ -155,9 +168,13 @@ export const setupOrganization = async (req, res) => {
     } = req.body;
     const user = req.user;
 
+    if (!legal_name || !slug || !organization_type) {
+      return res.status(400).json({ error: 'legal_name, slug, and organization_type are required' });
+    }
+
     const existingOrg = await Organization.findOne({ where: { slug } });
     if (existingOrg) {
-      return res.status(409).json({ message: 'Organization slug already exists' });
+      return res.status(409).json({ error: 'Organization slug already exists' });
     }
 
     const org = await Organization.create({
@@ -182,6 +199,6 @@ export const setupOrganization = async (req, res) => {
     return res.status(201).json({ message: 'Organization created successfully', organization: org });
   } catch (error) {
     console.error('Setup organization error:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };

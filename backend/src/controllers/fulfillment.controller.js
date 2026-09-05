@@ -29,9 +29,9 @@ import {
  */
 export const getStock = async (req, res, next) => {
   try {
-    const { organization_id, warehouse_id, product_id } = req.query;
-    const stockList = await getStockBalances({
-      organization_id,
+    const orgId = req.orgContext.organizationId;
+    const { warehouse_id, product_id } = req.query;
+    const stockList = await getStockBalances(orgId, {
       warehouse_id,
       product_id,
     });
@@ -47,9 +47,9 @@ export const getStock = async (req, res, next) => {
  */
 export const getFulfillmentOrders = async (req, res, next) => {
   try {
-    const { organization_id, status, warehouse_id } = req.query;
-    const where = {};
-    if (organization_id) where.organization_id = organization_id;
+    const orgId = req.orgContext.organizationId;
+    const { status, warehouse_id } = req.query;
+    const where = { organization_id: orgId };
     if (status) where.status = status;
     if (warehouse_id) where.warehouse_id = warehouse_id;
 
@@ -107,8 +107,10 @@ export const getFulfillmentOrders = async (req, res, next) => {
  */
 export const getFulfillmentOrderDetail = async (req, res, next) => {
   try {
+    const orgId = req.orgContext.organizationId;
     const { id } = req.params;
-    const order = await FulfillmentOrder.findByPk(id, {
+    const order = await FulfillmentOrder.findOne({
+      where: { id, organization_id: orgId },
       include: [
         { model: Warehouse, as: 'warehouse' },
         {
@@ -158,8 +160,9 @@ export const getFulfillmentOrderDetail = async (req, res, next) => {
  */
 export const getSplitPreview = async (req, res, next) => {
   try {
+    const orgId = req.orgContext.organizationId;
     const { quotationId } = req.params;
-    const preview = await previewQuoteSplit(quotationId);
+    const preview = await previewQuoteSplit(orgId, quotationId);
     return res.status(200).json({ success: true, data: preview });
   } catch (err) {
     next(err);
@@ -172,8 +175,9 @@ export const getSplitPreview = async (req, res, next) => {
  */
 export const ingestConfirmedQuote = async (req, res, next) => {
   try {
+    const orgId = req.orgContext.organizationId;
     const { quotationId } = req.params;
-    const result = await executeFulfillmentAllocation({
+    const result = await executeFulfillmentAllocation(orgId, {
       quotationId,
       isManualOverride: false,
     });
@@ -193,6 +197,7 @@ export const ingestConfirmedQuote = async (req, res, next) => {
  */
 export const applyManualSplit = async (req, res, next) => {
   try {
+    const orgId = req.orgContext.organizationId;
     const { quotationId } = req.params;
     const { allocations } = req.body;
 
@@ -203,7 +208,7 @@ export const applyManualSplit = async (req, res, next) => {
       });
     }
 
-    const result = await executeFulfillmentAllocation({
+    const result = await executeFulfillmentAllocation(orgId, {
       quotationId,
       isManualOverride: true,
       manualAllocations: allocations,
@@ -225,9 +230,9 @@ export const applyManualSplit = async (req, res, next) => {
  */
 export const getBackorders = async (req, res, next) => {
   try {
-    const { organization_id, status } = req.query;
-    const where = {};
-    if (organization_id) where.organization_id = organization_id;
+    const orgId = req.orgContext.organizationId;
+    const { status } = req.query;
+    const where = { organization_id: orgId };
     if (status) where.status = status;
 
     const backorders = await Backorder.findAll({
@@ -264,8 +269,8 @@ export const getBackorders = async (req, res, next) => {
  */
 export const getConsolidationPrompts = async (req, res, next) => {
   try {
-    const { organization_id } = req.query;
-    const prompts = await findConsolidationPrompts(organization_id);
+    const orgId = req.orgContext.organizationId;
+    const prompts = await findConsolidationPrompts(orgId);
     return res.status(200).json({ success: true, count: prompts.length, data: prompts });
   } catch (err) {
     next(err);
@@ -278,6 +283,7 @@ export const getConsolidationPrompts = async (req, res, next) => {
  */
 export const executeConsolidationAction = async (req, res, next) => {
   try {
+    const orgId = req.orgContext.organizationId;
     const { id: backorderId } = req.params;
     const { target_warehouse_id, target_fulfillment_order_id } = req.body;
 
@@ -288,7 +294,7 @@ export const executeConsolidationAction = async (req, res, next) => {
       });
     }
 
-    const result = await consolidateBackorder({
+    const result = await consolidateBackorder(orgId, {
       backorderId,
       targetWarehouseId: target_warehouse_id,
       targetFulfillmentOrderId: target_fulfillment_order_id,
@@ -306,6 +312,7 @@ export const executeConsolidationAction = async (req, res, next) => {
  */
 export const receiveStock = async (req, res, next) => {
   try {
+    const orgId = req.orgContext.organizationId;
     const { warehouse_id, product_id, product_variant_id, quantity } = req.body;
 
     if (!warehouse_id || !product_id || !quantity || quantity <= 0) {
@@ -315,7 +322,7 @@ export const receiveStock = async (req, res, next) => {
       });
     }
 
-    const updatedStock = await receiveInwardStockReceipt({
+    const updatedStock = await receiveInwardStockReceipt(orgId, {
       warehouseId: warehouse_id,
       productId: product_id,
       productVariantId: product_variant_id,
@@ -338,6 +345,7 @@ export const receiveStock = async (req, res, next) => {
  */
 export const updateOrderStatus = async (req, res, next) => {
   try {
+    const orgId = req.orgContext.organizationId;
     const { id } = req.params;
     const { status } = req.body;
 
@@ -346,7 +354,7 @@ export const updateOrderStatus = async (req, res, next) => {
       return res.status(400).json({ success: false, error: `Invalid status: ${status}` });
     }
 
-    const order = await FulfillmentOrder.findByPk(id);
+    const order = await FulfillmentOrder.findOne({ where: { id, organization_id: orgId } });
     if (!order) {
       return res.status(404).json({ success: false, error: `Fulfillment order ${id} not found.` });
     }

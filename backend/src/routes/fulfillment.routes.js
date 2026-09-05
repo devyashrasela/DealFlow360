@@ -12,8 +12,16 @@ import {
   receiveStock,
   updateOrderStatus,
 } from '../controllers/fulfillment.controller.js';
+import { authenticate, resolveOrgContext, requireRoles } from '../middleware/auth.middleware.js';
 
 const router = Router();
+
+// Apply auth middlewares
+router.use(authenticate);
+router.use(resolveOrgContext);
+
+const requireFulfillmentRoles = requireRoles('admin', 'finance_ops', 'sales_manager');
+router.use(requireFulfillmentRoles);
 
 // Inventory & Warehouse Balances
 router.get('/stock', getStock);
