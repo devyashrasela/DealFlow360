@@ -9,6 +9,8 @@ import governanceRoutes from './routes/governance.routes.js';
 import quotationRoutes from './routes/quotation.routes.js';
 import approvalRoutes from './routes/approval.routes.js';
 
+import fulfillmentRoutes from './routes/fulfillment.routes.js';
+
 const app = express();
 
 app.use((req, res, next) => {
@@ -20,11 +22,10 @@ app.use((req, res, next) => {
 });
 
 app.use(cors({
-  origin: [process.env.FRONTEND_URL, 'http://localhost:3000'],
+  origin: [process.env.FRONTEND_URL, 'http://localhost:3000'].filter(Boolean),
   credentials: true
 }));
 app.use(express.json());
-
 
 // Public health check route
 app.get('/', (req, res) => {
@@ -32,6 +33,7 @@ app.get('/', (req, res) => {
 });
 
 // API Routes
+app.use('/api/fulfillment', fulfillmentRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/catalog', catalogRoutes);
 app.use('/api/governance', governanceRoutes);
