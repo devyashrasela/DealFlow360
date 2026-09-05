@@ -123,7 +123,7 @@ export const SubscriptionListPage = () => {
                       ${Number(sub.mrr_amount || 0).toLocaleString()}
                     </td>
                     <td className="px-6 py-4 text-neutral-500">
-                      {new Date(sub.next_invoice_date).toLocaleDateString()}
+                      {sub.next_invoice_date ? new Date(sub.next_invoice_date).toLocaleDateString() : '—'}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <Link 

@@ -117,7 +117,7 @@ export const InvoiceListPage = () => {
                       {inv.customer_account?.buyer_organization?.legal_name || 'N/A'}
                     </td>
                     <td className="px-6 py-4 capitalize">
-                      {inv.invoice_type.replace('_', ' ')}
+                      {(inv.invoice_type || '').replace('_', ' ')}
                     </td>
                     <td className="px-6 py-4">
                       {getStatusBadge(inv.status)}

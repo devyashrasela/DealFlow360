@@ -87,4 +87,30 @@ export const apiClient = {
     }
     return res.json();
   },
+  async put(endpoint, data = {}) {
+    const res = await fetch(BASE_URL + endpoint, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    handleResponse(res);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error ${res.status}`);
+    }
+    return res.json();
+  },
+
+  async delete(endpoint) {
+    const res = await fetch(BASE_URL + endpoint, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    handleResponse(res);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error ${res.status}`);
+    }
+    return res.json().catch(() => ({}));
+  },
 };

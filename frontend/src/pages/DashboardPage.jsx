@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fulfillmentApi } from '../api/fulfillmentApi.js';
+import { apiClient } from '../api/client.js';
 import {
   FileText,
   Users,
@@ -21,18 +22,47 @@ import {
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
-  const [fulfillmentCount, setFulfillmentCount] = useState(8);
   const [checkedTasks, setCheckedTasks] = useState({});
+  const [kpiValues, setKpiValues] = useState({
+    openQuotations: '…',
+    pendingApprovals: '…',
+    ordersInFulfillment: '…',
+    activeSubscriptions: '…',
+    outstandingInvoices: '…',
+  });
 
   useEffect(() => {
-    fulfillmentApi
-      .getOrders()
-      .then((res) => {
-        if (res?.data && res.data.length > 0) {
-          setFulfillmentCount(res.data.length);
-        }
-      })
-      .catch(() => {});
+    // Fetch all KPIs in parallel — fail gracefully per-call
+    Promise.allSettled([
+      apiClient.get('/quotations?limit=1').catch(() => null),
+      apiClient.get('/approvals/pending').catch(() => null),
+      fulfillmentApi.getOrders().catch(() => null),
+      apiClient.get('/reports/kpi-summary').catch(() => null),
+      apiClient.get('/invoices?status=issued&limit=1').catch(() => null),
+    ]).then(([quotRes, apprRes, fulfRes, kpiRes, invRes]) => {
+      setKpiValues({
+        openQuotations:
+          quotRes.status === 'fulfilled' && quotRes.value
+            ? (quotRes.value.total ?? quotRes.value.quotations?.length ?? '…')
+            : '…',
+        pendingApprovals:
+          apprRes.status === 'fulfilled' && Array.isArray(apprRes.value)
+            ? apprRes.value.filter(a => a.status === 'pending').length
+            : '…',
+        ordersInFulfillment:
+          fulfRes.status === 'fulfilled' && fulfRes.value?.data
+            ? fulfRes.value.data.length
+            : '…',
+        activeSubscriptions:
+          kpiRes.status === 'fulfilled' && kpiRes.value
+            ? (kpiRes.value.active_subscriptions ?? '…')
+            : '…',
+        outstandingInvoices:
+          invRes.status === 'fulfilled' && invRes.value
+            ? (invRes.value.total ?? invRes.value.invoices?.length ?? '…')
+            : '…',
+      });
+    });
   }, []);
 
   const toggleTask = (id) => {
@@ -42,24 +72,24 @@ export const DashboardPage = () => {
   const kpis = [
     {
       title: 'Open Quotations',
-      value: '12',
-      trend: '↑ 20% from last month',
+      value: String(kpiValues.openQuotations),
+      trend: 'Live count',
       isUp: true,
       icon: FileText,
       path: '/quotations',
     },
     {
       title: 'Pending Approvals',
-      value: '4',
-      trend: '↓ 33% from last month',
+      value: String(kpiValues.pendingApprovals),
+      trend: 'Awaiting review',
       isUp: false,
       icon: Users,
       path: '/approvals',
     },
     {
       title: 'Orders in Fulfillment',
-      value: fulfillmentCount.toString(),
-      trend: '↑ 14% from last month',
+      value: String(kpiValues.ordersInFulfillment),
+      trend: 'Active orders',
       isUp: true,
       icon: Package,
       path: '/fulfillment',
@@ -67,17 +97,17 @@ export const DashboardPage = () => {
     },
     {
       title: 'Active Subscriptions',
-      value: '28',
-      trend: '↑ 12% from last month',
+      value: String(kpiValues.activeSubscriptions),
+      trend: 'Live MRR contracts',
       isUp: true,
       icon: Repeat,
       path: '/subscriptions',
     },
     {
       title: 'Outstanding Invoices',
-      value: '6',
-      trend: '↑ 25% from last month',
-      isUp: false, // red in screenshot
+      value: String(kpiValues.outstandingInvoices),
+      trend: 'Issued & unpaid',
+      isUp: false,
       icon: Receipt,
       path: '/invoices',
     },

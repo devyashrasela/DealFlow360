@@ -89,14 +89,20 @@ export function QuotationBuilderPage() {
   };
 
   const submitForApproval = async () => {
-    // Call approval routing API (we assume there's one, or we just update stage)
     try {
-      // Temporary hack: in real life there should be a submit endpoint. 
-      // For now we'll just alert and say it's submitted.
-      alert('Submit for Approval triggered. (Needs approval API hookup)');
-      navigate('/quotations');
+      await apiClient.post(`/api/approvals/${id}/submit`);
+      alert('Quotation submitted for approval!');
+      navigate('/approvals');
     } catch (err) {
       console.error(err);
+      // Fallback: try the quotation status update endpoint
+      try {
+        await apiClient.patch(`/api/quotations/${id}/status`, { status: 'pending_approval' });
+        alert('Quotation submitted for approval!');
+        navigate('/approvals');
+      } catch (err2) {
+        alert('Failed to submit: ' + (err2.message || err.message));
+      }
     }
   };
 

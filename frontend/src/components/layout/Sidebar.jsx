@@ -33,6 +33,10 @@ export const Sidebar = () => {
   const orgSlug = activeOrg?.slug || 'acme';
   const orgName = activeOrg?.trading_name || activeOrg?.legal_name || 'Organization';
 
+  // Find customer org slug from memberships (customer_portal role)
+  const customerMembership = memberships.find(m => m.role === 'customer_portal');
+  const customerSlug = customerMembership?.organization?.slug || null;
+
   const MAIN_NAV = [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
     { name: 'Quotations', path: '/quotations', icon: FileText },
@@ -46,12 +50,13 @@ export const Sidebar = () => {
     { name: 'Governance', path: '/admin/governance', icon: ShieldCheck }
   ];
 
-  const CUSTOMER_PORTAL_NAV = [
-    { name: 'Portal Dashboard', path: `/${orgSlug}/techstart/dashboard`, icon: LayoutDashboard },
-    { name: 'My Quotes', path: `/${orgSlug}/techstart/quotes`, icon: FileText },
-    { name: 'Messages', path: `/${orgSlug}/techstart/messages`, icon: MessageSquare },
-    { name: 'Company Profile', path: `/${orgSlug}/techstart/profile`, icon: User },
-  ];
+  // Only show customer portal nav if user has a customer_portal role membership
+  const CUSTOMER_PORTAL_NAV = customerSlug ? [
+    { name: 'Portal Dashboard', path: `/${orgSlug}/${customerSlug}/dashboard`, icon: LayoutDashboard },
+    { name: 'My Quotes', path: `/${orgSlug}/${customerSlug}/quotes`, icon: FileText },
+    { name: 'Messages', path: `/${orgSlug}/${customerSlug}/messages`, icon: MessageSquare },
+    { name: 'Company Profile', path: `/${orgSlug}/${customerSlug}/profile`, icon: User },
+  ] : [];
 
   const CONFIG_NAV = [
     { name: 'Products', path: '/products', icon: Box },
@@ -140,29 +145,31 @@ export const Sidebar = () => {
           })}
         </div>
         
-        {/* Customer Portal Demo Section */}
-        <div className="pt-2 border-t border-neutral-800/60 space-y-1">
-          <p className="px-3 text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-2">Customer View Demo</p>
-          {CUSTOMER_PORTAL_NAV.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname.startsWith(item.path);
+        {/* Customer Portal Section — shown only if user has customer_portal membership */}
+        {CUSTOMER_PORTAL_NAV.length > 0 && (
+          <div className="pt-2 border-t border-neutral-800/60 space-y-1">
+            <p className="px-3 text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-2">Customer Portal</p>
+            {CUSTOMER_PORTAL_NAV.map((item) => {
+              const Icon = item.icon;
+              const isActive = location.pathname.startsWith(item.path);
 
-            return (
-              <NavLink
-                key={item.name}
-                to={item.path}
-                className={`flex items-center gap-3 px-3.5 py-2 rounded-lg text-xs font-medium transition duration-150 ${
-                  isActive
-                    ? 'bg-[#724B66] text-[#FFFFFF]'
-                    : 'text-neutral-400 hover:text-[#FFFFFF] hover:bg-[#2E3141]/40'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5 shrink-0" />
-                <span>{item.name}</span>
-              </NavLink>
-            );
-          })}
-        </div>
+              return (
+                <NavLink
+                  key={item.name}
+                  to={item.path}
+                  className={`flex items-center gap-3 px-3.5 py-2 rounded-lg text-xs font-medium transition duration-150 ${
+                    isActive
+                      ? 'bg-[#724B66] text-[#FFFFFF]'
+                      : 'text-neutral-400 hover:text-[#FFFFFF] hover:bg-[#2E3141]/40'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  <span>{item.name}</span>
+                </NavLink>
+              );
+            })}
+          </div>
+        )}
 
         {/* Configuration Section */}
         <div className="pt-2 border-t border-neutral-800/60 space-y-1">
