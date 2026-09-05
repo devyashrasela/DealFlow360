@@ -69,12 +69,12 @@ export const getFulfillmentOrders = async (req, res, next) => {
             {
               model: CustomerAccount,
               as: 'customer_account',
-              attributes: ['id', 'buyer_organization_id', 'credit_limit', 'outstanding_balance'],
+              attributes: ['id', 'buyer_organization_id', 'credit_limit'],
               include: [
                 {
                   model: Organization,
                   as: 'buyer_organization',
-                  attributes: ['id', 'name'],
+                  attributes: ['id', 'legal_name', 'trading_name'],
                 },
               ],
             },

@@ -114,8 +114,9 @@ export const WarehouseSplitDetailPage = () => {
     );
   }
 
+  const buyerOrg = order.quotation?.customer_account?.buyer_organization;
   const customerName =
-    order.quotation?.customer_account?.buyer_organization?.name || 'Standard Customer';
+    buyerOrg?.trading_name || buyerOrg?.legal_name || 'Standard Customer';
   const totalAllocatedUnits =
     order.items?.reduce((sum, it) => sum + it.quantity_allocated, 0) || 0;
   const backorders = order.quotation?.backorders || [];

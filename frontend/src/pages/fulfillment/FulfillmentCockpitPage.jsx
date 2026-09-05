@@ -258,8 +258,9 @@ export const FulfillmentCockpitPage = () => {
                 </tr>
               ) : (
                 orders.map((order) => {
+                  const buyerOrg = order.quotation?.customer_account?.buyer_organization;
                   const customerName =
-                    order.quotation?.customer_account?.buyer_organization?.name ||
+                    buyerOrg?.trading_name || buyerOrg?.legal_name ||
                     'Standard Customer';
 
                   return (
