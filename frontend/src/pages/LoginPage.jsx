@@ -16,10 +16,19 @@ export function LoginPage() {
     setLoading(true);
     
     try {
-      await login(identifier, password);
-      navigate('/');
+      const response = await login(identifier, password);
+      const { redirect, memberships: mems } = response;
+
+      if (redirect) {
+        navigate(redirect);
+      } else if (mems && mems.length > 1) {
+        // FR-1.3: multiple memberships → workspace selector
+        navigate('/select-workspace');
+      } else {
+        navigate('/');
+      }
     } catch (err) {
-      setError(err.message || 'Login failed');
+      setError(err.response?.data?.error || err.message || 'Login failed');
     } finally {
       setLoading(false);
     }

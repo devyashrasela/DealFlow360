@@ -16,7 +16,7 @@ import {
   GitBranch,
   Warehouse as WarehouseIcon,
   Layers,
-  Settings,
+  Settings, ShieldCheck,
   ChevronDown,
   MessageSquare,
   User,
@@ -42,6 +42,8 @@ export const Sidebar = () => {
     { name: 'Invoices', path: `/${orgSlug}/invoices`, icon: Receipt },
     { name: 'Deal Health', path: '/deal-health', icon: Activity },
     { name: 'Reports', path: '/reports', icon: BarChart3 },
+    { name: 'Admin Catalog', path: '/admin/catalog', icon: Settings },
+    { name: 'Governance', path: '/admin/governance', icon: ShieldCheck }
   ];
 
   const CUSTOMER_PORTAL_NAV = [

@@ -10,6 +10,7 @@ import { Warehouse, WarehouseStock, FulfillmentOrder, FulfillmentItem, Backorder
 import { Subscription, SubscriptionLineItem, BillingSchedule, SubscriptionEvent } from './subscription.models.js';
 import { Invoice, InvoiceLine, Payment, CreditAllocation } from './ledger.models.js';
 import { DealHealthAlert, RepDiscountBaseline } from './dealHealth.models.js';
+import { Session, Invitation, OrganizationRelationship, RelationshipAssignment, AuditLog } from './session.models.js';
 
 // ==========================================
 // RELATIONAL ASSOCIATIONS
@@ -248,6 +249,34 @@ RepDiscountBaseline.belongsTo(Organization, { foreignKey: 'organization_id', as:
 User.hasOne(RepDiscountBaseline, { foreignKey: 'sales_rep_id', as: 'discount_baseline' });
 RepDiscountBaseline.belongsTo(User, { foreignKey: 'sales_rep_id', as: 'sales_rep' });
 
+// 9. Session & Invitation associations
+User.hasMany(Session, { foreignKey: 'user_id', as: 'sessions' });
+Session.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
+Organization.hasMany(Invitation, { foreignKey: 'organization_id', as: 'invitations' });
+Invitation.belongsTo(Organization, { foreignKey: 'organization_id', as: 'provider_organization' });
+
+User.hasMany(Invitation, { foreignKey: 'invited_by_user_id', as: 'sent_invitations' });
+Invitation.belongsTo(User, { foreignKey: 'invited_by_user_id', as: 'invited_by' });
+
+// 10. OrganizationRelationship associations
+Organization.hasMany(OrganizationRelationship, { foreignKey: 'provider_organization_id', as: 'provider_relationships' });
+OrganizationRelationship.belongsTo(Organization, { foreignKey: 'provider_organization_id', as: 'provider' });
+
+Organization.hasMany(OrganizationRelationship, { foreignKey: 'customer_organization_id', as: 'customer_relationships' });
+OrganizationRelationship.belongsTo(Organization, { foreignKey: 'customer_organization_id', as: 'customer' });
+
+// 11. RelationshipAssignment associations
+OrganizationRelationship.hasMany(RelationshipAssignment, { foreignKey: 'relationship_id', as: 'assignments' });
+RelationshipAssignment.belongsTo(OrganizationRelationship, { foreignKey: 'relationship_id', as: 'relationship' });
+
+OrganizationMembership.hasMany(RelationshipAssignment, { foreignKey: 'membership_id', as: 'assignments' });
+RelationshipAssignment.belongsTo(OrganizationMembership, { foreignKey: 'membership_id', as: 'membership' });
+
+// 12. AuditLog associations
+User.hasMany(AuditLog, { foreignKey: 'actor_user_id', as: 'audit_actions' });
+AuditLog.belongsTo(User, { foreignKey: 'actor_user_id', as: 'actor_user' });
+
 const db = {
   sequelize,
   Sequelize,
@@ -293,6 +322,12 @@ const db = {
   // Diagnostics
   DealHealthAlert,
   RepDiscountBaseline,
+  // Auth extensions
+  Session,
+  Invitation,
+  OrganizationRelationship,
+  RelationshipAssignment,
+  AuditLog,
 };
 
 export default db;
@@ -333,4 +368,9 @@ export {
   CreditAllocation,
   DealHealthAlert,
   RepDiscountBaseline,
+  Session,
+  Invitation,
+  OrganizationRelationship,
+  RelationshipAssignment,
+  AuditLog,
 };

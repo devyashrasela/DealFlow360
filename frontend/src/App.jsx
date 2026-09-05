@@ -15,8 +15,14 @@ import { CustomerMessagesPage } from './pages/customer/CustomerMessagesPage.jsx'
 import { CustomerProfilePage } from './pages/customer/CustomerProfilePage.jsx';
 import { QuotationListPage } from './pages/quotations/QuotationListPage.jsx';
 import { QuotationBuilderPage } from './pages/quotations/QuotationBuilderPage.jsx';
+import { ApprovalListPage } from './pages/approvals/ApprovalListPage.jsx';
+import { ApprovalDetailPage } from './pages/approvals/ApprovalDetailPage.jsx';
+import { CatalogAdminPage } from './pages/admin/CatalogAdminPage.jsx';
+import { GovernanceDashboard } from './pages/admin/GovernanceDashboard.jsx';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import { LoginPage } from './pages/LoginPage.jsx';
+import { WorkspaceSelectorPage } from './pages/WorkspaceSelectorPage.jsx';
+import { AcceptInvitePage } from './pages/AcceptInvitePage.jsx';
 
 function ProtectedRoute({ children }) {
   const { token } = useAuth();
@@ -43,6 +49,8 @@ export default function App() {
           {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/portal" element={<CustomerPortalPage />} />
+          <Route path="/select-workspace" element={<WorkspaceSelectorPage />} />
+          <Route path="/invite/accept" element={<AcceptInvitePage />} />
 
           {/* Protected internal workspace */}
           <Route
@@ -65,6 +73,10 @@ export default function App() {
             <Route path="reports" element={<ReportingDashboard />} />
             <Route path="quotations" element={<QuotationListPage />} />
             <Route path="quotations/:id" element={<QuotationBuilderPage />} />
+            <Route path="approvals" element={<ApprovalListPage />} />
+            <Route path="approvals/:id" element={<ApprovalDetailPage />} />
+            <Route path="admin/catalog" element={<CatalogAdminPage />} />
+            <Route path="admin/governance" element={<GovernanceDashboard />} />
 
             {/* Provider Routes */}
             <Route path=":providerSlug/subscriptions" element={<SubscriptionListPage />} />

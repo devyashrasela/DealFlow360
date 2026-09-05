@@ -19,7 +19,7 @@ import {
 /**
  * Real-time stock lookup with computed available_to_fulfill
  */
-export const getStockBalances = async (orgId, { warehouse_id, product_id }) => {
+export const getStockBalances = async (orgId, { warehouse_id, product_id } = {}) => {
   const where = {};
   if (warehouse_id) where.warehouse_id = warehouse_id;
   if (product_id) where.product_id = product_id;
