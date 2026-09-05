@@ -3,6 +3,9 @@ import { reportingApi } from '../api/reportingApi.js';
 import { Card } from '../components/ui/Card.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Download, FileText, Filter } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 export function ReportingDashboard() {
   const [kpis, setKpis] = useState(null);
@@ -49,48 +52,220 @@ export function ReportingDashboard() {
     }
   };
 
-  const handleExportCSV = () => {
-    let rows = [];
-    let filename = 'report.csv';
+  const handleExportPDF = () => {
+    try {
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
 
-    if (activeTab === 'rep_discipline') {
-      filename = 'sales_rep_discipline_report.csv';
-      rows = [
-        ['Sales Rep', 'Team', 'Deals Closed', 'Net Revenue', 'Avg Discount Given %', 'Quotes Flagged', 'Realized Margin %'],
-        ...repDiscipline.map(r => [r.sales_rep, r.team, r.deals_closed, r.net_revenue, r.avg_discount_percentage, r.quotes_flagged, r.realized_margin_percentage])
+      // Document Title Header
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(17, 24, 38);
+      doc.text('DealFlow360 — Sales Performance & Governance Report', pageWidth / 2, 14, { align: 'center' });
+
+      // Subtitle with active filters
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139);
+      const filterSummary = `Generated: ${new Date().toLocaleString()} | Period: ${period.replace(/_/g, ' ')} | Category: ${category || 'All'} | Stage: ${approvalStatus ? approvalStatus.replace(/_/g, ' ') : 'All Stages'}`;
+      doc.text(filterSummary, pageWidth / 2, 19, { align: 'center' });
+
+      let currentY = 25;
+
+      const tablesConfig = [
+        {
+          title: 'Sales Rep & Discount Discipline Matrix',
+          headers: [['Sales Rep', 'Team', 'Deals Closed', 'Net Revenue', 'Avg Discount Given', 'Quotes Flagged (Risk)', 'Realized Margin %']],
+          rows: repDiscipline.length > 0 ? repDiscipline.map(r => [
+            r.sales_rep || 'N/A',
+            r.team || 'N/A',
+            String(r.deals_closed ?? 0),
+            `$${Number(r.net_revenue || 0).toLocaleString()}`,
+            `${r.avg_discount_percentage ?? 0}%`,
+            String(r.quotes_flagged ?? 0),
+            `${r.realized_margin_percentage ?? 0}%`
+          ]) : [['No representative records found.', '', '', '', '', '', '']]
+        },
+        {
+          title: 'Product & Category Performance Matrix',
+          headers: [['Product Name', 'SKU', 'Category', 'Units Sold', 'Gross Revenue', 'Total Discount Given', 'Avg Discount %', 'Realized Margin %']],
+          rows: productPerformance.length > 0 ? productPerformance.map(p => [
+            p.product_name || 'N/A',
+            p.sku || 'N/A',
+            p.category ? p.category.charAt(0).toUpperCase() + p.category.slice(1) : 'N/A',
+            String(p.units_sold ?? 0),
+            `$${Number(p.gross_revenue || 0).toLocaleString()}`,
+            `$${Number(p.total_discount_given || 0).toLocaleString()}`,
+            `${p.avg_discount_percentage ?? 0}%`,
+            `${p.realized_gross_margin_percentage ?? 0}%`
+          ]) : [['No product sales records found.', '', '', '', '', '', '', '']]
+        },
+        {
+          title: 'Quotation Pipeline By Stage',
+          headers: [['Pipeline Stage', 'Quotation Count', 'Total Pipeline Value']],
+          rows: pipelineByStage.length > 0 ? pipelineByStage.map(row => [
+            row.stage ? row.stage.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A',
+            String(row.count ?? 0),
+            `$${parseFloat(row.total_value || 0).toLocaleString()}`
+          ]) : [['No pipeline records found.', '', '']]
+        },
+        {
+          title: 'Confirmed Revenue By Month',
+          headers: [['Month', 'Confirmed Revenue']],
+          rows: revenueByMonth.length > 0 ? revenueByMonth.map(row => [
+            row.month || 'N/A',
+            `$${parseFloat(row.revenue || 0).toLocaleString()}`
+          ]) : [['No monthly revenue records found.', '']]
+        }
       ];
-    } else if (activeTab === 'product_performance') {
-      filename = 'product_category_performance_report.csv';
-      rows = [
-        ['Product Name', 'SKU', 'Category', 'Units Sold', 'Gross Revenue', 'Total Discount Given', 'Avg Discount %', 'Realized Gross Margin %'],
-        ...productPerformance.map(p => [p.product_name, p.sku, p.category, p.units_sold, p.gross_revenue, p.total_discount_given, p.avg_discount_percentage, p.realized_gross_margin_percentage])
-      ];
-    } else if (activeTab === 'pipeline') {
-      filename = 'pipeline_by_stage_report.csv';
-      rows = [
-        ['Stage', 'Deals Count', 'Total Value'],
-        ...pipelineByStage.map(p => [p.stage, p.count, p.total_value])
-      ];
-    } else {
-      filename = 'monthly_revenue_report.csv';
-      rows = [
-        ['Month', 'Revenue'],
-        ...revenueByMonth.map(r => [r.month, r.revenue])
-      ];
+
+      tablesConfig.forEach((t) => {
+        // Check if title + minimum table height will fit on current page
+        const estimatedTableHeight = (t.rows.length + 1) * 7 + 10;
+        if (currentY + Math.min(estimatedTableHeight, 35) > pageHeight - 15) {
+          doc.addPage();
+          currentY = 16;
+        }
+
+        // Table Title: Center-aligned, bold, 14pt
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(17, 24, 38);
+        doc.text(t.title, pageWidth / 2, currentY, { align: 'center' });
+        currentY += 4;
+
+        // Render Table with uniform margins (left: 14, right: 14) so all 4 tables have the exact same width
+        autoTable(doc, {
+          startY: currentY,
+          head: t.headers,
+          body: t.rows,
+          margin: { left: 14, right: 14 },
+          theme: 'grid',
+          styles: {
+            font: 'helvetica',
+            fontSize: 9,
+            textColor: [30, 41, 59],
+            cellPadding: 2.2,
+            overflow: 'linebreak',
+            valign: 'middle'
+          },
+          headStyles: {
+            font: 'helvetica',
+            fontStyle: 'bold',
+            fontSize: 9.5,
+            fillColor: [114, 75, 102], // DealFlow360 brand purple #724B66
+            textColor: [255, 255, 255],
+            halign: 'center',
+          },
+          alternateRowStyles: {
+            fillColor: [248, 250, 252],
+          },
+        });
+
+        currentY = doc.lastAutoTable.finalY + 9;
+      });
+
+      // Add page numbering footer across all pages
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(148, 163, 184);
+        doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 6, { align: 'right' });
+        doc.text('DealFlow360 Intelligence — Confidential', 14, pageHeight - 6, { align: 'left' });
+      }
+
+      const fileName = `DealFlow360_Reports_${period}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      doc.save(fileName);
+    } catch (err) {
+      console.error('Failed to export PDF:', err);
+      alert(`Error generating PDF export: ${err.message}`);
     }
-
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
-  const handleExportPDF = () => {
-    window.print();
+  const handleExportXLSX = () => {
+    try {
+      const wb = XLSX.utils.book_new();
+
+      const sheets = [
+        {
+          sheetName: 'Sales Rep Discipline',
+          title: 'Sales Rep & Discount Discipline Matrix',
+          headers: ['Sales Rep', 'Team', 'Deals Closed', 'Net Revenue ($)', 'Avg Discount Given (%)', 'Quotes Flagged (Risk)', 'Realized Margin (%)'],
+          rows: repDiscipline.map(r => [
+            r.sales_rep || 'N/A',
+            r.team || 'N/A',
+            Number(r.deals_closed || 0),
+            Number(r.net_revenue || 0),
+            Number(r.avg_discount_percentage || 0),
+            Number(r.quotes_flagged || 0),
+            Number(r.realized_margin_percentage || 0)
+          ])
+        },
+        {
+          sheetName: 'Product Performance',
+          title: 'Product & Category Performance Matrix',
+          headers: ['Product Name', 'SKU', 'Category', 'Units Sold', 'Gross Revenue ($)', 'Total Discount Given ($)', 'Avg Discount (%)', 'Realized Margin (%)'],
+          rows: productPerformance.map(p => [
+            p.product_name || 'N/A',
+            p.sku || 'N/A',
+            p.category || 'N/A',
+            Number(p.units_sold || 0),
+            Number(p.gross_revenue || 0),
+            Number(p.total_discount_given || 0),
+            Number(p.avg_discount_percentage || 0),
+            Number(p.realized_gross_margin_percentage || 0)
+          ])
+        },
+        {
+          sheetName: 'Pipeline By Stage',
+          title: 'Quotation Pipeline By Stage',
+          headers: ['Pipeline Stage', 'Quotation Count', 'Total Pipeline Value ($)'],
+          rows: pipelineByStage.map(row => [
+            row.stage ? row.stage.replace(/_/g, ' ') : 'N/A',
+            Number(row.count || 0),
+            Number(row.total_value || 0)
+          ])
+        },
+        {
+          sheetName: 'Monthly Revenue',
+          title: 'Confirmed Revenue By Month',
+          headers: ['Month', 'Confirmed Revenue ($)'],
+          rows: revenueByMonth.map(row => [
+            row.month || 'N/A',
+            Number(row.revenue || 0)
+          ])
+        }
+      ];
+
+      sheets.forEach(({ sheetName, title, headers, rows }) => {
+        // Row 1: Title heading, Row 2: blank, Row 3: headers, Row 4+: rows
+        const wsData = [
+          [title],
+          [],
+          headers,
+          ...rows
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+        // Compute sensible column widths
+        const colWidths = headers.map((h, i) => {
+          const maxValLen = rows.reduce((max, r) => Math.max(max, String(r[i] ?? '').length), 0);
+          return { wch: Math.max(h.length, maxValLen) + 4 };
+        });
+        ws['!cols'] = colWidths;
+
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      });
+
+      const fileName = `DealFlow360_Reports_${period}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+    } catch (err) {
+      console.error('Failed to export XLSX:', err);
+      alert(`Error generating XLSX export: ${err.message}`);
+    }
   };
 
   if (loading && !kpis) return <div className="p-8 text-neutral-500">Loading reports...</div>;
@@ -108,7 +283,7 @@ export function ReportingDashboard() {
             <FileText className="w-4 h-4" />
             Export to PDF
           </Button>
-          <Button variant="secondary" onClick={handleExportCSV} className="flex items-center gap-1.5 text-xs">
+          <Button variant="secondary" onClick={handleExportXLSX} className="flex items-center gap-1.5 text-xs">
             <Download className="w-4 h-4" />
             Export to XLS
           </Button>
@@ -196,7 +371,7 @@ export function ReportingDashboard() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Tab 1: Sales Rep & Discount Discipline
+            Sales Rep & Discount Discipline
           </button>
           <button
             onClick={() => setActiveTab('product_performance')}
@@ -206,7 +381,7 @@ export function ReportingDashboard() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Tab 2: Product & Category Performance
+            Product & Category Performance
           </button>
           <button
             onClick={() => setActiveTab('pipeline')}
