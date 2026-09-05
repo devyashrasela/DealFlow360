@@ -24,7 +24,7 @@ export const ROLE_PERMISSIONS = {
     description: 'Finance / Operations',
   },
   admin: {
-    routes: ['/', '/dashboard', '/quotations', '/approvals', '/fulfillment', '/subscriptions', '/invoices', '/deal-health', '/reports', '/admin', '/products', '/price-lists', '/discount-rules', '/approval-chains', '/warehouses', '/subscription-plans', '/settings'],
+    routes: ['/', '/dashboard', '/quotations', '/approvals', '/fulfillment', '/subscriptions', '/invoices', '/deal-health', '/reports', '/admin', '/products', '/price-lists', '/discount-rules', '/approval-chains', '/warehouses', '/subscription-plans', '/team-roles', '/settings'],
     sidebarSections: ['main', 'config'],
     description: 'Administrator',
   },
@@ -64,7 +64,7 @@ export function canAccess(role, pathname) {
  */
 function normalizePath(pathname) {
   // Static paths pass through
-  const staticPrefixes = ['/', '/dashboard', '/landing', '/quotations', '/approvals', '/fulfillment', '/deal-health', '/reports', '/admin', '/login', '/register', '/portal', '/select-workspace', '/invite', '/settings', '/products', '/price-lists', '/discount-rules', '/approval-chains', '/warehouses', '/subscription-plans'];
+  const staticPrefixes = ['/', '/dashboard', '/landing', '/quotations', '/approvals', '/fulfillment', '/deal-health', '/reports', '/admin', '/login', '/register', '/portal', '/select-workspace', '/invite', '/settings', '/products', '/price-lists', '/discount-rules', '/approval-chains', '/warehouses', '/subscription-plans', '/team-roles'];
   for (const prefix of staticPrefixes) {
     if (prefix === '/' && pathname === '/') return '/';
     if (prefix !== '/' && pathname.startsWith(prefix)) return pathname;

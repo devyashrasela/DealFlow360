@@ -55,6 +55,7 @@ export const Sidebar = () => {
     { name: 'Approval Chains', path: '/approval-chains', icon: GitBranch },
     { name: 'Warehouses', path: '/warehouses', icon: WarehouseIcon },
     { name: 'Subscription Plans', path: '/subscription-plans', icon: Layers },
+    { name: 'Team & Roles', path: '/team-roles', icon: Users },
   ];
 
   // Filter nav items by role

@@ -21,6 +21,7 @@ import { CatalogAdminPage } from './pages/admin/CatalogAdminPage.jsx';
 import { GovernanceDashboard } from './pages/admin/GovernanceDashboard.jsx';
 import { WarehouseAdminPage } from './pages/admin/WarehouseAdminPage.jsx';
 import { SubscriptionPlansPage } from './pages/admin/SubscriptionPlansPage.jsx';
+import { TeamRolesPage } from './pages/admin/TeamRolesPage.jsx';
 import { LandingPage } from './pages/LandingPage.jsx';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import { LoginPage } from './pages/LoginPage.jsx';
@@ -129,6 +130,8 @@ export default function App() {
             <Route path="approval-chains" element={<RoleGate><GovernanceDashboard initialTab="slabs" /></RoleGate>} />
             <Route path="warehouses" element={<RoleGate><WarehouseAdminPage /></RoleGate>} />
             <Route path="subscription-plans" element={<RoleGate><SubscriptionPlansPage /></RoleGate>} />
+            <Route path="team-roles" element={<RoleGate><TeamRolesPage /></RoleGate>} />
+            <Route path="admin/team-roles" element={<RoleGate><TeamRolesPage /></RoleGate>} />
 
             {/* Subscriptions — finance_ops, admin */}
             <Route path=":providerSlug/subscriptions" element={<RoleGate><SubscriptionListPage /></RoleGate>} />

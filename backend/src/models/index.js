@@ -11,6 +11,7 @@ import { Subscription, SubscriptionLineItem, BillingSchedule, SubscriptionEvent 
 import { Invoice, InvoiceLine, Payment, CreditAllocation } from './ledger.models.js';
 import { DealHealthAlert, RepDiscountBaseline } from './dealHealth.models.js';
 import { Session, Invitation, OrganizationRelationship, RelationshipAssignment, AuditLog } from './session.models.js';
+import { RoleChangeAuditLog } from './roleChangeAudit.models.js';
 
 // ==========================================
 // RELATIONAL ASSOCIATIONS
@@ -277,6 +278,19 @@ RelationshipAssignment.belongsTo(OrganizationMembership, { foreignKey: 'membersh
 User.hasMany(AuditLog, { foreignKey: 'actor_user_id', as: 'audit_actions' });
 AuditLog.belongsTo(User, { foreignKey: 'actor_user_id', as: 'actor_user' });
 
+// 13. RoleChangeAuditLog associations (FR-RBAC-09 & Section 10)
+Organization.hasMany(RoleChangeAuditLog, { foreignKey: 'organization_id', as: 'role_change_audit_logs' });
+RoleChangeAuditLog.belongsTo(Organization, { foreignKey: 'organization_id', as: 'organization' });
+
+User.hasMany(RoleChangeAuditLog, { foreignKey: 'target_user_id', as: 'role_changes_received' });
+RoleChangeAuditLog.belongsTo(User, { foreignKey: 'target_user_id', as: 'target_user' });
+
+User.hasMany(RoleChangeAuditLog, { foreignKey: 'actor_user_id', as: 'role_changes_executed' });
+RoleChangeAuditLog.belongsTo(User, { foreignKey: 'actor_user_id', as: 'actor_user' });
+
+OrganizationMembership.hasMany(RoleChangeAuditLog, { foreignKey: 'membership_id', as: 'role_change_logs' });
+RoleChangeAuditLog.belongsTo(OrganizationMembership, { foreignKey: 'membership_id', as: 'membership' });
+
 const db = {
   sequelize,
   Sequelize,
@@ -328,6 +342,7 @@ const db = {
   OrganizationRelationship,
   RelationshipAssignment,
   AuditLog,
+  RoleChangeAuditLog,
 };
 
 export default db;
@@ -373,4 +388,5 @@ export {
   OrganizationRelationship,
   RelationshipAssignment,
   AuditLog,
+  RoleChangeAuditLog,
 };

@@ -17,6 +17,7 @@ import fulfillmentRoutes from './routes/fulfillment.routes.js';
 import subscriptionRoutes from './routes/subscription.routes.js';
 import invoiceRoutes from './routes/invoice.routes.js';
 import warehouseRoutes from './routes/warehouse.routes.js';
+import teamRolesRoutes from './routes/teamRoles.routes.js';
 
 const app = express();
 
@@ -56,6 +57,7 @@ app.use('/api/approvals', approvalRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/warehouses', warehouseRoutes);
+app.use('/api/team', teamRolesRoutes);
 
 // Sync database on startup
 export const syncDatabase = async () => {

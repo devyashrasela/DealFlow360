@@ -52,6 +52,7 @@ import {
   OrganizationRelationship,
   RelationshipAssignment,
   AuditLog,
+  RoleChangeAuditLog,
 } from '../models/index.js';
 
 import {
@@ -780,6 +781,37 @@ export async function seedDatabase() {
     { actor_user_id: uAdmin.id, actor_membership_id: mAdmin.id, entity_type: 'quotation', entity_id: q7.quotation.id, action: 'confirmed', payload_before: { stage: 'approved' }, payload_after: { stage: 'confirmed' }, ip_address: '127.0.0.1' },
     { actor_user_id: uFinance.id, actor_membership_id: mFinance.id, entity_type: 'invoice', entity_id: inv1.id, action: 'posted', payload_before: { status: 'draft' }, payload_after: { status: 'posted' }, ip_address: '127.0.0.1' },
     { actor_user_id: uFinance.id, actor_membership_id: mFinance.id, entity_type: 'credit_allocation', entity_id: creditNote.id, action: 'applied_credit', payload_after: { amount: 2000.00, target: inv1.invoice_number }, ip_address: '127.0.0.1' },
+  ]);
+
+  await RoleChangeAuditLog.bulkCreate([
+    {
+      organization_id: acme.id,
+      membership_id: mManager2.id,
+      target_user_id: uManager2.id,
+      actor_user_id: uAdmin.id,
+      actor_membership_id: mAdmin.id,
+      action: 'role_change',
+      prior_role: 'sales_rep',
+      new_role: 'sales_manager',
+      reason: 'Promoted to Commercial Team Lead following annual performance appraisal and expanding deal oversight',
+      is_cross_boundary: false,
+      ip_address: '127.0.0.1',
+      created_at: dateIn(-14),
+    },
+    {
+      organization_id: acme.id,
+      membership_id: mRepDev.id,
+      target_user_id: uRepDev.id,
+      actor_user_id: uAdmin.id,
+      actor_membership_id: mAdmin.id,
+      action: 'cross_boundary_promotion',
+      prior_role: 'customer_portal',
+      new_role: 'sales_rep',
+      reason: 'Transitioned former Meridian customer procurement coordinator to internal Enterprise Sales Representative',
+      is_cross_boundary: true,
+      ip_address: '127.0.0.1',
+      created_at: dateIn(-7),
+    },
   ]);
 
   console.log('✅ Seeding completed successfully!');
