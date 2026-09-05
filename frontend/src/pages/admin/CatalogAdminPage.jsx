@@ -16,11 +16,11 @@ export function CatalogAdminPage() {
     setLoading(true);
     try {
       if (activeTab === 'products') {
-        const res = await apiClient.get('/api/catalog');
+        const res = await apiClient.get('/catalog');
         setProducts(res.products || []);
       } else if (activeTab === 'pricelists') {
-        const res = await apiClient.get('/api/catalog/price-lists');
-        setPriceLists(Array.isArray(res) ? res : []);
+        const res = await apiClient.get('/catalog/price-lists');
+        setPriceLists(res.priceLists || []);
       }
     } catch (err) {
       setError(err.message);
@@ -33,7 +33,7 @@ export function CatalogAdminPage() {
     const name = prompt('Enter Product Name:');
     if (!name) return;
     try {
-      await apiClient.post('/api/catalog', { name, category: 'hardware', base_list_price: 1000, unit_cost: 500, sku: `SKU-${Date.now()}` });
+      await apiClient.post('/catalog', { name, category: 'hardware', base_list_price: 1000, unit_cost: 500, sku: `SKU-${Date.now()}` });
       fetchData();
     } catch (err) { alert(err.message); }
   };
@@ -42,7 +42,7 @@ export function CatalogAdminPage() {
     const name = prompt('Enter Price List Name:');
     if (!name) return;
     try {
-      await apiClient.post('/api/catalog/price-lists', { name, currency: 'USD' });
+      await apiClient.post('/catalog/price-lists', { name, currency: 'USD' });
       fetchData();
     } catch (err) { alert(err.message); }
   };
