@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Clock,
   CheckCircle2,
+  X,
 } from 'lucide-react';
 
 export const FulfillmentCockpitPage = () => {
@@ -32,6 +33,8 @@ export const FulfillmentCockpitPage = () => {
   const [selectedProductId, setSelectedProductId] = useState('');
   const [receiptQuantity, setReceiptQuantity] = useState(10);
   const [isSubmittingStock, setIsSubmittingStock] = useState(false);
+  const [stockModalError, setStockModalError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -60,26 +63,14 @@ export const FulfillmentCockpitPage = () => {
     loadData();
   }, [loadData]);
 
-  // Handle inward stock replenishment submit
-  const handleReceiveStockSubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedWarehouseId || !selectedProductId || receiptQuantity <= 0) return;
-
-    setIsSubmittingStock(true);
-    try {
-      await fulfillmentApi.receiveStock({
-        warehouse_id: selectedWarehouseId,
-        product_id: selectedProductId,
-        quantity: Number(receiptQuantity),
-      });
-      setIsStockModalOpen(false);
-      await loadData();
-    } catch (err) {
-      alert(`Error receiving stock: ${err.message}`);
-    } finally {
-      setIsSubmittingStock(false);
-    }
-  };
+  // Auto-dismiss success notification
+  useEffect(() => {
+    if (!successMessage) return;
+    const timer = setTimeout(() => {
+      setSuccessMessage(null);
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [successMessage]);
 
   // Get distinct warehouses & products from current stock list for modal select options
   const warehouseOptions = Array.from(
@@ -89,6 +80,99 @@ export const FulfillmentCockpitPage = () => {
   const productOptions = Array.from(
     new Map(stockList.map((s) => [s.product_id, s.product])).values()
   ).filter(Boolean);
+
+  // Synchronize default warehouse and product selection whenever options load
+  useEffect(() => {
+    if (warehouseOptions.length > 0 && (!selectedWarehouseId || !warehouseOptions.some(w => w.id === selectedWarehouseId))) {
+      setSelectedWarehouseId(warehouseOptions[0].id);
+    }
+  }, [warehouseOptions, selectedWarehouseId]);
+
+  useEffect(() => {
+    if (productOptions.length > 0 && (!selectedProductId || !productOptions.some(p => p.id === selectedProductId))) {
+      setSelectedProductId(productOptions[0].id);
+    }
+  }, [productOptions, selectedProductId]);
+
+  const handleOpenStockModal = () => {
+    setStockModalError(null);
+    if (warehouseOptions.length > 0 && !selectedWarehouseId) {
+      setSelectedWarehouseId(warehouseOptions[0].id);
+    }
+    if (productOptions.length > 0 && !selectedProductId) {
+      setSelectedProductId(productOptions[0].id);
+    }
+    setReceiptQuantity(10);
+    setIsStockModalOpen(true);
+  };
+
+  // Handle inward stock replenishment submit
+  const handleReceiveStockSubmit = async (e) => {
+    e.preventDefault();
+    setStockModalError(null);
+
+    const qty = Number(receiptQuantity);
+    const targetWhId = selectedWarehouseId || (warehouseOptions[0]?.id);
+    const targetProdId = selectedProductId || (productOptions[0]?.id);
+
+    if (!targetWhId) {
+      setStockModalError('Please select a destination warehouse.');
+      return;
+    }
+    if (!targetProdId) {
+      setStockModalError('Please select a product SKU.');
+      return;
+    }
+    if (!qty || qty <= 0) {
+      setStockModalError('Received quantity must be a positive number greater than 0.');
+      return;
+    }
+
+    setIsSubmittingStock(true);
+    try {
+      await fulfillmentApi.receiveStock({
+        warehouse_id: targetWhId,
+        product_id: targetProdId,
+        quantity: qty,
+      });
+
+      // Find labels for user-friendly success notification
+      const wh = warehouseOptions.find((w) => w.id === targetWhId);
+      const prod = productOptions.find((p) => p.id === targetProdId);
+      const whName = wh ? `${wh.name} (${wh.code})` : 'Warehouse';
+      const prodName = prod ? `${prod.name} (${prod.sku})` : 'Product';
+
+      // Immediate local state update: reflect the new in_stock and available quantity immediately
+      setStockList((prevStock) =>
+        prevStock.map((item) => {
+          if (item.warehouse_id === targetWhId && item.product_id === targetProdId) {
+            const newOnHand = Number(item.on_hand_quantity || 0) + qty;
+            const softReserved = Number(item.soft_reserved_quantity || 0);
+            const hardAllocated = Number(item.hard_allocated_quantity || 0);
+            return {
+              ...item,
+              on_hand_quantity: newOnHand,
+              available_to_fulfill: newOnHand - softReserved - hardAllocated,
+            };
+          }
+          return item;
+        })
+      );
+
+      // Close modal and present confirmed success banner
+      setIsStockModalOpen(false);
+      setSuccessMessage(`Successfully received ${qty} units of ${prodName} into ${whName}! Inventory table updated.`);
+
+      // Re-fetch all data from backend to ensure complete synchronization
+      await loadData();
+    } catch (err) {
+      console.error('Failed to receive stock:', err);
+      const msg = err.response?.data?.error || err.message || 'Failed to record stock receipt.';
+      setStockModalError(msg);
+    } finally {
+      setIsSubmittingStock(false);
+    }
+  };
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
@@ -115,17 +199,30 @@ export const FulfillmentCockpitPage = () => {
           <Button
             variant="primary"
             size="sm"
-            onClick={() => {
-              if (warehouseOptions.length > 0) setSelectedWarehouseId(warehouseOptions[0].id);
-              if (productOptions.length > 0) setSelectedProductId(productOptions[0].id);
-              setIsStockModalOpen(true);
-            }}
+            onClick={handleOpenStockModal}
             icon={PlusCircle}
           >
             Receive Inward Stock
           </Button>
         </div>
       </div>
+
+      {/* Success Confirmation Toast Banner */}
+      {successMessage && (
+        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-sm flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <span className="font-semibold">{successMessage}</span>
+          </div>
+          <button
+            onClick={() => setSuccessMessage(null)}
+            className="text-emerald-700 hover:text-emerald-900 p-1 rounded-md transition"
+            title="Dismiss notification"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center gap-3">
@@ -361,6 +458,12 @@ export const FulfillmentCockpitPage = () => {
         subtitle="Increase physical on-hand quantity and trigger consolidation checks"
       >
         <form onSubmit={handleReceiveStockSubmit} className="space-y-4">
+          {stockModalError && (
+            <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{stockModalError}</span>
+            </div>
+          )}
           <div>
             <label className="block text-xs font-semibold text-[#111826] uppercase tracking-wider mb-1">
               Destination Warehouse

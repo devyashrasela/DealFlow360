@@ -1,14 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { Repeat, Search, Filter } from 'lucide-react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Repeat, Search, Filter, X } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { listSubscriptions } from '../../../api/subscriptionApi';
 
 export const SubscriptionListPage = () => {
   const { providerSlug } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialStatus = searchParams.get('status') || 'all';
+
   const [subscriptions, setSubscriptions] = useState([]);
   const [kpis, setKpis] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    const s = searchParams.get('status');
+    if (s) {
+      setStatusFilter(s);
+    } else {
+      setStatusFilter('all');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     fetchSubscriptions();
@@ -66,6 +80,51 @@ export const SubscriptionListPage = () => {
         </div>
       )}
 
+      {/* Interactive Filter Pills */}
+      <div className="flex flex-wrap items-center gap-2">
+        {[
+          { label: 'All Subscriptions', value: 'all' },
+          { label: 'Active', value: 'active' },
+          { label: 'Pending Cancel', value: 'pending_cancellation' },
+          { label: 'Cancelled', value: 'cancelled' },
+          { label: 'Pending Proration', value: 'pending_proration' },
+        ].map((pill) => (
+          <button
+            key={pill.value}
+            onClick={() => {
+              setStatusFilter(pill.value);
+              const nextParams = new URLSearchParams(searchParams);
+              if (pill.value === 'all') {
+                nextParams.delete('status');
+              } else {
+                nextParams.set('status', pill.value);
+              }
+              setSearchParams(nextParams);
+            }}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+              statusFilter === pill.value
+                ? 'bg-[#724B66] text-white shadow-sm'
+                : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-50'
+            }`}
+          >
+            {pill.label}
+          </button>
+        ))}
+        {statusFilter !== 'all' && (
+          <button
+            onClick={() => {
+              setStatusFilter('all');
+              const nextParams = new URLSearchParams(searchParams);
+              nextParams.delete('status');
+              setSearchParams(nextParams);
+            }}
+            className="flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-700 ml-2"
+          >
+            <X className="w-3.5 h-3.5" /> Clear filter
+          </button>
+        )}
+      </div>
+
       {/* Data Grid */}
       <div className="bg-[#FFFFFF] rounded-xl shadow-sm border border-neutral-200/60 overflow-hidden">
         <div className="p-4 border-b border-neutral-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -73,14 +132,19 @@ export const SubscriptionListPage = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
             <input 
               type="text" 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search subscriptions..." 
               className="w-full pl-9 pr-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#724B66]/20 focus:border-[#724B66] transition-all"
             />
           </div>
-          <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-[#2E3141] bg-neutral-50 border border-neutral-200 rounded-lg hover:bg-neutral-100 transition-colors">
-            <Filter className="w-4 h-4" />
-            Filters
-          </button>
+          {statusFilter !== 'all' && (
+            <div className="text-xs text-neutral-500 font-medium">
+              Showing <span className="font-semibold text-[#724B66]">{statusFilter}</span> contracts ({
+                subscriptions.filter((s) => s.status === statusFilter).length
+              })
+            </div>
+          )}
         </div>
         
         <div className="overflow-x-auto">
@@ -100,12 +164,30 @@ export const SubscriptionListPage = () => {
                 <tr>
                   <td colSpan="6" className="px-6 py-8 text-center text-neutral-400">Loading...</td>
                 </tr>
-              ) : subscriptions.length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="px-6 py-8 text-center text-neutral-400">No subscriptions found.</td>
-                </tr>
-              ) : (
-                subscriptions.map((sub) => (
+              ) : (() => {
+                const filtered = subscriptions.filter((sub) => {
+                  const matchesStatus = statusFilter === 'all' || sub.status === statusFilter;
+                  const q = searchQuery.toLowerCase().trim();
+                  const matchesSearch =
+                    !q ||
+                    sub.subscription_code?.toLowerCase().includes(q) ||
+                    sub.customer_account?.buyer_organization?.legal_name?.toLowerCase().includes(q);
+                  return matchesStatus && matchesSearch;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <tr>
+                      <td colSpan="6" className="px-6 py-8 text-center text-neutral-400">
+                        {statusFilter !== 'all'
+                          ? `No ${statusFilter} subscriptions found.`
+                          : 'No subscriptions found.'}
+                      </td>
+                    </tr>
+                  );
+                }
+
+                return filtered.map((sub) => (
                   <tr key={sub.id} className="hover:bg-neutral-50/50 transition-colors group">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
@@ -127,15 +209,15 @@ export const SubscriptionListPage = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <Link 
-                        to={`/${providerSlug || 'default'}/subscriptions/${sub.id}`}
+                        to={providerSlug ? `/${providerSlug}/subscriptions/${sub.id}` : `/subscriptions/${sub.id}`}
                         className="text-sm font-medium text-[#724B66] hover:text-[#2E3141] transition-colors"
                       >
                         View Details →
                       </Link>
                     </td>
                   </tr>
-                ))
-              )}
+                ));
+              })()}
             </tbody>
           </table>
         </div>

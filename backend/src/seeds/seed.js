@@ -74,7 +74,7 @@ export async function seedDatabase() {
   // 1. ORGANIZATIONS (Multi-Tenancy)
   // ─────────────────────────────────────────────────────────────────────────────
   console.log('  -> Seeding Organizations...');
-  
+
   // Primary Provider Organization
   const acme = await Organization.create({
     legal_name: 'Acme Cloud & Logistics Corp',
@@ -414,6 +414,8 @@ export async function seedDatabase() {
       customer_counter_discount: counterDiscount,
       created_at: dateAgo(daysAgo),
       updated_at: dateAgo(staleDays),
+      createdAt: dateAgo(daysAgo),
+      updatedAt: dateAgo(staleDays),
     });
 
     const lines = buildLines(q.id, account.pricing_tier, linesConfig);
