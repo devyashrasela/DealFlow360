@@ -26,6 +26,20 @@ function getPeriodDateFilter(period) {
     const start = new Date(now.getFullYear(), now.getMonth(), 1);
     return { [Op.gte]: start };
   }
+  if (period === 'this_quarter') {
+    const currentQuarter = Math.floor(now.getMonth() / 3);
+    const start = new Date(now.getFullYear(), currentQuarter * 3, 1);
+    return { [Op.gte]: start };
+  }
+  if (period === 'this_year') {
+    const start = new Date(now.getFullYear(), 0, 1);
+    return { [Op.gte]: start };
+  }
+  if (period === 'last_year') {
+    const start = new Date(now.getFullYear() - 1, 0, 1);
+    const end = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
+    return { [Op.between]: [start, end] };
+  }
   return null;
 }
 
@@ -264,11 +278,18 @@ router.get('/product-category-performance', async (req, res) => {
 
 // ──────────────────────────────────────────────
 // GET /api/reports/pipeline-by-stage
-// Deal count + value grouped by stage
+// Deal count + value grouped by stage (supports ?period=)
 // ──────────────────────────────────────────────
 router.get('/pipeline-by-stage', async (req, res) => {
+  const { period } = req.query;
+  const where = { organization_id: req.orgContext.organizationId };
+  const dateFilter = getPeriodDateFilter(period);
+  if (dateFilter) {
+    where.createdAt = dateFilter;
+  }
+
   const results = await Quotation.findAll({
-    where: { organization_id: req.orgContext.organizationId },
+    where,
     attributes: [
       'stage',
       [fn('COUNT', col('id')), 'count'],
@@ -282,17 +303,39 @@ router.get('/pipeline-by-stage', async (req, res) => {
 
 // ──────────────────────────────────────────────
 // GET /api/reports/revenue-by-month
-// Monthly confirmed revenue (last 12 months)
+// Monthly confirmed revenue (supports ?period=this_year|last_year|this_quarter|all)
 // ──────────────────────────────────────────────
 router.get('/revenue-by-month', async (req, res) => {
-  const twelveMonthsAgo = new Date();
-  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+  const { period } = req.query;
+  const now = new Date();
+  let dateFilter = null;
+
+  if (period === 'this_year') {
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    dateFilter = { [Op.gte]: startOfYear };
+  } else if (period === 'last_year') {
+    const startOfLastYear = new Date(now.getFullYear() - 1, 0, 1);
+    const endOfLastYear = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
+    dateFilter = { [Op.between]: [startOfLastYear, endOfLastYear] };
+  } else if (period === 'this_quarter') {
+    const q = Math.floor(now.getMonth() / 3);
+    const startOfQuarter = new Date(now.getFullYear(), q * 3, 1);
+    dateFilter = { [Op.gte]: startOfQuarter };
+  } else if (period === 'this_month') {
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    dateFilter = { [Op.gte]: startOfMonth };
+  } else {
+    // Default last 12 months
+    const twelveMonthsAgo = new Date();
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+    dateFilter = { [Op.gte]: twelveMonthsAgo };
+  }
 
   const invoices = await Invoice.findAll({
     where: {
       organization_id: req.orgContext.organizationId,
       status: { [Op.in]: ['posted', 'partially_paid', 'paid'] },
-      issue_date: { [Op.gte]: twelveMonthsAgo },
+      issue_date: dateFilter,
     },
     attributes: ['issue_date', 'total_amount'],
     raw: true,

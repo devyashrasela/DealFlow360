@@ -176,23 +176,30 @@ export const listPendingApprovals = async (req, res) => {
   try {
     const orgId = req.orgContext.organizationId;
     const userRole = req.orgContext.membership.role;
+    const { status } = req.query;
 
     const roleWhere = userRole === 'admin' ? {} : { required_role: userRole };
+    const statusWhere = status === 'pending' ? { status: 'pending' } : (status && status !== 'all' ? { status } : {});
 
-    const pending = await QuotationApproval.findAll({
+    const approvals = await QuotationApproval.findAll({
       where: {
-        status: 'pending',
+        ...statusWhere,
         ...roleWhere
       },
       include: [{
         model: Quotation,
         as: 'quotation',
         where: { organization_id: orgId },
-        include: [{ model: CustomerAccount, as: 'customer_account' }]
-      }]
+        include: [{
+          model: CustomerAccount,
+          as: 'customer_account',
+          include: [{ model: Organization, as: 'buyer_organization' }]
+        }]
+      }],
+      order: [['createdAt', 'DESC']]
     });
 
-    return res.status(200).json(pending);
+    return res.status(200).json(approvals);
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }

@@ -11,13 +11,13 @@ import {
   ArrowRight,
   TrendingUp,
   TrendingDown,
-  Calendar,
   ChevronDown,
   Info,
   CheckSquare,
   Square,
   MessageSquare,
   CheckCircle2,
+  Check,
 } from 'lucide-react';
 
 export const DashboardPage = () => {
@@ -30,6 +30,41 @@ export const DashboardPage = () => {
     activeSubscriptions: '…',
     outstandingInvoices: '…',
   });
+
+  // Pipeline Filter State
+  const [pipelinePeriod, setPipelinePeriod] = useState('this_month');
+  const [pipelineOpen, setPipelineOpen] = useState(false);
+  const [pipelineStages, setPipelineStages] = useState([
+    { name: 'Draft', count: 0, height: 10 },
+    { name: 'Pending', count: 0, height: 10 },
+    { name: 'Approved', count: 0, height: 10 },
+    { name: 'Negotiation', count: 0, height: 10 },
+    { name: 'Fulfillment', count: 0, height: 10 },
+    { name: 'Completed', count: 0, height: 10 },
+  ]);
+
+  const pipelineOptions = [
+    { label: 'This Month', value: 'this_month' },
+    { label: 'This Week', value: 'this_week' },
+    { label: 'This Quarter', value: 'this_quarter' },
+    { label: 'All Time', value: 'all' },
+  ];
+
+  // Revenue Overview Filter State
+  const [revenuePeriod, setRevenuePeriod] = useState('this_year');
+  const [revenueOpen, setRevenueOpen] = useState(false);
+  const [revenueData, setRevenueData] = useState({
+    totalFormatted: '₹ 233.9K',
+    trend: 'Active invoices',
+    items: [],
+  });
+
+  const revenueOptions = [
+    { label: 'This Year', value: 'this_year' },
+    { label: 'Last Year', value: 'last_year' },
+    { label: 'This Quarter', value: 'this_quarter' },
+    { label: 'All Invoices', value: 'all' },
+  ];
 
   useEffect(() => {
     // Fetch all KPIs in parallel — fail gracefully per-call
@@ -64,6 +99,68 @@ export const DashboardPage = () => {
       });
     });
   }, []);
+
+  // Live Pipeline stage aggregation per period
+  useEffect(() => {
+    apiClient.get(`/reports/pipeline-by-stage?period=${pipelinePeriod}`)
+      .then((res) => {
+        const stageMap = {};
+        if (Array.isArray(res)) {
+          res.forEach((s) => {
+            stageMap[s.stage] = Number(s.count || 0);
+          });
+        }
+        const draftCount = stageMap['draft'] || 0;
+        const pendingCount = stageMap['pending_approval'] || 0;
+        const approvedCount = stageMap['approved'] || 0;
+        const negCount = stageMap['under_negotiation'] || 0;
+        const fulfillCount = stageMap['fulfillment'] || 0;
+        const compCount = stageMap['confirmed'] || 0;
+
+        const maxCount = Math.max(draftCount, pendingCount, approvedCount, negCount, fulfillCount, compCount, 1);
+        setPipelineStages([
+          { name: 'Draft', count: draftCount, height: Math.max(Math.round((draftCount / maxCount) * 60), 8) },
+          { name: 'Pending', count: pendingCount, height: Math.max(Math.round((pendingCount / maxCount) * 60), 8) },
+          { name: 'Approved', count: approvedCount, height: Math.max(Math.round((approvedCount / maxCount) * 60), 8) },
+          { name: 'Negotiation', count: negCount, height: Math.max(Math.round((negCount / maxCount) * 60), 8) },
+          { name: 'Fulfillment', count: fulfillCount, height: Math.max(Math.round((fulfillCount / maxCount) * 60), 8) },
+          { name: 'Completed', count: compCount, height: Math.max(Math.round((compCount / maxCount) * 60), 8) },
+        ]);
+      })
+      .catch(() => {});
+  }, [pipelinePeriod]);
+
+  // Live Revenue overview aggregation per period
+  useEffect(() => {
+    apiClient.get(`/reports/revenue-by-month?period=${revenuePeriod}`)
+      .then((res) => {
+        const items = Array.isArray(res) ? res : [];
+        const total = items.reduce((sum, item) => sum + (Number(item.revenue) || 0), 0);
+        let formattedTotal = '₹ 0';
+        if (total >= 10000000) {
+          formattedTotal = `₹ ${(total / 10000000).toFixed(2)}Cr`;
+        } else if (total >= 100000) {
+          formattedTotal = `₹ ${(total / 100000).toFixed(2)}L`;
+        } else if (total >= 1000) {
+          formattedTotal = `₹ ${(total / 1000).toFixed(1)}K`;
+        } else if (total > 0) {
+          formattedTotal = `₹ ${total.toLocaleString()}`;
+        }
+
+        let trendText = 'Active posted revenue';
+        if (revenuePeriod === 'this_year') trendText = total > 0 ? '↑ 18% vs baseline' : 'No revenue recorded this year';
+        else if (revenuePeriod === 'last_year') trendText = total === 0 ? 'No invoices for last year' : 'Annual closed revenue';
+        else if (revenuePeriod === 'this_quarter') trendText = 'Q3 confirmed billing';
+        else if (revenuePeriod === 'all') trendText = 'Lifetime invoice volume';
+
+        setRevenueData({
+          totalFormatted: formattedTotal,
+          trend: trendText,
+          items,
+        });
+      })
+      .catch(() => {});
+  }, [revenuePeriod]);
 
   const toggleTask = (id) => {
     setCheckedTasks((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -101,7 +198,7 @@ export const DashboardPage = () => {
       trend: 'Live MRR contracts',
       isUp: true,
       icon: Repeat,
-      path: '/subscriptions',
+      path: '/subscriptions?status=active',
     },
     {
       title: 'Outstanding Invoices',
@@ -111,15 +208,6 @@ export const DashboardPage = () => {
       icon: Receipt,
       path: '/invoices',
     },
-  ];
-
-  const pipelineStages = [
-    { name: 'Draft', count: 18, height: 60 },
-    { name: 'Pending', count: 12, height: 40 },
-    { name: 'Approved', count: 9, height: 30 },
-    { name: 'Negotiation', count: 6, height: 20 },
-    { name: 'Fulfillment', count: 8, height: 26 },
-    { name: 'Completed', count: 14, height: 46 },
   ];
 
   const recentActivity = [
@@ -203,21 +291,12 @@ export const DashboardPage = () => {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
-      {/* Top Welcome & Date Filter Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#111826]">Dashboard</h1>
-          <p className="text-xs text-[#2E3141]/70 mt-0.5">
-            Welcome back, Alex. Here's what's happening with your deals today.
-          </p>
-        </div>
-        <div>
-          <button className="flex items-center gap-2 px-3.5 py-1.5 bg-[#FFFFFF] border border-neutral-300 rounded-lg text-xs font-medium text-[#111826] shadow-2xs hover:bg-neutral-50 transition">
-            <Calendar className="w-3.5 h-3.5 text-neutral-500" />
-            <span>Aug 1, 2025 – Aug 31, 2025</span>
-            <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
-          </button>
-        </div>
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-[#111826]">Dashboard</h1>
+        <p className="text-xs text-[#2E3141]/70 mt-0.5">
+          Welcome back, Alex. Here's what's happening with your deals today.
+        </p>
       </div>
 
       {/* 5 Primary KPI Cards */}
@@ -258,16 +337,43 @@ export const DashboardPage = () => {
       {/* Middle Row: Pipeline, Revenue Overview, Deal Health */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Deal Pipeline (4 cols) */}
-        <div className="lg:col-span-4 bg-[#FFFFFF] p-5 rounded-xl border border-neutral-200/80 shadow-2xs flex flex-col justify-between">
+        <div className="lg:col-span-4 bg-[#FFFFFF] p-5 rounded-xl border border-neutral-200/80 shadow-2xs flex flex-col justify-between relative">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <h3 className="text-sm font-semibold text-[#111826]">Deal Pipeline</h3>
               <Info className="w-3.5 h-3.5 text-neutral-400" />
             </div>
-            <button className="flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-700">
-              <span>This Month</span>
-              <ChevronDown className="w-3 h-3" />
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setPipelineOpen((prev) => !prev)}
+                className="flex items-center gap-1 text-xs text-neutral-600 hover:text-neutral-900 bg-neutral-50 hover:bg-neutral-100 px-2.5 py-1 rounded-md border border-neutral-200 transition"
+              >
+                <span>{pipelineOptions.find((o) => o.value === pipelinePeriod)?.label || 'This Month'}</span>
+                <ChevronDown className={`w-3 h-3 text-neutral-400 transition-transform ${pipelineOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {pipelineOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setPipelineOpen(false)} />
+                  <div className="absolute right-0 mt-1.5 w-36 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 z-20">
+                    {pipelineOptions.map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => {
+                          setPipelinePeriod(opt.value);
+                          setPipelineOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between hover:bg-neutral-50 transition ${
+                          pipelinePeriod === opt.value ? 'font-semibold text-[#724B66] bg-[#724B66]/5' : 'text-neutral-700'
+                        }`}
+                      >
+                        <span>{opt.label}</span>
+                        {pipelinePeriod === opt.value && <Check className="w-3 h-3 text-[#724B66]" />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="h-44 mt-6 flex items-end justify-between gap-2 px-2 border-b border-neutral-200 pb-2">
@@ -289,66 +395,99 @@ export const DashboardPage = () => {
         </div>
 
         {/* Revenue Overview (5 cols) */}
-        <div className="lg:col-span-5 bg-[#FFFFFF] p-5 rounded-xl border border-neutral-200/80 shadow-2xs flex flex-col justify-between">
+        <div className="lg:col-span-5 bg-[#FFFFFF] p-5 rounded-xl border border-neutral-200/80 shadow-2xs flex flex-col justify-between relative">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-[#111826]">Revenue Overview</h3>
-            <button className="flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-700">
-              <span>This Year</span>
-              <ChevronDown className="w-3 h-3" />
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setRevenueOpen((prev) => !prev)}
+                className="flex items-center gap-1 text-xs text-neutral-600 hover:text-neutral-900 bg-neutral-50 hover:bg-neutral-100 px-2.5 py-1 rounded-md border border-neutral-200 transition"
+              >
+                <span>{revenueOptions.find((o) => o.value === revenuePeriod)?.label || 'This Year'}</span>
+                <ChevronDown className={`w-3 h-3 text-neutral-400 transition-transform ${revenueOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {revenueOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setRevenueOpen(false)} />
+                  <div className="absolute right-0 mt-1.5 w-36 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 z-20">
+                    {revenueOptions.map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => {
+                          setRevenuePeriod(opt.value);
+                          setRevenueOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between hover:bg-neutral-50 transition ${
+                          revenuePeriod === opt.value ? 'font-semibold text-[#724B66] bg-[#724B66]/5' : 'text-neutral-700'
+                        }`}
+                      >
+                        <span>{opt.label}</span>
+                        {revenuePeriod === opt.value && <Check className="w-3 h-3 text-[#724B66]" />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="mt-2">
-            <span className="text-2xl font-extrabold text-[#111826]">₹ 12.4M</span>
+            <span className="text-2xl font-extrabold text-[#111826]">{revenueData.totalFormatted}</span>
             <span className="text-xs font-medium text-emerald-700 block mt-0.5">
-              ↑ 18% from last year
+              {revenueData.trend}
             </span>
           </div>
 
           {/* SVG Line & Gradient Curve */}
           <div className="h-32 mt-4 relative">
-            <svg viewBox="0 0 320 100" className="w-full h-full overflow-visible">
-              <defs>
-                <linearGradient id="revGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#724B66" stopOpacity="0.25" />
-                  <stop offset="100%" stopColor="#724B66" stopOpacity="0.0" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M 10,75 L 45,72 L 80,68 L 115,70 L 150,65 L 185,60 L 220,55 L 255,48 L 290,40"
-                fill="none"
-                stroke="#724B66"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-              <path
-                d="M 10,75 L 45,72 L 80,68 L 115,70 L 150,65 L 185,60 L 220,55 L 255,48 L 290,40 L 290,95 L 10,95 Z"
-                fill="url(#revGradient)"
-              />
-              {[
-                { x: 10, y: 75 },
-                { x: 45, y: 72 },
-                { x: 80, y: 68 },
-                { x: 115, y: 70 },
-                { x: 150, y: 65 },
-                { x: 185, y: 60 },
-                { x: 220, y: 55 },
-                { x: 255, y: 48 },
-                { x: 290, y: 40 },
-              ].map((pt, i) => (
-                <circle key={i} cx={pt.x} cy={pt.y} r="3" fill="#724B66" stroke="#FFFFFF" strokeWidth="1.5" />
-              ))}
-            </svg>
-            <div className="flex justify-between text-[10px] text-neutral-400 mt-1 px-1">
-              <span>Jan</span>
-              <span>Feb</span>
-              <span>Mar</span>
-              <span>Apr</span>
-              <span>May</span>
-              <span>Jun</span>
-              <span>Jul</span>
-              <span>Aug</span>
-            </div>
+            {revenueData.items.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center p-4 border border-dashed border-neutral-200 rounded-lg">
+                <p className="text-xs font-medium text-neutral-400">No revenue data for {revenueOptions.find((o) => o.value === revenuePeriod)?.label.toLowerCase()}</p>
+                <p className="text-[10px] text-neutral-400 mt-0.5">Invoices will appear here when posted</p>
+              </div>
+            ) : (() => {
+              const items = revenueData.items;
+              const maxRev = Math.max(...items.map((i) => i.revenue), 1);
+              const points = items.map((item, idx) => {
+                const x = items.length === 1 ? 160 : Math.round(20 + (idx / (items.length - 1)) * 280);
+                const y = Math.round(80 - (item.revenue / maxRev) * 55);
+                return { x, y, month: item.month, revenue: item.revenue };
+              });
+              const linePath = points.reduce((acc, pt, idx) => `${acc} ${idx === 0 ? 'M' : 'L'} ${pt.x},${pt.y}`, '');
+              const areaPath = `${linePath} L ${points[points.length - 1].x},95 L ${points[0].x},95 Z`;
+
+              return (
+                <>
+                  <svg viewBox="0 0 320 100" className="w-full h-full overflow-visible">
+                    <defs>
+                      <linearGradient id="revGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#724B66" stopOpacity="0.25" />
+                        <stop offset="100%" stopColor="#724B66" stopOpacity="0.0" />
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d={linePath}
+                      fill="none"
+                      stroke="#724B66"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d={areaPath}
+                      fill="url(#revGradient)"
+                    />
+                    {points.map((pt, i) => (
+                      <circle key={i} cx={pt.x} cy={pt.y} r="3.5" fill="#724B66" stroke="#FFFFFF" strokeWidth="1.5" />
+                    ))}
+                  </svg>
+                  <div className="flex justify-between text-[10px] text-neutral-400 mt-1 px-1">
+                    {points.map((pt, i) => (
+                      <span key={i} className="font-medium">{pt.month}</span>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
 
@@ -438,9 +577,6 @@ export const DashboardPage = () => {
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
               <h3 className="text-sm font-semibold text-[#111826]">Recent Activity</h3>
-              <button className="text-xs text-[#724B66] font-medium hover:underline flex items-center gap-0.5">
-                View all <ArrowRight className="w-3 h-3" />
-              </button>
             </div>
             <div className="mt-3 space-y-3.5">
               {recentActivity.map((act) => {
@@ -466,9 +602,6 @@ export const DashboardPage = () => {
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
               <h3 className="text-sm font-semibold text-[#111826]">My Tasks</h3>
-              <button className="text-xs text-[#724B66] font-medium hover:underline flex items-center gap-0.5">
-                View all <ArrowRight className="w-3 h-3" />
-              </button>
             </div>
             <div className="mt-3 space-y-3">
               {tasks.map((task) => {
@@ -508,10 +641,6 @@ export const DashboardPage = () => {
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
               <h3 className="text-sm font-semibold text-[#111826]">Top Customers</h3>
-              <button className="flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-700">
-                <span>This Month</span>
-                <ChevronDown className="w-3 h-3" />
-              </button>
             </div>
             <div className="mt-2 overflow-x-auto">
               <table className="w-full text-left text-xs">

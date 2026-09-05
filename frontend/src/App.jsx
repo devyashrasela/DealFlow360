@@ -134,10 +134,14 @@ export default function App() {
             <Route path="admin/team-roles" element={<RoleGate><TeamRolesPage /></RoleGate>} />
 
             {/* Subscriptions — finance_ops, admin */}
+            <Route path="subscriptions" element={<RoleGate><SubscriptionListPage /></RoleGate>} />
+            <Route path="subscriptions/:subscriptionId" element={<RoleGate><SubscriptionDetailPage /></RoleGate>} />
             <Route path=":providerSlug/subscriptions" element={<RoleGate><SubscriptionListPage /></RoleGate>} />
             <Route path=":providerSlug/subscriptions/:subscriptionId" element={<RoleGate><SubscriptionDetailPage /></RoleGate>} />
 
             {/* Invoices — finance_ops, admin */}
+            <Route path="invoices" element={<RoleGate><InvoiceListPage /></RoleGate>} />
+            <Route path="invoices/:invoiceId" element={<RoleGate><InvoiceDetailPage /></RoleGate>} />
             <Route path=":providerSlug/invoices" element={<RoleGate><InvoiceListPage /></RoleGate>} />
             <Route path=":providerSlug/invoices/:invoiceId" element={<RoleGate><InvoiceDetailPage /></RoleGate>} />
 
