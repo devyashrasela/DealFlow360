@@ -310,9 +310,13 @@ export const ApprovalAuditLog = sequelize.define('ApprovalAuditLog', {
     defaultValue: DataTypes.UUIDV4,
     primaryKey: true,
   },
+  organization_id: {
+    type: DataTypes.UUID,
+    allowNull: true,
+  },
   quotation_id: {
     type: DataTypes.UUID,
-    allowNull: false,
+    allowNull: true,
   },
   actor_user_id: {
     type: DataTypes.UUID,

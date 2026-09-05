@@ -88,16 +88,25 @@ export function QuotationBuilderPage() {
     }
   };
 
+  const netMargin = quotation?.blended_margin_percentage !== undefined && quotation?.blended_margin_percentage !== null
+    ? Number(quotation.blended_margin_percentage)
+    : 0;
+  const isMarginBreached = quotation?.lines?.length > 0 && netMargin < 10.0;
+
   const submitForApproval = async () => {
+    if (isMarginBreached) {
+      alert('Margin error: Minimum threshold of 10% breached');
+      return;
+    }
     try {
-      await apiClient.post(`/api/approvals/${id}/submit`);
+      await apiClient.post(`/approvals/${id}/submit`);
       alert('Quotation submitted for approval!');
       navigate('/approvals');
     } catch (err) {
       console.error(err);
       // Fallback: try the quotation status update endpoint
       try {
-        await apiClient.patch(`/api/quotations/${id}/status`, { status: 'pending_approval' });
+        await apiClient.patch(`/quotations/${id}/status`, { status: 'pending_approval' });
         alert('Quotation submitted for approval!');
         navigate('/approvals');
       } catch (err2) {
@@ -118,16 +127,38 @@ export function QuotationBuilderPage() {
         </div>
         <div className="space-x-3">
           <button onClick={() => navigate('/quotations')} className="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Save Draft</button>
-          <button onClick={submitForApproval} className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">Submit for Approval</button>
+          <button
+            onClick={submitForApproval}
+            disabled={isMarginBreached || quotation.stage !== 'draft'}
+            title={isMarginBreached ? 'Margin error: Minimum threshold of 10% breached' : ''}
+            className={`px-4 py-2 rounded text-sm font-medium ${
+              isMarginBreached || quotation.stage !== 'draft'
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
+          >
+            Submit for Approval
+          </button>
         </div>
       </div>
 
+      {isMarginBreached && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between text-sm font-medium">
+          <div className="flex items-center space-x-2">
+            <span>⚠️</span>
+            <span>Margin error: Minimum threshold of 10% breached (Current net margin: {netMargin.toFixed(1)}%)</span>
+          </div>
+          <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">Hard Stop Enforced</span>
+        </div>
+      )}
+
       <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div><span className="font-semibold">Customer:</span> {quotation.customer_account?.buyer_organization?.legal_name}</div>
-          <div><span className="font-semibold">Price List:</span> {quotation.price_list?.name}</div>
-          <div><span className="font-semibold">Gross Total:</span> ${Number(quotation.gross_total).toLocaleString()}</div>
-          <div><span className="font-semibold">Blended Risk Score:</span> {quotation.blended_risk_score}pt</div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 text-sm">
+          <div><span className="font-semibold text-gray-600">Customer:</span> <div className="font-medium">{quotation.customer_account?.buyer_organization?.legal_name}</div></div>
+          <div><span className="font-semibold text-gray-600">Price List:</span> <div className="font-medium">{quotation.price_list?.name}</div></div>
+          <div><span className="font-semibold text-gray-600">Gross Total:</span> <div className="font-medium">${Number(quotation.gross_total).toLocaleString()}</div></div>
+          <div><span className="font-semibold text-gray-600">Net Margin:</span> <div className={`font-bold ${netMargin < 10 ? 'text-red-600' : 'text-green-600'}`}>{netMargin.toFixed(1)}%</div></div>
+          <div><span className="font-semibold text-gray-600">Blended Risk Score:</span> <div className="font-medium">{quotation.blended_risk_score}pt</div></div>
         </div>
       </div>
 

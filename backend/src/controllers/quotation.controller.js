@@ -31,7 +31,7 @@ const recalcQuotation = async (quotationId, organizationId) => {
   if (!quotation) return;
 
   const lines = await QuotationLine.findAll({
-    where: { quotation_id: quotationId, organization_id: organizationId }
+    where: { quotation_id: quotationId }
   });
 
   const {
@@ -130,10 +130,14 @@ export const getQuotation = async (req, res) => {
           as: 'lines',
           include: [
             { model: Product, as: 'product', attributes: ['id', 'name'] },
-            { model: ProductVariant, as: 'variant', attributes: ['id', 'name'] }
+            { model: ProductVariant, as: 'product_variant', attributes: ['id', 'variant_name', ['variant_name', 'name']] }
           ]
         },
-        { model: CustomerAccount, as: 'customer_account' },
+        {
+          model: CustomerAccount,
+          as: 'customer_account',
+          include: [{ model: Organization, as: 'buyer_organization' }]
+        },
         { model: PriceList, as: 'price_list' }
       ]
     });
@@ -201,7 +205,7 @@ export const addLine = async (req, res) => {
 
     let list_price = product.base_list_price;
     if (product_variant_id) {
-      const variant = await ProductVariant.findOne({ where: { id: product_variant_id, product_id, organization_id } });
+      const variant = await ProductVariant.findOne({ where: { id: product_variant_id, product_id } });
       if (variant) list_price = Number(list_price) + Number(variant.price_delta || 0);
     }
 
@@ -218,37 +222,43 @@ export const addLine = async (req, res) => {
     }
 
     const pricing_tier = quotation.customer_account?.pricing_tier || 'standard';
-    const ceiling_discount = resolveCeiling(organization_id, product.category, pricing_tier);
-    const unit_cost = product.unit_cost;
+    const ceiling_discount = await resolveCeiling(organization_id, product.category, pricing_tier);
+    const unit_cost = product.standard_unit_cost;
 
     const lineMath = computeLineMath({
-      list_price,
-      unit_cost,
+      unit_list_price: list_price,
+      unit_cost_price: unit_cost,
       quantity,
       applied_discount_percentage,
-      ceiling_discount
+      effective_ceiling_limit: ceiling_discount
     });
 
-    const maxLine = await QuotationLine.max('line_number', { where: { quotation_id: quotationId, organization_id } });
+    const maxLine = await QuotationLine.max('line_number', { where: { quotation_id: quotationId } });
     const line_number = (maxLine || 0) + 1;
 
     const line = await QuotationLine.create({
-      organization_id,
       quotation_id: quotationId,
       product_id,
       product_variant_id,
       line_number,
+      category: product.category,
+      billing_cadence: product.billing_cadence || 'one_time',
       quantity,
-      list_price,
-      unit_cost,
+      unit_list_price: list_price,
+      unit_cost_price: unit_cost,
       applied_discount_percentage,
-      ceiling_discount,
+      effective_ceiling_limit: ceiling_discount,
       ...lineMath
     });
 
     await recalcQuotation(quotationId, organization_id);
 
-    res.status(201).json(line);
+    const lineJson = line.toJSON();
+    lineJson.ceiling_discount = lineJson.effective_ceiling_limit;
+    lineJson.list_price = lineJson.unit_list_price;
+    lineJson.unit_cost = lineJson.unit_cost_price;
+
+    res.status(201).json(lineJson);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -268,7 +278,7 @@ export const updateLine = async (req, res) => {
     if (!quotation) return res.status(404).json({ error: 'Quotation not found' });
     if (quotation.stage !== 'draft') return res.status(409).json({ error: 'Cannot update lines on a non-draft quotation' });
 
-    const line = await QuotationLine.findOne({ where: { id: lineId, quotation_id: quotationId, organization_id } });
+    const line = await QuotationLine.findOne({ where: { id: lineId, quotation_id: quotationId } });
     if (!line) return res.status(404).json({ error: 'Line not found' });
 
     const newQuantity = quantity !== undefined ? quantity : line.quantity;
@@ -276,26 +286,31 @@ export const updateLine = async (req, res) => {
 
     const pricing_tier = quotation.customer_account?.pricing_tier || 'standard';
     const product = await Product.findOne({ where: { id: line.product_id, organization_id } });
-    const ceiling_discount = resolveCeiling(organization_id, product.category, pricing_tier);
+    const ceiling_discount = await resolveCeiling(organization_id, product.category, pricing_tier);
 
     const lineMath = computeLineMath({
-      list_price: line.list_price,
-      unit_cost: line.unit_cost,
+      unit_list_price: line.unit_list_price,
+      unit_cost_price: line.unit_cost_price,
       quantity: newQuantity,
       applied_discount_percentage: newDiscount,
-      ceiling_discount
+      effective_ceiling_limit: ceiling_discount
     });
 
     await line.update({
       quantity: newQuantity,
       applied_discount_percentage: newDiscount,
-      ceiling_discount,
+      effective_ceiling_limit: ceiling_discount,
       ...lineMath
     });
 
     await recalcQuotation(quotationId, organization_id);
 
-    res.json(line);
+    const lineJson = line.toJSON();
+    lineJson.ceiling_discount = lineJson.effective_ceiling_limit;
+    lineJson.list_price = lineJson.unit_list_price;
+    lineJson.unit_cost = lineJson.unit_cost_price;
+
+    res.json(lineJson);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -313,7 +328,7 @@ export const removeLine = async (req, res) => {
     if (!quotation) return res.status(404).json({ error: 'Quotation not found' });
     if (quotation.stage !== 'draft') return res.status(409).json({ error: 'Cannot remove lines from a non-draft quotation' });
 
-    const line = await QuotationLine.findOne({ where: { id: lineId, quotation_id: quotationId, organization_id } });
+    const line = await QuotationLine.findOne({ where: { id: lineId, quotation_id: quotationId } });
     if (!line) return res.status(404).json({ error: 'Line not found' });
 
     await line.destroy();
@@ -332,7 +347,7 @@ export const getUpsells = async (req, res) => {
     const { quotationId } = req.params;
 
     const lines = await QuotationLine.findAll({
-      where: { quotation_id: quotationId, organization_id },
+      where: { quotation_id: quotationId },
       attributes: ['product_id']
     });
 

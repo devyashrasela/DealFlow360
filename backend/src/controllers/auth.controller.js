@@ -1,4 +1,5 @@
 import argon2 from 'argon2';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { User, Organization, OrganizationMembership, CustomerAccount } from '../models/index.js';
@@ -19,8 +20,10 @@ function generateRefreshToken() {
   return crypto.randomBytes(48).toString('hex');
 }
 
-function issueAccessToken(user) {
-  return jwt.sign({ sub: user.id }, JWT_SECRET, { expiresIn: '15m' });
+function issueAccessToken(user, sessionId) {
+  const payload = { sub: user.id };
+  if (sessionId) payload.session_id = sessionId;
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '15m' });
 }
 
 async function createSession(user, req) {
@@ -28,7 +31,7 @@ async function createSession(user, req) {
   const hash = hashToken(raw);
   const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_DAYS * 86400_000);
 
-  await Session.create({
+  const session = await Session.create({
     user_id: user.id,
     refresh_token_hash: hash,
     expires_at: expiresAt,
@@ -36,7 +39,7 @@ async function createSession(user, req) {
     user_agent: req.headers['user-agent'],
   });
 
-  return raw;
+  return { raw, session };
 }
 
 async function buildLoginPayload(user) {
@@ -113,15 +116,24 @@ export const login = async (req, res) => {
 
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
 
-    const isValid = await argon2.verify(user.password_hash, password);
+    let isValid = false;
+    if (user.password_hash?.startsWith('$2a$') || user.password_hash?.startsWith('$2b$')) {
+      isValid = await bcrypt.compare(password, user.password_hash);
+      if (isValid) {
+        const upgradedHash = await argon2.hash(password, { type: argon2.argon2id });
+        await user.update({ password_hash: upgradedHash });
+      }
+    } else {
+      isValid = await argon2.verify(user.password_hash, password);
+    }
     if (!isValid) return res.status(401).json({ error: 'Invalid credentials' });
 
     if (!user.is_active) return res.status(403).json({ error: 'Account suspended' });
 
     await user.update({ last_login_at: new Date() });
 
-    const accessToken = issueAccessToken(user);
-    const refreshToken = await createSession(user, req);
+    const { raw: refreshToken, session } = await createSession(user, req);
+    const accessToken = issueAccessToken(user, session.id);
     const { memberships, redirect } = await buildLoginPayload(user);
 
     return res.status(200).json({
@@ -159,8 +171,8 @@ export const refresh = async (req, res) => {
 
     // Rotate: revoke old, issue new
     await session.update({ is_revoked: true });
-    const newRaw = await createSession(user, req);
-    const accessToken = issueAccessToken(user);
+    const { raw: newRaw, session: newSession } = await createSession(user, req);
+    const accessToken = issueAccessToken(user, newSession.id);
 
     return res.status(200).json({ access_token: accessToken, refresh_token: newRaw });
   } catch (err) {
@@ -372,7 +384,16 @@ export const acceptInvitation = async (req, res) => {
     } else {
       // Existing user — verify password
       if (!password) return res.status(400).json({ error: 'password required to verify existing account' });
-      const isValid = await argon2.verify(user.password_hash, password);
+      let isValid = false;
+      if (user.password_hash?.startsWith('$2a$') || user.password_hash?.startsWith('$2b$')) {
+        isValid = await bcrypt.compare(password, user.password_hash);
+        if (isValid) {
+          const upgradedHash = await argon2.hash(password, { type: argon2.argon2id });
+          await user.update({ password_hash: upgradedHash });
+        }
+      } else {
+        isValid = await argon2.verify(user.password_hash, password);
+      }
       if (!isValid) return res.status(401).json({ error: 'Invalid credentials for existing account' });
     }
 

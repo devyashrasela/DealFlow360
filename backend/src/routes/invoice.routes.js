@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { authenticate, resolveOrgContext } from '../middleware/auth.middleware.js';
 import {
   listInvoices,
   getInvoiceDetail,
@@ -8,6 +9,10 @@ import {
 } from '../controllers/invoice.controller.js';
 
 const router = Router();
+
+// Apply authentication and org context to all invoice routes
+router.use(authenticate);
+router.use(resolveOrgContext);
 
 // List all invoices (filterable by organization_id, status, document_type)
 router.get('/', listInvoices);

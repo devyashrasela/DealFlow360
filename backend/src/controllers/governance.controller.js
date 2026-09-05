@@ -2,7 +2,9 @@ import {
   DiscountTierCeiling,
   CategoryCeiling,
   ApprovalChain,
-  ApprovalRule
+  ApprovalRule,
+  CustomerAccount,
+  ApprovalAuditLog
 } from '../models/index.js';
 
 // Discount Tier Ceilings
@@ -12,7 +14,12 @@ export const listTierCeilings = async (req, res) => {
     const ceilings = await DiscountTierCeiling.findAll({
       where: { organization_id: organizationId }
     });
-    res.json(ceilings);
+    const result = ceilings.map(c => {
+      const json = c.toJSON();
+      json.customer_tier = json.tier;
+      return json;
+    });
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -22,10 +29,17 @@ export const upsertTierCeiling = async (req, res) => {
   try {
     const { organizationId } = req.orgContext;
     const { tier, max_discount_percentage } = req.body;
+
+    const pct = parseFloat(max_discount_percentage);
+    if (isNaN(pct) || pct < 0 || pct > 100) {
+      return res.status(400).json({ error: 'Discount percentage must be between 0 and 100' });
+    }
     
     let ceiling = await DiscountTierCeiling.findOne({
       where: { organization_id: organizationId, tier }
     });
+
+    const priorValue = ceiling ? ceiling.max_discount_percentage : null;
 
     if (ceiling) {
       ceiling.max_discount_percentage = max_discount_percentage;
@@ -37,8 +51,27 @@ export const upsertTierCeiling = async (req, res) => {
         max_discount_percentage
       });
     }
+
+    try {
+      await ApprovalAuditLog.create({
+        organization_id: organizationId,
+        quotation_id: null,
+        actor_user_id: req.user?.id || '00000000-0000-0000-0000-000000000000',
+        blended_risk_score_at_action: 0,
+        action_taken: priorValue != null ? 'tier_ceiling_updated' : 'tier_ceiling_created',
+        payload_snapshot: { tier, prior_value: priorValue, updated_value: max_discount_percentage },
+        ip_address: req.ip,
+        user_agent: req.get('User-Agent')
+      });
+    } catch (e) {
+      console.error('AuditLog error:', e.message);
+    }
+
     res.json(ceiling);
   } catch (error) {
+    if (error.name === 'SequelizeValidationError') {
+      return res.status(400).json({ error: error.message });
+    }
     res.status(500).json({ error: error.message });
   }
 };
@@ -48,13 +81,48 @@ export const deleteTierCeiling = async (req, res) => {
     const { organizationId } = req.orgContext;
     const { id } = req.params;
     
-    const deleted = await DiscountTierCeiling.destroy({
+    const ceiling = await DiscountTierCeiling.findOne({
       where: { id, organization_id: organizationId }
     });
-    
-    if (!deleted) {
+
+    if (!ceiling) {
       return res.status(404).json({ error: 'Not found' });
     }
+
+    // Check if tier is actively assigned to customer accounts (GOV17-05)
+    const inUse = await CustomerAccount.findOne({
+      where: {
+        provider_organization_id: organizationId,
+        pricing_tier: ceiling.tier
+      }
+    });
+
+    if (inUse) {
+      return res.status(400).json({
+        error: `Cannot delete tier ceiling '${ceiling.tier}': actively assigned to customer accounts.`
+      });
+    }
+
+    const priorValue = ceiling.max_discount_percentage;
+    const tierName = ceiling.tier;
+
+    await ceiling.destroy();
+
+    try {
+      await ApprovalAuditLog.create({
+        organization_id: organizationId,
+        quotation_id: null,
+        actor_user_id: req.user?.id || '00000000-0000-0000-0000-000000000000',
+        blended_risk_score_at_action: 0,
+        action_taken: 'tier_ceiling_deleted',
+        payload_snapshot: { id, tier: tierName, prior_value: priorValue },
+        ip_address: req.ip,
+        user_agent: req.get('User-Agent')
+      });
+    } catch (e) {
+      console.error('AuditLog error:', e.message);
+    }
+
     res.status(204).send();
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -68,7 +136,12 @@ export const listCategoryCeilings = async (req, res) => {
     const ceilings = await CategoryCeiling.findAll({
       where: { organization_id: organizationId }
     });
-    res.json(ceilings);
+    const result = ceilings.map(c => {
+      const json = c.toJSON();
+      json.product_category = json.category;
+      return json;
+    });
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -78,10 +151,17 @@ export const upsertCategoryCeiling = async (req, res) => {
   try {
     const { organizationId } = req.orgContext;
     const { category, max_discount_percentage } = req.body;
+
+    const pct = parseFloat(max_discount_percentage);
+    if (isNaN(pct) || pct < 0 || pct > 100) {
+      return res.status(400).json({ error: 'Discount percentage must be between 0 and 100' });
+    }
     
     let ceiling = await CategoryCeiling.findOne({
       where: { organization_id: organizationId, category }
     });
+
+    const priorValue = ceiling ? ceiling.max_discount_percentage : null;
 
     if (ceiling) {
       ceiling.max_discount_percentage = max_discount_percentage;
@@ -93,8 +173,27 @@ export const upsertCategoryCeiling = async (req, res) => {
         max_discount_percentage
       });
     }
+
+    try {
+      await ApprovalAuditLog.create({
+        organization_id: organizationId,
+        quotation_id: null,
+        actor_user_id: req.user?.id || '00000000-0000-0000-0000-000000000000',
+        blended_risk_score_at_action: 0,
+        action_taken: priorValue != null ? 'category_ceiling_updated' : 'category_ceiling_created',
+        payload_snapshot: { category, prior_value: priorValue, updated_value: max_discount_percentage },
+        ip_address: req.ip,
+        user_agent: req.get('User-Agent')
+      });
+    } catch (e) {
+      console.error('AuditLog error:', e.message);
+    }
+
     res.json(ceiling);
   } catch (error) {
+    if (error.name === 'SequelizeValidationError') {
+      return res.status(400).json({ error: error.message });
+    }
     res.status(500).json({ error: error.message });
   }
 };
@@ -104,13 +203,34 @@ export const deleteCategoryCeiling = async (req, res) => {
     const { organizationId } = req.orgContext;
     const { id } = req.params;
     
-    const deleted = await CategoryCeiling.destroy({
+    const ceiling = await CategoryCeiling.findOne({
       where: { id, organization_id: organizationId }
     });
-    
-    if (!deleted) {
+
+    if (!ceiling) {
       return res.status(404).json({ error: 'Not found' });
     }
+
+    const priorValue = ceiling.max_discount_percentage;
+    const catName = ceiling.category;
+
+    await ceiling.destroy();
+
+    try {
+      await ApprovalAuditLog.create({
+        organization_id: organizationId,
+        quotation_id: null,
+        actor_user_id: req.user?.id || '00000000-0000-0000-0000-000000000000',
+        blended_risk_score_at_action: 0,
+        action_taken: 'category_ceiling_deleted',
+        payload_snapshot: { id, category: catName, prior_value: priorValue },
+        ip_address: req.ip,
+        user_agent: req.get('User-Agent')
+      });
+    } catch (e) {
+      console.error('AuditLog error:', e.message);
+    }
+
     res.status(204).send();
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -192,6 +312,17 @@ export const updateApprovalChain = async (req, res) => {
     if (absolute_margin_hard_stop !== undefined) chain.absolute_margin_hard_stop = absolute_margin_hard_stop;
 
     await chain.save();
+
+    // Uniformly synchronize margin guardrails across all approval chains for the organization (GOV18-GUARDRAILS-STORAGE)
+    if (minimum_upsell_margin_threshold !== undefined || absolute_margin_hard_stop !== undefined) {
+      const syncPayload = {};
+      if (minimum_upsell_margin_threshold !== undefined) syncPayload.minimum_upsell_margin_threshold = minimum_upsell_margin_threshold;
+      if (absolute_margin_hard_stop !== undefined) syncPayload.absolute_margin_hard_stop = absolute_margin_hard_stop;
+      await ApprovalChain.update(syncPayload, {
+        where: { organization_id: organizationId }
+      });
+    }
+
     res.json(chain);
   } catch (error) {
     res.status(500).json({ error: error.message });

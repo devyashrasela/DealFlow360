@@ -221,6 +221,20 @@ export function GovernanceDashboard({ initialTab }) {
       {/* TAB 1: DISCOUNT CEILINGS */}
       {!loading && activeTab === 'ceilings' && (
         <div className="space-y-6">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <h2 className="font-semibold mb-4">Customer Tier Ceilings</h2>
+            <table className="w-full text-left text-sm border-collapse">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="p-2 border-b">Tier Name</th>
+                  <th className="p-2 border-b">Max Discount %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tierCeilings.map(tc => (
+                  <tr key={tc.id} className="border-b border-gray-100">
+                    <td className="p-2 capitalize">{tc.tier || tc.customer_tier}</td>
+                    <td className="p-2">{tc.max_discount_percentage}%</td>
           <Card
             title="Customer Tier Ceilings"
             subtitle="Maximum allowed discount percentage authorized per customer classification"
@@ -289,6 +303,20 @@ export function GovernanceDashboard({ initialTab }) {
             </div>
           </Card>
 
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <h2 className="font-semibold mb-4">Product Category Ceilings</h2>
+            <table className="w-full text-left text-sm border-collapse">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="p-2 border-b">Category</th>
+                  <th className="p-2 border-b">Max Discount %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {categoryCeilings.map(cc => (
+                  <tr key={cc.id} className="border-b border-gray-100">
+                    <td className="p-2 capitalize">{cc.category || cc.product_category}</td>
+                    <td className="p-2">{cc.max_discount_percentage}%</td>
           <Card
             title="Product Category Ceilings"
             subtitle="Cap discount thresholds across distinct product lines"

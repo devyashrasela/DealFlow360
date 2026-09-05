@@ -21,9 +21,8 @@ import {
  */
 export const listInvoices = async (req, res, next) => {
   try {
-    const { organization_id, status, document_type } = req.query;
-    const where = {};
-    if (organization_id) where.organization_id = organization_id;
+    const { status, document_type } = req.query;
+    const where = { organization_id: req.orgContext.organizationId };
     if (status) where.status = status;
     if (document_type) where.document_type = document_type;
 
@@ -37,6 +36,8 @@ export const listInvoices = async (req, res, next) => {
         },
         { model: InvoiceLine, as: 'lines', include: [{ model: Product, as: 'product', attributes: ['id', 'sku', 'name'] }] },
         { model: Payment, as: 'payments', attributes: ['id', 'payment_number', 'amount', 'payment_method', 'payment_status', 'payment_date'] },
+        { model: Quotation, as: 'origin_quotation', attributes: ['id', 'quotation_number'] },
+        { model: Subscription, as: 'origin_subscription', attributes: ['id', 'subscription_code'] },
       ],
       order: [['issue_date', 'DESC']],
     });
@@ -56,6 +57,10 @@ export const listInvoices = async (req, res, next) => {
       .filter((i) => i.status === 'paid')
       .reduce((sum, i) => sum + Number(i.total_amount || 0), 0);
 
+    const unappliedCredits = invoices
+      .filter((i) => i.document_type === 'credit_note')
+      .reduce((sum, i) => sum + Number(i.balance_due || 0), 0);
+
     return res.status(200).json({
       success: true,
       count: invoices.length,
@@ -63,7 +68,10 @@ export const listInvoices = async (req, res, next) => {
         total_outstanding: Number(totalOutstanding.toFixed(2)),
         overdue_count: overdueInvoices.length,
         overdue_amount: Number(overdueTotal.toFixed(2)),
+        total_overdue: Number(overdueTotal.toFixed(2)),
         total_collected: Number(totalPaid.toFixed(2)),
+        unapplied_credits: Number(unappliedCredits.toFixed(2)),
+        total_credited: Number(unappliedCredits.toFixed(2)),
       },
       data: invoices,
     });
@@ -77,7 +85,8 @@ export const listInvoices = async (req, res, next) => {
  */
 export const getInvoiceDetail = async (req, res, next) => {
   try {
-    const invoice = await Invoice.findByPk(req.params.id, {
+    const invoice = await Invoice.findOne({
+      where: { id: req.params.id, organization_id: req.orgContext.organizationId },
       include: [
         {
           model: CustomerAccount,
@@ -91,6 +100,8 @@ export const getInvoiceDetail = async (req, res, next) => {
           as: 'received_credit_allocations',
           include: [{ model: Invoice, as: 'credit_note_invoice', attributes: ['id', 'invoice_number', 'document_type'] }],
         },
+        { model: Quotation, as: 'origin_quotation', attributes: ['id', 'quotation_number'] },
+        { model: Subscription, as: 'origin_subscription', attributes: ['id', 'subscription_code'] },
       ],
     });
 
@@ -126,7 +137,8 @@ export const generateFromQuote = async (req, res, next) => {
  */
 export const recordPaymentHandler = async (req, res, next) => {
   try {
-    const { amount, payment_method, transaction_reference, payment_date, recorded_by_user_id } = req.body;
+    const { amount, payment_method, transaction_reference, payment_date } = req.body;
+    const recorded_by_user_id = req.body.recorded_by_user_id || req.body.actor_user_id || req.user?.id;
 
     if (!amount || !payment_method || !recorded_by_user_id) {
       return res.status(400).json({
@@ -160,7 +172,8 @@ export const recordPaymentHandler = async (req, res, next) => {
  */
 export const applyCreditOffset = async (req, res, next) => {
   try {
-    const { credit_note_invoice_id, amount, allocated_by_user_id } = req.body;
+    const { credit_note_invoice_id, amount } = req.body;
+    const allocated_by_user_id = req.body.allocated_by_user_id || req.body.applied_by_user_id || req.user?.id;
     const target_invoice_id = req.params.id;
 
     if (!credit_note_invoice_id || !target_invoice_id || !amount || !allocated_by_user_id) {

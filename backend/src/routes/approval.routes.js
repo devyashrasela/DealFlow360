@@ -5,6 +5,7 @@ import {
   getApprovalDetail,
   approveQuotation,
   rejectQuotation,
+  returnQuotation,
   listAuditLogs
 } from '../controllers/approval.controller.js';
 import { authenticate, resolveOrgContext, requireRoles } from '../middleware/auth.middleware.js';
@@ -42,6 +43,12 @@ router.post(
   '/:quotationId/reject',
   requireRoles('admin', 'sales_manager', 'finance_ops'),
   rejectQuotation
+);
+
+router.post(
+  '/:quotationId/return',
+  requireRoles('admin', 'sales_manager', 'finance_ops'),
+  returnQuotation
 );
 
 router.get(

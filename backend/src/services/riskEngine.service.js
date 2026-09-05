@@ -11,19 +11,30 @@ import { Op } from 'sequelize';
  * @param {string} pricingTier
  * @returns {Promise<number>} Effective discount ceiling
  */
+const DEFAULT_TIER_CEILINGS = { standard: 0, bronze: 5, silver: 10, gold: 15, custom: 25 };
+const DEFAULT_CAT_CEILINGS = { hardware: 15, services: 10, subscriptions: 5 };
+
 export const resolveCeiling = async (organizationId, category, pricingTier) => {
   try {
+    const catNormalized = (category || '').toLowerCase();
+    const tierNormalized = (pricingTier || '').toLowerCase();
+
     const [tierCeiling, categoryCeiling] = await Promise.all([
       DiscountTierCeiling.findOne({
-        where: { organization_id: organizationId, tier: pricingTier }
+        where: { organization_id: organizationId, tier: tierNormalized }
       }),
       CategoryCeiling.findOne({
-        where: { organization_id: organizationId, category }
+        where: { organization_id: organizationId, category: catNormalized }
       })
     ]);
 
-    const tierLimit = tierCeiling ? parseFloat(tierCeiling.max_discount_percentage) : null;
-    const catLimit = categoryCeiling ? parseFloat(categoryCeiling.max_discount_percentage) : null;
+    const tierLimit = tierCeiling
+      ? parseFloat(tierCeiling.max_discount_percentage)
+      : (DEFAULT_TIER_CEILINGS[tierNormalized] !== undefined ? DEFAULT_TIER_CEILINGS[tierNormalized] : null);
+
+    const catLimit = categoryCeiling
+      ? parseFloat(categoryCeiling.max_discount_percentage)
+      : (DEFAULT_CAT_CEILINGS[catNormalized] !== undefined ? DEFAULT_CAT_CEILINGS[catNormalized] : null);
 
     if (tierLimit !== null && catLimit !== null) {
       return Math.min(tierLimit, catLimit);
@@ -45,10 +56,10 @@ export const resolveCeiling = async (organizationId, category, pricingTier) => {
  */
 export const computeLineMath = (line) => {
   const quantity = Number(line.quantity) || 0;
-  const unitListPrice = Number(line.unit_list_price) || 0;
-  const unitCostPrice = Number(line.unit_cost_price) || 0;
-  const appliedDiscount = Number(line.applied_discount_percentage) || 0;
-  const effectiveLimit = Number(line.effective_ceiling_limit) || 100;
+  const unitListPrice = Number(line.unit_list_price ?? line.list_price) || 0;
+  const unitCostPrice = Number(line.unit_cost_price ?? line.unit_cost) || 0;
+  const appliedDiscount = Number(line.applied_discount_percentage ?? line.discount_percentage) || 0;
+  const effectiveLimit = Number(line.effective_ceiling_limit ?? line.ceiling_discount) || 100;
 
   const unitNetPrice = unitListPrice * (1 - appliedDiscount / 100);
   const lineGrossAmount = quantity * unitListPrice;
@@ -186,10 +197,26 @@ export const determineRiskTier = async (organizationId, blendedRiskScore, E_max,
     let matchedChain = chains[chains.length - 1]; // Default to highest limit chain
     for (const chain of chains) {
       const min = parseFloat(chain.min_risk_score);
-      const max = parseFloat(chain.max_risk_score);
-      if (blendedRiskScore >= min && blendedRiskScore < max) {
+      const max = (chain.max_risk_score !== null && chain.max_risk_score !== undefined && !isNaN(parseFloat(chain.max_risk_score)))
+        ? parseFloat(chain.max_risk_score)
+        : null;
+
+      // Exact zero match for Slab 1 (0 to 0)
+      if (min === 0 && max === 0 && blendedRiskScore === 0) {
         matchedChain = chain;
         break;
+      }
+
+      if (max !== null) {
+        if (blendedRiskScore >= min && blendedRiskScore <= max) {
+          matchedChain = chain;
+          break;
+        }
+      } else {
+        if (blendedRiskScore >= min) {
+          matchedChain = chain;
+          break;
+        }
       }
     }
 

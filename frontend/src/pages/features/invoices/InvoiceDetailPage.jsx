@@ -5,9 +5,11 @@ import { Badge } from '../../../components/ui/Badge';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
 import { getInvoiceDetail, recordPayment } from '../../../api/invoiceApi';
+import { useAuth } from '../../../context/AuthContext';
 
 export const InvoiceDetailPage = () => {
   const { providerSlug, invoiceId } = useParams();
+  const { user } = useAuth();
   const [inv, setInv] = useState(null);
   const [activeTab, setActiveTab] = useState('lines');
   
@@ -34,12 +36,11 @@ export const InvoiceDetailPage = () => {
   const handleRecordPayment = async () => {
     setIsPaying(true);
     try {
-      // Fake actor user id for demo
       await recordPayment(invoiceId, {
-        amount: paymentAmount,
+        amount: Number(paymentAmount),
         payment_method: paymentMethod,
         transaction_reference: `TXN-${Date.now()}`,
-        actor_user_id: '00000000-0000-0000-0000-000000000000',
+        recorded_by_user_id: user?.id || '00000000-0000-0000-0000-000000000000',
       });
       setIsPaymentModalOpen(false);
       fetchDetail();
@@ -127,19 +128,31 @@ export const InvoiceDetailPage = () => {
               <table className="w-full text-sm text-left">
                 <thead className="text-xs text-neutral-500 uppercase bg-neutral-50/50 border-b border-neutral-200/60">
                   <tr>
-                    <th className="px-6 py-4 font-semibold">Description</th>
-                    <th className="px-6 py-4 font-semibold">Unit Price</th>
-                    <th className="px-6 py-4 font-semibold">Qty</th>
-                    <th className="px-6 py-4 font-semibold text-right">Line Total</th>
+                    <th className="px-5 py-3.5 font-semibold">Description</th>
+                    <th className="px-5 py-3.5 font-semibold">Category</th>
+                    <th className="px-5 py-3.5 font-semibold">Billing Type</th>
+                    <th className="px-5 py-3.5 font-semibold">Unit Price</th>
+                    <th className="px-5 py-3.5 font-semibold">Qty</th>
+                    <th className="px-5 py-3.5 font-semibold">Discount</th>
+                    <th className="px-5 py-3.5 font-semibold">Net Amount</th>
+                    <th className="px-5 py-3.5 font-semibold">Tax</th>
+                    <th className="px-5 py-3.5 font-semibold text-right">Line Total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-200/60">
                   {inv.lines?.map(li => (
                     <tr key={li.id}>
-                      <td className="px-6 py-4 font-medium">{li.description}</td>
-                      <td className="px-6 py-4">${Number(li.unit_price).toLocaleString()}</td>
-                      <td className="px-6 py-4">{li.quantity}</td>
-                      <td className="px-6 py-4 font-bold text-right">${Number(li.line_total).toLocaleString()}</td>
+                      <td className="px-5 py-3.5 font-medium text-[#111826]">{li.line_description || li.product?.name || 'Item'}</td>
+                      <td className="px-5 py-3.5 capitalize text-xs text-neutral-600">{li.category || '—'}</td>
+                      <td className="px-5 py-3.5 capitalize text-xs text-neutral-600">{(li.billing_cadence || 'one_time').replace(/_/g, ' ')}</td>
+                      <td className="px-5 py-3.5">${Number(li.unit_price || 0).toLocaleString()}</td>
+                      <td className="px-5 py-3.5">{li.quantity}</td>
+                      <td className="px-5 py-3.5 text-xs text-neutral-600">
+                        {Number(li.discount_amount || 0) > 0 ? `$${Number(li.discount_amount).toLocaleString()}` : '—'}
+                      </td>
+                      <td className="px-5 py-3.5 font-medium">${Number(li.net_amount || (li.unit_price * li.quantity) || 0).toLocaleString()}</td>
+                      <td className="px-5 py-3.5 text-xs text-neutral-600">{li.tax_rate_percentage ? `${li.tax_rate_percentage}%` : '0%'}</td>
+                      <td className="px-5 py-3.5 font-bold text-right">${Number(li.line_total_with_tax || li.line_total || li.net_amount || 0).toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>

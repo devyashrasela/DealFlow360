@@ -35,7 +35,21 @@ export function ApprovalDetailPage() {
 
   const handleApprove = async () => {
     try {
-      await approvalApi.approve(id, { comments });
+      if (actionType === 'approve') {
+        await apiClient.post(`/approvals/${id}/approve`, { comments });
+      } else if (actionType === 'return') {
+        if (!comments) {
+          alert('Comments / feedback are required when returning for revision');
+          return;
+        }
+        await apiClient.post(`/approvals/${id}/return`, { comments });
+      } else {
+        if (!comments && actionType === 'reject') {
+          alert('Comments are required for rejection');
+          return;
+        }
+        await apiClient.post(`/approvals/${id}/reject`, { comments });
+      }
       navigate('/approvals');
     } catch (err) {
       alert(`Failed to approve: ${err.message}`);
@@ -197,9 +211,9 @@ export function ApprovalDetailPage() {
           onChange={(e) => setComments(e.target.value)}
         ></textarea>
         <div className="flex space-x-3">
-          <Button onClick={handleApprove} className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white border-none">Approve</Button>
-          <Button onClick={handleReturn} className="bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white border-none">Return for Revision</Button>
-          <Button onClick={handleReject} variant="destructive">Reject</Button>
+          <button onClick={() => handleAction('approve')} className="px-4 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 font-medium">Approve</button>
+          <button onClick={() => handleAction('return')} className="px-4 py-2 bg-orange-500 text-white rounded text-sm hover:bg-orange-600 font-medium">Return for Revision</button>
+          <button onClick={() => handleAction('reject')} className="px-4 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700 font-medium">Reject</button>
         </div>
       </Card>
     </div>

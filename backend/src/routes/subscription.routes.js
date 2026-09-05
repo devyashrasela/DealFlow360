@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { authenticate, resolveOrgContext } from '../middleware/auth.middleware.js';
 import {
   listSubscriptions,
   getSubscriptionDetail,
@@ -9,6 +10,10 @@ import {
 } from '../controllers/subscription.controller.js';
 
 const router = Router();
+
+// Apply authentication and org context to all subscription routes
+router.use(authenticate);
+router.use(resolveOrgContext);
 
 // List all subscriptions (filterable by organization_id, status)
 router.get('/', listSubscriptions);

@@ -5,6 +5,9 @@ import {
   FulfillmentOrder, Invoice, InvoiceLine,
 } from '../models/index.js';
 import { authenticate, resolveOrgContext } from '../middleware/auth.middleware.js';
+import { generateInvoiceFromQuote } from '../services/invoice.service.js';
+import { executeFulfillmentAllocation } from '../services/fulfillment.service.js';
+import { provisionSubscriptionFromQuote } from '../services/subscription.service.js';
 
 const router = Router();
 router.use(authenticate, resolveOrgContext);
@@ -106,15 +109,34 @@ router.post('/confirm', async (req, res) => {
   });
   if (!quote) return res.status(404).json({ error: 'Quotation not found' });
 
-  if (!['under_negotiation', 'approved'].includes(quote.stage)) {
-    return res.status(409).json({ error: `Cannot confirm from stage: ${quote.stage}` });
+  if (!['approved'].includes(quote.stage)) {
+    return res.status(409).json({ error: `Cannot confirm from stage: ${quote.stage}. Quotation must be approved before confirmation.` });
   }
 
   await quote.update({ stage: 'confirmed', confirmed_at: new Date() });
 
-  // ponytail: downstream fulfillment/billing events are placeholder console.log
-  // Wire real event bus when event infrastructure exists
-  console.log(`[EVENT] quotation_confirmed: ${quote.id}`);
+  // Downstream event processing on quotation confirmation
+  try {
+    await generateInvoiceFromQuote(quote.id);
+  } catch (invoiceErr) {
+    console.error(`[EVENT] invoice generation failed for ${quote.id}:`, invoiceErr.message);
+  }
+
+  try {
+    await executeFulfillmentAllocation(quote.organization_id, { quotationId: quote.id });
+  } catch (fulfillErr) {
+    console.error(`[EVENT] fulfillment allocation failed for ${quote.id}:`, fulfillErr.message);
+  }
+
+  // Check if quotation has recurring/subscription lines
+  const hasRecurringLines = quote.lines?.some(l => l.category === 'subscriptions' || (l.billing_cadence && l.billing_cadence !== 'one_time'));
+  if (hasRecurringLines) {
+    try {
+      await provisionSubscriptionFromQuote(quote.id);
+    } catch (subErr) {
+      console.error(`[EVENT] subscription provisioning failed for ${quote.id}:`, subErr.message);
+    }
+  }
 
   res.json({ message: 'Quotation confirmed', quotation: quote });
 });
@@ -126,7 +148,12 @@ router.post('/confirm', async (req, res) => {
 router.get('/my-quotes', async (req, res) => {
   const quotes = await Quotation.findAll({
     where: scopeWhere(req),
-    include: [{ model: QuotationLine, as: 'lines' }],
+    attributes: { exclude: ['blended_margin_percentage', 'blended_risk_score', 'worst_line_excess', 'weighted_margin_bleed', 'margin_hard_stop_breached', 'risk_tier'] },
+    include: [{
+      model: QuotationLine,
+      as: 'lines',
+      attributes: { exclude: ['unit_cost_price', 'line_margin_percentage', 'line_cost_total', 'line_margin_amount', 'effective_ceiling_limit'] }
+    }],
     order: [['updated_at', 'DESC']],
   });
   res.json(quotes);
