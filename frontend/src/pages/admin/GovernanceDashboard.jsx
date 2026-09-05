@@ -1,13 +1,55 @@
 import React, { useState, useEffect } from 'react';
-import { apiClient } from '../../api/client';
+import { useLocation } from 'react-router-dom';
+import { Edit2, Trash2, Plus, Save, X, PlusCircle, ShieldCheck, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
+import { Modal } from '../../components/ui/Modal';
+import { Badge } from '../../components/ui/Badge';
+import { governanceApi } from '../../api/governanceApi';
 
-export function GovernanceDashboard() {
-  const [activeTab, setActiveTab] = useState('ceilings');
+export function GovernanceDashboard({ initialTab }) {
+  const location = useLocation();
+
+  const getComputedTab = () => {
+    if (initialTab) return initialTab;
+    if (location.pathname.includes('approval-chain')) return 'slabs';
+    return 'ceilings';
+  };
+
+  const [activeTab, setActiveTab] = useState(getComputedTab());
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    } else if (location.pathname.includes('approval-chain')) {
+      setActiveTab('slabs');
+    } else if (location.pathname.includes('discount-rules')) {
+      setActiveTab('ceilings');
+    }
+  }, [initialTab, location.pathname]);
+
   const [tierCeilings, setTierCeilings] = useState([]);
   const [categoryCeilings, setCategoryCeilings] = useState([]);
   const [approvalChains, setApprovalChains] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [feedback, setFeedback] = useState('');
+
+  // Modals state
+  const [tierModal, setTierModal] = useState({ isOpen: false, data: null });
+  const [categoryModal, setCategoryModal] = useState({ isOpen: false, data: null });
+  const [slabModal, setSlabModal] = useState({ isOpen: false, data: null });
+  
+  // Guardrails state (inline edit)
+  const [guardrails, setGuardrails] = useState({
+    absolute_margin_hard_stop: 10,
+    minimum_upsell_margin_threshold: 20
+  });
+
+  const showFeedback = (msg) => {
+    setFeedback(msg);
+    setTimeout(() => setFeedback(''), 3500);
+  };
 
   useEffect(() => {
     fetchData();
@@ -18,138 +60,603 @@ export function GovernanceDashboard() {
     try {
       if (activeTab === 'ceilings') {
         const [tc, cc] = await Promise.all([
-          apiClient.get('/governance/tier-ceilings'),
-          apiClient.get('/governance/category-ceilings')
+          governanceApi.listTierCeilings(),
+          governanceApi.listCategoryCeilings()
         ]);
-        setTierCeilings(tc || []);
-        setCategoryCeilings(cc || []);
+        setTierCeilings(Array.isArray(tc) ? tc : tc.data || []);
+        setCategoryCeilings(Array.isArray(cc) ? cc : cc.data || []);
       } else if (activeTab === 'slabs') {
-        const ac = await apiClient.get('/governance/approval-chains');
-        setApprovalChains(ac || []);
+        const ac = await governanceApi.listApprovalChains();
+        const chains = Array.isArray(ac) ? ac : ac.data || [];
+        setApprovalChains(chains);
+        if (chains && chains.length > 0) {
+          setGuardrails({
+            absolute_margin_hard_stop: chains[0].absolute_margin_hard_stop || 10,
+            minimum_upsell_margin_threshold: chains[0].minimum_upsell_margin_threshold || 20
+          });
+        }
       }
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Failed to fetch governance configuration');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSaveTier = async (e) => {
+    e.preventDefault();
+    try {
+      await governanceApi.upsertTierCeiling(tierModal.data);
+      setTierModal({ isOpen: false, data: null });
+      showFeedback(`Tier ceiling for "${tierModal.data.tier}" saved.`);
+      fetchData();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleDeleteTier = async (id, tierName) => {
+    if (!window.confirm(`Are you sure you want to delete the ceiling for tier "${tierName}"?`)) return;
+    try {
+      await governanceApi.deleteTierCeiling(id);
+      showFeedback('Tier ceiling deleted.');
+      fetchData();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleSaveCategory = async (e) => {
+    e.preventDefault();
+    try {
+      await governanceApi.upsertCategoryCeiling(categoryModal.data);
+      setCategoryModal({ isOpen: false, data: null });
+      showFeedback(`Category ceiling for "${categoryModal.data.category}" saved.`);
+      fetchData();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleDeleteCategory = async (id, catName) => {
+    if (!window.confirm(`Are you sure you want to delete ceiling for category "${catName}"?`)) return;
+    try {
+      await governanceApi.deleteCategoryCeiling(id);
+      showFeedback('Category ceiling deleted.');
+      fetchData();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleSaveSlab = async (e) => {
+    e.preventDefault();
+    try {
+      if (slabModal.data.id) {
+        await governanceApi.updateApprovalChain(slabModal.data.id, slabModal.data);
+        showFeedback('Approval chain slab updated.');
+      } else {
+        await governanceApi.createApprovalChain(slabModal.data);
+        showFeedback('New approval chain slab created.');
+      }
+      setSlabModal({ isOpen: false, data: null });
+      fetchData();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleDeleteSlab = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this risk routing slab?')) return;
+    try {
+      await governanceApi.deleteApprovalChain(id);
+      showFeedback('Approval chain slab deleted.');
+      fetchData();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleSaveGuardrails = async () => {
+    if (approvalChains.length === 0) {
+      showFeedback('Guardrail values stored in current configuration.');
+      return;
+    }
+    try {
+      await governanceApi.updateApprovalChain(approvalChains[0].id, {
+        ...approvalChains[0],
+        ...guardrails
+      });
+      showFeedback('Global margin guardrails successfully committed.');
+      fetchData();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   return (
-    <div className="p-6 h-full flex flex-col overflow-y-auto">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-8 max-w-7xl mx-auto h-full flex flex-col space-y-6">
+      
+      {/* Header */}
+      <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-2xl font-bold">Discount Governance & Risk Engine</h1>
-          <p className="text-gray-500 text-sm">Configure Baseline Discount Ceilings and Risk Slabs</p>
+          <h1 className="text-3xl font-bold text-[#111826] tracking-tight">Discount Governance & Risk Engine</h1>
+          <p className="text-[#2E3141]/70 text-sm mt-1">Configure baseline discount ceilings, blended risk scoring, and approval routing slabs.</p>
         </div>
       </div>
 
-      <div className="flex border-b border-gray-200 mb-6">
-        <button 
-          className={`px-4 py-2 font-medium text-sm ${activeTab === 'ceilings' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-          onClick={() => setActiveTab('ceilings')}
-        >Screen 17: Discount Ceilings</button>
-        <button 
-          className={`px-4 py-2 font-medium text-sm ${activeTab === 'slabs' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-          onClick={() => setActiveTab('slabs')}
-        >Screen 18: Risk Slabs & Margins</button>
-      </div>
-
-      {loading && <div>Loading...</div>}
-      {error && <div className="text-red-500">Error: {error}</div>}
-
-      {!loading && !error && activeTab === 'ceilings' && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h2 className="font-semibold mb-4">Customer Tier Ceilings</h2>
-            <table className="w-full text-left text-sm border-collapse">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="p-2 border-b">Tier Name</th>
-                  <th className="p-2 border-b">Max Discount %</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tierCeilings.map(tc => (
-                  <tr key={tc.id} className="border-b border-gray-100">
-                    <td className="p-2 capitalize">{tc.customer_tier}</td>
-                    <td className="p-2">{tc.max_discount_percentage}%</td>
-                  </tr>
-                ))}
-                {tierCeilings.length === 0 && <tr><td colSpan="2" className="p-4 text-center text-gray-500">No tier ceilings configured.</td></tr>}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h2 className="font-semibold mb-4">Product Category Ceilings</h2>
-            <table className="w-full text-left text-sm border-collapse">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="p-2 border-b">Category</th>
-                  <th className="p-2 border-b">Max Discount %</th>
-                </tr>
-              </thead>
-              <tbody>
-                {categoryCeilings.map(cc => (
-                  <tr key={cc.id} className="border-b border-gray-100">
-                    <td className="p-2 capitalize">{cc.product_category}</td>
-                    <td className="p-2">{cc.max_discount_percentage}%</td>
-                  </tr>
-                ))}
-                {categoryCeilings.length === 0 && <tr><td colSpan="2" className="p-4 text-center text-gray-500">No category ceilings configured.</td></tr>}
-              </tbody>
-            </table>
-          </div>
+      {/* Feedback Banner */}
+      {feedback && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-sm flex items-center gap-2 animate-in fade-in duration-200">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>{feedback}</span>
         </div>
       )}
 
-      {!loading && !error && activeTab === 'slabs' && (
+      {/* Tabs */}
+      <div className="flex border-b border-neutral-200/60 gap-8">
+        <button 
+          className={`pb-3 font-medium text-sm transition-colors relative ${activeTab === 'ceilings' ? 'text-[#724B66]' : 'text-[#2E3141]/60 hover:text-[#2E3141]'}`}
+          onClick={() => setActiveTab('ceilings')}
+        >
+          <span>Screen 17: Discount Ceilings</span>
+          {activeTab === 'ceilings' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#724B66] rounded-t-full" />}
+        </button>
+        <button 
+          className={`pb-3 font-medium text-sm transition-colors relative ${activeTab === 'slabs' ? 'text-[#724B66]' : 'text-[#2E3141]/60 hover:text-[#2E3141]'}`}
+          onClick={() => setActiveTab('slabs')}
+        >
+          <span>Screen 18: Risk Slabs & Margins</span>
+          {activeTab === 'slabs' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#724B66] rounded-t-full" />}
+        </button>
+      </div>
+
+      {error && (
+        <div className="text-rose-600 bg-rose-50 p-3 rounded-lg border border-rose-200 text-sm flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* TAB 1: DISCOUNT CEILINGS */}
+      {!loading && activeTab === 'ceilings' && (
         <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h2 className="font-semibold mb-4">Blended Risk Routing Slabs</h2>
-            <table className="w-full text-left text-sm border-collapse">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="p-2 border-b">Risk Tier</th>
-                  <th className="p-2 border-b">Min Score</th>
-                  <th className="p-2 border-b">Max Score</th>
-                  <th className="p-2 border-b">Routing</th>
-                </tr>
-              </thead>
-              <tbody>
-                {approvalChains.map(ac => (
-                  <tr key={ac.id} className="border-b border-gray-100">
-                    <td className="p-2 font-medium capitalize">{ac.risk_tier.replace(/_/g, ' ')}</td>
-                    <td className="p-2">{ac.min_risk_score}</td>
-                    <td className="p-2">{ac.max_risk_score}</td>
-                    <td className="p-2 text-gray-600">
-                      {ac.requires_manager_approval && ac.requires_finance_approval ? 'Manager + Finance' :
-                       ac.requires_manager_approval ? 'Sales Manager' : 'Auto-Approve'}
-                    </td>
+          <Card 
+            title="Customer Tier Ceilings" 
+            subtitle="Maximum allowed discount percentage authorized per customer classification"
+            action={
+              <Button 
+                variant="primary" 
+                size="sm" 
+                icon={Plus} 
+                onClick={() => setTierModal({ isOpen: true, data: { tier: 'bronze', max_discount_percentage: 15 } })}
+              >
+                Add Tier Ceiling
+              </Button>
+            }
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-[#F3F2F2] text-[#2E3141] uppercase tracking-wider text-xs border-b border-neutral-200/60 font-semibold">
+                  <tr>
+                    <th className="p-3.5">Customer Tier</th>
+                    <th className="p-3.5 text-center">Max Authorized Discount</th>
+                    <th className="p-3.5">Status</th>
+                    <th className="p-3.5 text-right">Actions</th>
                   </tr>
-                ))}
-                {approvalChains.length === 0 && <tr><td colSpan="4" className="p-4 text-center text-gray-500">No approval chains configured.</td></tr>}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-neutral-200/60">
+                  {tierCeilings.map(tc => {
+                    const tierName = tc.tier || tc.customer_tier;
+                    return (
+                      <tr key={tc.id} className="hover:bg-neutral-50/50 transition-colors">
+                        <td className="p-3.5 font-semibold capitalize text-[#111826]">
+                          <Badge status={tierName === 'gold' ? 'warning' : tierName === 'silver' ? 'default' : tierName === 'bronze' ? 'pickpack' : 'active'}>
+                            {tierName} Tier
+                          </Badge>
+                        </td>
+                        <td className="p-3.5 text-center font-mono font-bold text-[#724B66] text-base">
+                          {tc.max_discount_percentage}%
+                        </td>
+                        <td className="p-3.5 text-xs text-neutral-500">
+                          Active Policy Limit
+                        </td>
+                        <td className="p-3.5 text-right space-x-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setTierModal({ isOpen: true, data: { id: tc.id, tier: tierName, max_discount_percentage: tc.max_discount_percentage } })}
+                            icon={Edit2}
+                          >
+                            Edit
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-rose-600 hover:bg-rose-50"
+                            onClick={() => handleDeleteTier(tc.id, tierName)}
+                            icon={Trash2}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {tierCeilings.length === 0 && (
+                    <tr><td colSpan="4" className="p-6 text-center text-[#2E3141]/50 italic">No customer tier ceilings configured yet.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          <Card 
+            title="Product Category Ceilings" 
+            subtitle="Cap discount thresholds across distinct product lines"
+            action={
+              <Button 
+                variant="primary" 
+                size="sm" 
+                icon={Plus} 
+                onClick={() => setCategoryModal({ isOpen: true, data: { category: 'hardware', max_discount_percentage: 20 } })}
+              >
+                Add Category Ceiling
+              </Button>
+            }
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-[#F3F2F2] text-[#2E3141] uppercase tracking-wider text-xs border-b border-neutral-200/60 font-semibold">
+                  <tr>
+                    <th className="p-3.5">Category</th>
+                    <th className="p-3.5 text-center">Max Category Discount</th>
+                    <th className="p-3.5">Policy Scope</th>
+                    <th className="p-3.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-200/60">
+                  {categoryCeilings.map(cc => {
+                    const catName = cc.category || cc.product_category;
+                    return (
+                      <tr key={cc.id} className="hover:bg-neutral-50/50 transition-colors">
+                        <td className="p-3.5 font-semibold capitalize text-[#111826]">
+                          <Badge status={catName === 'subscriptions' ? 'active' : catName === 'services' ? 'pickpack' : 'default'}>
+                            {catName}
+                          </Badge>
+                        </td>
+                        <td className="p-3.5 text-center font-mono font-bold text-[#724B66] text-base">
+                          {cc.max_discount_percentage}%
+                        </td>
+                        <td className="p-3.5 text-xs text-neutral-500">
+                          All {catName} quotation lines
+                        </td>
+                        <td className="p-3.5 text-right space-x-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setCategoryModal({ isOpen: true, data: { id: cc.id, category: catName, max_discount_percentage: cc.max_discount_percentage } })}
+                            icon={Edit2}
+                          >
+                            Edit
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-rose-600 hover:bg-rose-50"
+                            onClick={() => handleDeleteCategory(cc.id, catName)}
+                            icon={Trash2}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {categoryCeilings.length === 0 && (
+                    <tr><td colSpan="4" className="p-6 text-center text-[#2E3141]/50 italic">No category ceilings configured yet.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* TAB 2: RISK SLABS & MARGIN GUARDRAILS */}
+      {!loading && activeTab === 'slabs' && (
+        <div className="space-y-6">
+          <Card 
+            title="Blended Risk Routing Slabs" 
+            subtitle="Automatic escalation routing driven by Blended Risk Score points"
+            action={
+              <Button 
+                variant="primary" 
+                size="sm" 
+                icon={Plus} 
+                onClick={() => setSlabModal({ 
+                  isOpen: true, 
+                  data: { 
+                    risk_tier: 'low_risk_auto', 
+                    min_risk_score: 0, 
+                    max_risk_score: 30, 
+                    requires_manager_approval: false, 
+                    requires_finance_approval: false 
+                  } 
+                })}
+              >
+                Add Routing Slab
+              </Button>
+            }
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-[#F3F2F2] text-[#2E3141] uppercase tracking-wider text-xs border-b border-neutral-200/60 font-semibold">
+                  <tr>
+                    <th className="p-3.5">Risk Tier</th>
+                    <th className="p-3.5 text-center">Score Range</th>
+                    <th className="p-3.5">Approval Hierarchy</th>
+                    <th className="p-3.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-200/60">
+                  {approvalChains.map(ac => {
+                    const routingLabel = ac.requires_manager_approval && ac.requires_finance_approval 
+                      ? 'Tier 3: Sales Manager + Finance VP'
+                      : ac.requires_manager_approval 
+                      ? 'Tier 2: Sales Manager Approval' 
+                      : 'Tier 1: Rep Autonomy (Auto-Approve)';
+
+                    const routingBadge = ac.requires_manager_approval && ac.requires_finance_approval 
+                      ? 'open' 
+                      : ac.requires_manager_approval 
+                      ? 'pickpack' 
+                      : 'active';
+
+                    return (
+                      <tr key={ac.id} className="hover:bg-neutral-50/50 transition-colors">
+                        <td className="p-3.5 font-medium text-[#111826]">
+                          <Badge status={routingBadge} className="capitalize">
+                            {ac.risk_tier.replace(/_/g, ' ')}
+                          </Badge>
+                        </td>
+                        <td className="p-3.5 text-center font-mono font-semibold text-xs">
+                          {ac.min_risk_score} pt — {ac.max_risk_score !== null ? `${ac.max_risk_score} pt` : '∞'}
+                        </td>
+                        <td className="p-3.5 font-medium text-[#111826]">
+                          {routingLabel}
+                        </td>
+                        <td className="p-3.5 text-right space-x-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setSlabModal({ isOpen: true, data: { ...ac } })}
+                            icon={Edit2}
+                          >
+                            Edit
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-rose-600 hover:bg-rose-50"
+                            onClick={() => handleDeleteSlab(ac.id)}
+                            icon={Trash2}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {approvalChains.length === 0 && (
+                    <tr><td colSpan="4" className="p-6 text-center text-[#2E3141]/50 italic">No approval chains configured.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
           
-          {approvalChains.length > 0 && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <h2 className="font-semibold mb-4">Global Margin Guardrails</h2>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-gray-50 rounded border border-gray-200">
-                  <div className="text-sm text-gray-500">Absolute Margin Hard Stop</div>
-                  <div className="text-xl font-bold text-red-600 mt-1">{approvalChains[0].absolute_margin_hard_stop}%</div>
+          <Card 
+            title="Global Margin Guardrails" 
+            subtitle="Hard boundaries that prevent deal confirmation regardless of risk points"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2 p-4 bg-neutral-50 rounded-xl border border-neutral-200/60">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#111826]">
+                  Absolute Margin Hard Stop (%)
+                </label>
+                <div className="flex gap-2 mt-1">
+                  <input 
+                    type="number" 
+                    className="flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:border-[#724B66] bg-white font-mono font-bold"
+                    value={guardrails.absolute_margin_hard_stop}
+                    onChange={(e) => setGuardrails(g => ({ ...g, absolute_margin_hard_stop: Number(e.target.value) }))}
+                    min="0"
+                    max="100"
+                  />
+                  <Button variant="secondary" onClick={handleSaveGuardrails}>
+                    Save Guardrail
+                  </Button>
                 </div>
-                <div className="p-4 bg-gray-50 rounded border border-gray-200">
-                  <div className="text-sm text-gray-500">Minimum Upsell Margin Threshold</div>
-                  <div className="text-xl font-bold text-green-600 mt-1">{approvalChains[0].minimum_upsell_margin_threshold}%</div>
+                <p className="text-xs text-[#2E3141]/70 mt-1">
+                  Quotes resulting in a gross margin lower than this percentage are completely locked and cannot be approved by any role.
+                </p>
+              </div>
+
+              <div className="space-y-2 p-4 bg-neutral-50 rounded-xl border border-neutral-200/60">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#111826]">
+                  Minimum Upsell Margin Threshold (%)
+                </label>
+                <div className="flex gap-2 mt-1">
+                  <input 
+                    type="number" 
+                    className="flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:border-[#724B66] bg-white font-mono font-bold"
+                    value={guardrails.minimum_upsell_margin_threshold}
+                    onChange={(e) => setGuardrails(g => ({ ...g, minimum_upsell_margin_threshold: Number(e.target.value) }))}
+                    min="0"
+                    max="100"
+                  />
+                  <Button variant="secondary" onClick={handleSaveGuardrails}>
+                    Save Threshold
+                  </Button>
                 </div>
+                <p className="text-xs text-[#2E3141]/70 mt-1">
+                  Automated product recommendations must meet or exceed this profit margin to be suggested in Screen 3.
+                </p>
               </div>
             </div>
-          )}
+          </Card>
         </div>
       )}
+
+      {/* --- MODALS --- */}
+
+      {/* Tier Modal */}
+      <Modal 
+        isOpen={tierModal.isOpen} 
+        onClose={() => setTierModal({ isOpen: false, data: null })}
+        title={tierModal.data?.id ? "Edit Customer Tier Ceiling" : "Add Customer Tier Ceiling"}
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleSaveTier} className="space-y-4 mt-2">
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[#111826] mb-1">Customer Tier</label>
+            <select 
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-[#724B66] outline-none bg-white"
+              value={tierModal.data?.tier || 'bronze'}
+              onChange={(e) => setTierModal(m => ({ ...m, data: { ...m.data, tier: e.target.value } }))}
+              required
+            >
+              <option value="bronze">Bronze</option>
+              <option value="silver">Silver</option>
+              <option value="gold">Gold</option>
+              <option value="standard">Standard</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[#111826] mb-1">Max Authorized Discount (%)</label>
+            <input 
+              type="number" 
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-[#724B66] outline-none font-mono"
+              value={tierModal.data?.max_discount_percentage || 0}
+              onChange={(e) => setTierModal(m => ({ ...m, data: { ...m.data, max_discount_percentage: Number(e.target.value) } }))}
+              min="0" 
+              max="100" 
+              required
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100">
+            <Button variant="ghost" onClick={() => setTierModal({ isOpen: false, data: null })}>Cancel</Button>
+            <Button variant="primary" type="submit">Save Tier Ceiling</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Category Modal */}
+      <Modal 
+        isOpen={categoryModal.isOpen} 
+        onClose={() => setCategoryModal({ isOpen: false, data: null })}
+        title={categoryModal.data?.id ? "Edit Category Ceiling" : "Add Product Category Ceiling"}
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleSaveCategory} className="space-y-4 mt-2">
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[#111826] mb-1">Product Category</label>
+            <select 
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-[#724B66] outline-none bg-white"
+              value={categoryModal.data?.category || 'hardware'}
+              onChange={(e) => setCategoryModal(m => ({ ...m, data: { ...m.data, category: e.target.value } }))}
+              required
+            >
+              <option value="hardware">Hardware</option>
+              <option value="services">Services</option>
+              <option value="subscriptions">Subscriptions</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[#111826] mb-1">Max Category Discount (%)</label>
+            <input 
+              type="number" 
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-[#724B66] outline-none font-mono"
+              value={categoryModal.data?.max_discount_percentage || 0}
+              onChange={(e) => setCategoryModal(m => ({ ...m, data: { ...m.data, max_discount_percentage: Number(e.target.value) } }))}
+              min="0" 
+              max="100" 
+              required
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100">
+            <Button variant="ghost" onClick={() => setCategoryModal({ isOpen: false, data: null })}>Cancel</Button>
+            <Button variant="primary" type="submit">Save Category Ceiling</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Slab Modal */}
+      <Modal 
+        isOpen={slabModal.isOpen} 
+        onClose={() => setSlabModal({ isOpen: false, data: null })}
+        title={slabModal.data?.id ? "Edit Risk Slab" : "Add Risk Routing Slab"}
+        maxWidth="max-w-lg"
+      >
+        <form onSubmit={handleSaveSlab} className="space-y-4 mt-2">
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[#111826] mb-1">Risk Tier Classification</label>
+            <select 
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-[#724B66] outline-none bg-white"
+              value={slabModal.data?.risk_tier || 'low_risk_auto'}
+              onChange={(e) => setSlabModal(m => ({ ...m, data: { ...m.data, risk_tier: e.target.value } }))}
+              required
+            >
+              <option value="low_risk_auto">Low Risk (Auto-Approve)</option>
+              <option value="medium_risk_manager">Medium Risk (Sales Manager)</option>
+              <option value="high_risk_finance">High Risk (Manager + Finance VP)</option>
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[#111826] mb-1">Min Score (pt)</label>
+              <input 
+                type="number" 
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-[#724B66] outline-none font-mono"
+                value={slabModal.data?.min_risk_score || 0}
+                onChange={(e) => setSlabModal(m => ({ ...m, data: { ...m.data, min_risk_score: Number(e.target.value) } }))}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[#111826] mb-1">Max Score (pt)</label>
+              <input 
+                type="number" 
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-[#724B66] outline-none font-mono"
+                value={slabModal.data?.max_risk_score ?? ''}
+                onChange={(e) => setSlabModal(m => ({ ...m, data: { ...m.data, max_risk_score: e.target.value === '' ? null : Number(e.target.value) } }))}
+                placeholder="Leave blank for unbounded"
+              />
+            </div>
+          </div>
+          <div className="space-y-3 pt-2 bg-neutral-50 p-3 rounded-lg border border-neutral-200/60">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input 
+                type="checkbox" 
+                className="rounded border-neutral-300 text-[#724B66] focus:ring-[#724B66]"
+                checked={slabModal.data?.requires_manager_approval || false}
+                onChange={(e) => setSlabModal(m => ({ ...m, data: { ...m.data, requires_manager_approval: e.target.checked } }))}
+              />
+              <span className="text-sm font-medium text-[#111826]">Escalate to Sales Manager</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input 
+                type="checkbox" 
+                className="rounded border-neutral-300 text-[#724B66] focus:ring-[#724B66]"
+                checked={slabModal.data?.requires_finance_approval || false}
+                onChange={(e) => setSlabModal(m => ({ ...m, data: { ...m.data, requires_finance_approval: e.target.checked } }))}
+              />
+              <span className="text-sm font-medium text-[#111826]">Require Finance VP Final Sign-off</span>
+            </label>
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100">
+            <Button variant="ghost" onClick={() => setSlabModal({ isOpen: false, data: null })}>Cancel</Button>
+            <Button variant="primary" type="submit">Save Routing Slab</Button>
+          </div>
+        </form>
+      </Modal>
+
     </div>
   );
 }

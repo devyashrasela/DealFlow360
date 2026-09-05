@@ -76,7 +76,7 @@ export const getProduct = async (req, res) => {
       where: { id: productId, organization_id },
       include: [
         { model: ProductVariant, as: 'variants' },
-        { model: PriceListItem, as: 'priceListItems' }
+        { model: PriceListItem, as: 'price_list_items' }
       ]
     });
 

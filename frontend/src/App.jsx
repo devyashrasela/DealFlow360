@@ -19,6 +19,8 @@ import { ApprovalListPage } from './pages/approvals/ApprovalListPage.jsx';
 import { ApprovalDetailPage } from './pages/approvals/ApprovalDetailPage.jsx';
 import { CatalogAdminPage } from './pages/admin/CatalogAdminPage.jsx';
 import { GovernanceDashboard } from './pages/admin/GovernanceDashboard.jsx';
+import { WarehouseAdminPage } from './pages/admin/WarehouseAdminPage.jsx';
+import { SubscriptionPlansPage } from './pages/admin/SubscriptionPlansPage.jsx';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import { LoginPage } from './pages/LoginPage.jsx';
 import { WorkspaceSelectorPage } from './pages/WorkspaceSelectorPage.jsx';
@@ -115,6 +117,15 @@ export default function App() {
             {/* Admin — admin only */}
             <Route path="admin/catalog" element={<RoleGate><CatalogAdminPage /></RoleGate>} />
             <Route path="admin/governance" element={<RoleGate><GovernanceDashboard /></RoleGate>} />
+            <Route path="admin/warehouses" element={<RoleGate><WarehouseAdminPage /></RoleGate>} />
+
+            {/* Direct Configuration Routes (Matching Sidebar) */}
+            <Route path="products" element={<RoleGate><CatalogAdminPage initialTab="products" /></RoleGate>} />
+            <Route path="price-lists" element={<RoleGate><CatalogAdminPage initialTab="pricelists" /></RoleGate>} />
+            <Route path="discount-rules" element={<RoleGate><GovernanceDashboard initialTab="ceilings" /></RoleGate>} />
+            <Route path="approval-chains" element={<RoleGate><GovernanceDashboard initialTab="slabs" /></RoleGate>} />
+            <Route path="warehouses" element={<RoleGate><WarehouseAdminPage /></RoleGate>} />
+            <Route path="subscription-plans" element={<RoleGate><SubscriptionPlansPage /></RoleGate>} />
 
             {/* Subscriptions — finance_ops, admin */}
             <Route path=":providerSlug/subscriptions" element={<RoleGate><SubscriptionListPage /></RoleGate>} />

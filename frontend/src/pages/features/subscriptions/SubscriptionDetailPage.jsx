@@ -4,12 +4,20 @@ import { ArrowLeft, Repeat, Edit2, AlertCircle } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
-import { getSubscriptionDetail, modifySubscriptionQuantity, previewProration } from '../../../api/subscriptionApi';
+import { getSubscriptionDetail, modifySubscriptionQuantity, previewProration, cancelSubscription } from '../../../api/subscriptionApi';
+import { useAuth } from '../../../context/AuthContext.jsx';
 
 export const SubscriptionDetailPage = () => {
   const { providerSlug, subscriptionId } = useParams();
+  const { user } = useAuth();
   const [sub, setSub] = useState(null);
   const [activeTab, setActiveTab] = useState('lines');
+  
+  // Cancel State
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [cancelOption, setCancelOption] = useState('period_end');
+  const [cancelReason, setCancelReason] = useState('');
+  const [isCancelling, setIsCancelling] = useState(false);
   
   // Modification State
   const [isModifyModalOpen, setIsModifyModalOpen] = useState(false);
@@ -61,6 +69,23 @@ export const SubscriptionDetailPage = () => {
     }
   };
 
+  const handleCancelSubscription = async () => {
+    setIsCancelling(true);
+    try {
+      await cancelSubscription(subscriptionId, {
+        cancellation_type: cancelOption,
+        actor_user_id: user?.id,
+        reason: cancelReason
+      });
+      setIsCancelModalOpen(false);
+      fetchDetail();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
   if (!sub) return <div className="p-8 text-neutral-500">Loading...</div>;
 
   return (
@@ -79,6 +104,9 @@ export const SubscriptionDetailPage = () => {
             Customer: {sub.customer_account?.buyer_organization?.legal_name}
           </p>
         </div>
+      </div>
+      <div className="flex justify-end">
+        <Button variant="danger" onClick={() => setIsCancelModalOpen(true)}>Cancel Subscription</Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -251,6 +279,84 @@ export const SubscriptionDetailPage = () => {
               disabled={isModifying || !prorationPreview}
             >
               {isModifying ? 'Applying...' : 'Confirm Modification'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+      {/* Cancel Modal */}
+      <Modal isOpen={isCancelModalOpen} onClose={() => setIsCancelModalOpen(false)} title="Cancel Subscription">
+        <div className="space-y-4">
+          <p className="text-sm text-neutral-600">
+            Please select how you would like to cancel this subscription.
+          </p>
+          
+          <div className="space-y-3">
+            <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-neutral-50">
+              <input 
+                type="radio" 
+                name="cancelOption" 
+                value="period_end" 
+                checked={cancelOption === 'period_end'} 
+                onChange={() => setCancelOption('period_end')}
+                className="mt-1 text-[#724B66] focus:ring-[#724B66]"
+              />
+              <div>
+                <span className="block text-sm font-medium text-neutral-900">Cancel at Period End</span>
+                <span className="block text-sm text-neutral-500">No refund. The subscription stays active until the end of the current billing cycle.</span>
+              </div>
+            </label>
+            
+            <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-neutral-50">
+              <input 
+                type="radio" 
+                name="cancelOption" 
+                value="immediate" 
+                checked={cancelOption === 'immediate'} 
+                onChange={() => setCancelOption('immediate')}
+                className="mt-1 text-[#724B66] focus:ring-[#724B66]"
+              />
+              <div>
+                <span className="block text-sm font-medium text-neutral-900">Cancel Immediately (Prorated Partial Refund)</span>
+                <span className="block text-sm text-neutral-500">Immediate deactivation with a credit note for the unused time.</span>
+                {cancelOption === 'immediate' && sub && (
+                  <div className="mt-2 text-sm text-blue-700 bg-blue-50 p-2 rounded">
+                    Estimated Refund: ${
+                      (() => {
+                        const start = new Date(sub.current_period_start);
+                        const end = new Date(sub.current_period_end);
+                        const now = new Date();
+                        if (now >= end) return "0.00";
+                        const totalDays = (end - start) / (1000 * 60 * 60 * 24);
+                        const unusedDays = (end - now) / (1000 * 60 * 60 * 24);
+                        const dailyRate = (sub.mrr_amount || 0) / (totalDays || 1);
+                        return Math.max(0, unusedDays * dailyRate).toFixed(2);
+                      })()
+                    } (unused days × daily rate)
+                  </div>
+                )}
+              </div>
+            </label>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Reason for Cancellation</label>
+            <textarea
+              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#724B66]"
+              rows="3"
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Provide a reason..."
+            ></textarea>
+          </div>
+
+          <div className="pt-4 flex justify-end gap-3 border-t">
+            <Button variant="secondary" onClick={() => setIsCancelModalOpen(false)}>Keep Subscription</Button>
+            <Button 
+              variant="danger"
+              onClick={handleCancelSubscription} 
+              disabled={isCancelling}
+            >
+              {isCancelling ? 'Cancelling...' : 'Confirm Cancellation'}
             </Button>
           </div>
         </div>

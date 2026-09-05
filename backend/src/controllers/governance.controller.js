@@ -123,7 +123,7 @@ export const listApprovalChains = async (req, res) => {
     const { organizationId } = req.orgContext;
     const chains = await ApprovalChain.findAll({
       where: { organization_id: organizationId },
-      include: [{ model: ApprovalRule }]
+      include: [{ model: ApprovalRule, as: 'rules' }]
     });
     res.json(chains);
   } catch (error) {
