@@ -7,6 +7,12 @@ import { WarehouseSplitDetailPage } from './pages/fulfillment/WarehouseSplitDeta
 import { CustomerPortalPage } from './pages/CustomerPortalPage.jsx';
 import { DealHealthDashboard } from './pages/DealHealthDashboard.jsx';
 import { ReportingDashboard } from './pages/ReportingDashboard.jsx';
+import { SubscriptionListPage } from './pages/features/subscriptions/SubscriptionListPage.jsx';
+import { SubscriptionDetailPage } from './pages/features/subscriptions/SubscriptionDetailPage.jsx';
+import { InvoiceListPage } from './pages/features/invoices/InvoiceListPage.jsx';
+import { InvoiceDetailPage } from './pages/features/invoices/InvoiceDetailPage.jsx';
+import { CustomerMessagesPage } from './pages/customer/CustomerMessagesPage.jsx';
+import { CustomerProfilePage } from './pages/customer/CustomerProfilePage.jsx';
 
 export default function App() {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -35,34 +41,23 @@ export default function App() {
           }
         >
           <Route index element={<DashboardPage />} />
+          
+          {/* Fulfillment Routes */}
           <Route path="fulfillment" element={<FulfillmentCockpitPage />} />
           <Route path="fulfillment/orders/:id" element={<WarehouseSplitDetailPage />} />
           <Route path="deal-health" element={<DealHealthDashboard />} />
           <Route path="reports" element={<ReportingDashboard />} />
 
-          {/* Placeholders for upcoming features */}
-          <Route
-            path="subscriptions"
-            element={
-              <div className="p-8 max-w-xl mx-auto text-center space-y-4">
-                <h2 className="text-xl font-bold text-[#111826]">Customer Subscriptions Register</h2>
-                <p className="text-sm text-[#2E3141]/70">
-                  Feature 2 in progress: Contract provisioner & 12-month billing schedules.
-                </p>
-              </div>
-            }
-          />
-          <Route
-            path="invoices"
-            element={
-              <div className="p-8 max-w-xl mx-auto text-center space-y-4">
-                <h2 className="text-xl font-bold text-[#111826]">Unified Financial Ledger</h2>
-                <p className="text-sm text-[#2E3141]/70">
-                  Feature 3 in progress: Invoice registers, payment captures & credit offsets.
-                </p>
-              </div>
-            }
-          />
+          {/* Provider Routes (assuming 'acme' as default provider slug for now) */}
+          <Route path=":providerSlug/subscriptions" element={<SubscriptionListPage />} />
+          <Route path=":providerSlug/subscriptions/:subscriptionId" element={<SubscriptionDetailPage />} />
+          
+          <Route path=":providerSlug/invoices" element={<InvoiceListPage />} />
+          <Route path=":providerSlug/invoices/:invoiceId" element={<InvoiceDetailPage />} />
+
+          {/* Customer Portal Routes */}
+          <Route path=":providerSlug/:customerSlug/messages" element={<CustomerMessagesPage />} />
+          <Route path=":providerSlug/:customerSlug/profile" element={<CustomerProfilePage />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
