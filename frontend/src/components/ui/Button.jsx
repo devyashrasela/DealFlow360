@@ -24,14 +24,16 @@ export const Button = ({
   type = 'button',
   icon: Icon,
 }) => {
+  const resolvedVariant = variant === 'danger' ? 'destructive' : (VARIANTS[variant] ? variant : 'primary');
+
   return (
     <button
       type={type}
       disabled={disabled}
       onClick={onClick}
-      className={`inline-flex items-center justify-center font-medium rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#724B66]/40 disabled:opacity-50 disabled:cursor-not-allowed gap-2 ${VARIANTS[variant]} ${SIZES[size]} ${className}`}
+      className={`inline-flex items-center justify-center font-medium rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#724B66]/40 disabled:opacity-50 disabled:cursor-not-allowed gap-2 ${VARIANTS[resolvedVariant]} ${SIZES[size]} ${className}`}
     >
-      {Icon && <Icon className="w-4 h-4" />}
+      {Icon && (React.isValidElement(Icon) ? Icon : <Icon className="w-4 h-4 shrink-0" />)}
       {children}
     </button>
   );

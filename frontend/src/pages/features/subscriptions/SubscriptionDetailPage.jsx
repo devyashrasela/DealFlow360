@@ -8,8 +8,15 @@ import { getSubscriptionDetail, modifySubscriptionQuantity, previewProration, ca
 
 export const SubscriptionDetailPage = () => {
   const { providerSlug, subscriptionId } = useParams();
+  const { user } = useAuth();
   const [sub, setSub] = useState(null);
   const [activeTab, setActiveTab] = useState('lines');
+  
+  // Cancel State
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [cancelOption, setCancelOption] = useState('period_end');
+  const [cancelReason, setCancelReason] = useState('');
+  const [isCancelling, setIsCancelling] = useState(false);
   
   // Modification State
   const [isModifyModalOpen, setIsModifyModalOpen] = useState(false);
@@ -118,6 +125,9 @@ export const SubscriptionDetailPage = () => {
             Cancel Subscription
           </Button>
         )}
+      </div>
+      <div className="flex justify-end">
+        <Button variant="danger" onClick={() => setIsCancelModalOpen(true)}>Cancel Subscription</Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

@@ -16,6 +16,7 @@ import customerRoutes from './routes/customer.routes.js';
 import fulfillmentRoutes from './routes/fulfillment.routes.js';
 import subscriptionRoutes from './routes/subscription.routes.js';
 import invoiceRoutes from './routes/invoice.routes.js';
+import warehouseRoutes from './routes/warehouse.routes.js';
 
 const app = express();
 
@@ -54,6 +55,7 @@ app.use('/api/quotations', quotationRoutes);
 app.use('/api/approvals', approvalRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/invoices', invoiceRoutes);
+app.use('/api/warehouses', warehouseRoutes);
 
 // Sync database on startup
 export const syncDatabase = async () => {
