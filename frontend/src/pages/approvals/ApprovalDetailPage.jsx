@@ -157,7 +157,11 @@ export function ApprovalDetailPage() {
               <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${riskColor}`}>
                 {riskLevel}
               </span>
-              <span className="text-xs text-[#2E3141]/70 font-medium">({blendedScoreFormatted} pt)</span>
+              <span className="text-xs text-[#2E3141]/70 font-medium">
+                {quotation.approvals?.some(a => a.comments?.includes('Escalated from Deal Health')) 
+                  ? '(Escalated)' 
+                  : `(${blendedScoreFormatted} pt)`}
+              </span>
             </div>
           </div>
         </div>
@@ -168,10 +172,23 @@ export function ApprovalDetailPage() {
         <div className="flex items-start gap-3 p-3.5 bg-neutral-50 rounded-lg border border-neutral-200/60 mb-5 text-sm text-[#2E3141]">
           <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <div>
-            <p className="leading-relaxed">
-              Worst single line is <strong className="text-[#111826]">{worstLineName}</strong> (<span className="font-semibold text-rose-600">{worstLineExcess} pt</span> over limit).
-              This plus the overall discount pattern across the order sets the blended risk score to <strong className="text-[#111826]">{blendedScoreFormatted} pt</strong>.
-            </p>
+            
+            {quotation.margin_hard_stop_breached ? (
+              <p className="leading-relaxed">
+                This quote was automatically flagged because the overall blended margin (<strong>{Number(quotation.blended_margin_percentage || 0).toFixed(1)}%</strong>) fell below the organizational margin floor hard-stop.
+              </p>
+            ) : quotation.approvals?.some(a => a.comments?.includes('Escalated from Deal Health')) ? (
+              <p className="leading-relaxed">
+                This quote was manually escalated by the <strong>Deal Health & Anomaly Detector</strong>. 
+                (Risk score overridden; review the Deal Health dashboard or comments below for the specific anomaly details).
+              </p>
+            ) : (
+              <p className="leading-relaxed">
+                Worst single line is <strong className="text-[#111826]">{worstLineName}</strong> (<span className="font-semibold text-rose-600">{worstLineExcess} pt</span> over limit).
+                This plus the overall discount pattern across the order sets the blended risk score to <strong className="text-[#111826]">{blendedScoreFormatted} pt</strong>.
+              </p>
+            )}
+
           </div>
         </div>
 

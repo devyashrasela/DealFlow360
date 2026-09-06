@@ -115,10 +115,6 @@ export const FulfillmentOrder = sequelize.define('FulfillmentOrder', {
     type: DataTypes.STRING(64),
     allowNull: false,
   },
-  warehouse_id: {
-    type: DataTypes.UUID,
-    allowNull: false,
-  },
   status: {
     type: DataTypes.ENUM('draft', 'allocated', 'assigned', 'pickpack', 'shipped', 'delivered', 'cancelled'),
     allowNull: false,
@@ -152,13 +148,45 @@ export const FulfillmentOrder = sequelize.define('FulfillmentOrder', {
   underscored: true,
 });
 
-export const FulfillmentItem = sequelize.define('FulfillmentItem', {
+export const FulfillmentAllocation = sequelize.define('FulfillmentAllocation', {
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
     primaryKey: true,
   },
   fulfillment_order_id: {
+    type: DataTypes.UUID,
+    allowNull: false,
+  },
+  warehouse_id: {
+    type: DataTypes.UUID,
+    allowNull: false,
+  },
+  status: {
+    type: DataTypes.ENUM('allocated', 'picked', 'shipped'),
+    allowNull: false,
+    defaultValue: 'allocated',
+  },
+  estimated_shipping_cost: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    defaultValue: 0.00,
+  },
+}, {
+  tableName: 'fulfillment_allocations',
+  timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: false,
+  underscored: true,
+});
+
+export const FulfillmentItem = sequelize.define('FulfillmentItem', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
+  },
+  fulfillment_allocation_id: {
     type: DataTypes.UUID,
     allowNull: false,
   },

@@ -3,17 +3,28 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Repeat, Search, Filter, X } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { listSubscriptions } from '../../../api/subscriptionApi';
+import { AdvancedFilter } from '../../../components/ui/AdvancedFilter';
+import { useAdvancedFilter } from '../../../hooks/useAdvancedFilter';
 
 export const SubscriptionListPage = () => {
   const { providerSlug } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialStatus = searchParams.get('status') || 'all';
 
+  const SUB_FILTER_SCHEMA = [
+    { key: 'mrr', label: 'MRR ($)', type: 'number' },
+    { key: 'quantity', label: 'License Count', type: 'number', getValue: (s) => {
+       return s.line_items?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 0;
+    }}
+  ];
+
   const [subscriptions, setSubscriptions] = useState([]);
   const [kpis, setKpis] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const advancedFilterProps = useAdvancedFilter(subscriptions, SUB_FILTER_SCHEMA);
 
   useEffect(() => {
     const s = searchParams.get('status');
@@ -133,15 +144,18 @@ export const SubscriptionListPage = () => {
       {/* Data Grid */}
       <div className="bg-[#FFFFFF] rounded-xl shadow-sm border border-neutral-200/60 overflow-hidden">
         <div className="p-4 border-b border-neutral-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="relative max-w-sm w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input 
-              type="text" 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search subscriptions..." 
-              className="w-full pl-9 pr-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#724B66]/20 focus:border-[#724B66] transition-all"
-            />
+          <div className="flex items-center gap-2 max-w-xl w-full">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+              <input 
+                type="text" 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search subscriptions..." 
+                className="w-full pl-9 pr-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#724B66]/20 focus:border-[#724B66] transition-all"
+              />
+            </div>
+            <AdvancedFilter schema={SUB_FILTER_SCHEMA} filterProps={advancedFilterProps} />
           </div>
           {statusFilter !== 'all' && (
             <div className="text-xs text-neutral-500 font-medium">
@@ -170,7 +184,7 @@ export const SubscriptionListPage = () => {
                   <td colSpan="6" className="px-6 py-8 text-center text-neutral-400">Loading...</td>
                 </tr>
               ) : (() => {
-                const filtered = subscriptions.filter((sub) => {
+                const filtered = advancedFilterProps.filteredData.filter((sub) => {
                   const matchesStatus = statusFilter === 'all' || sub.status === statusFilter;
                   const q = searchQuery.toLowerCase().trim();
                   const matchesSearch =

@@ -12,6 +12,7 @@ import {
   Warehouse,
   Backorder,
   WarehouseStock,
+  FulfillmentAllocation,
   Quotation,
   QuotationLine,
   Organization,
@@ -52,15 +53,31 @@ export const getFulfillmentOrders = async (req, res, next) => {
     const { status, warehouse_id } = req.query;
     const where = { organization_id: orgId };
     if (status) where.status = status;
-    if (warehouse_id) where.warehouse_id = warehouse_id;
-
+    // warehouse_id filtering must now be done on allocations
     const orders = await FulfillmentOrder.findAll({
       where,
       include: [
         {
-          model: Warehouse,
-          as: 'warehouse',
-          attributes: ['id', 'code', 'name'],
+          model: FulfillmentAllocation,
+          as: 'allocations',
+          include: [
+            {
+              model: Warehouse,
+              as: 'warehouse',
+              attributes: ['id', 'code', 'name'],
+            },
+            {
+              model: FulfillmentItem,
+              as: 'items',
+              include: [
+                {
+                  model: Product,
+                  as: 'product',
+                  attributes: ['id', 'sku', 'name', 'category'],
+                },
+              ],
+            }
+          ]
         },
         {
           model: Quotation,
@@ -78,17 +95,6 @@ export const getFulfillmentOrders = async (req, res, next) => {
                   attributes: ['id', 'legal_name', 'trading_name'],
                 },
               ],
-            },
-          ],
-        },
-        {
-          model: FulfillmentItem,
-          as: 'items',
-          include: [
-            {
-              model: Product,
-              as: 'product',
-              attributes: ['id', 'sku', 'name', 'category'],
             },
           ],
         },
@@ -138,9 +144,16 @@ export const getFulfillmentOrderDetail = async (req, res, next) => {
           ],
         },
         {
-          model: FulfillmentItem,
-          as: 'items',
-          include: [{ model: Product, as: 'product' }],
+          model: FulfillmentAllocation,
+          as: 'allocations',
+          include: [
+            { model: Warehouse, as: 'warehouse' },
+            {
+              model: FulfillmentItem,
+              as: 'items',
+              include: [{ model: Product, as: 'product' }]
+            }
+          ]
         },
       ],
     });

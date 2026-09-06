@@ -18,8 +18,11 @@ export const NotificationCenterPage = () => {
     setLoading(true);
     try {
       const params = { limit: 50 };
-      if (activeFilter === 'unread') params.is_read = false;
-      else if (activeFilter !== 'all') params.entity_type = activeFilter;
+      if (activeFilter === 'unread') {
+        params.unread_only = 'true';
+      } else if (activeFilter !== 'all') {
+        params.entity_type = activeFilter;
+      }
       
       const data = await notificationApi.list(params);
       setNotifications(data.notifications || []);
@@ -176,14 +179,38 @@ export const NotificationCenterPage = () => {
                     <p className={`text-sm ${!notif.is_read ? 'font-semibold text-[#111826]' : 'font-medium text-neutral-700'}`}>
                       {evt?.title || 'Notification'}
                     </p>
-                    <div className="flex items-center gap-3 mt-1.5">
-                      {evt?.actor?.full_name && (
-                        <span className="text-xs font-medium text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-md">
-                          {evt.actor.full_name}
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      {evt?.severity === 'critical' && (
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md">
+                          Critical
                         </span>
                       )}
-                      <span className="text-xs text-neutral-400 flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5" />
+                      {evt?.severity === 'warning' && (
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">
+                          Warning
+                        </span>
+                      )}
+                      {evt?.event_type && (
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-[#724B66] bg-[#724B66]/10 px-2 py-0.5 rounded-md">
+                          {evt.event_type.split('.')[0].replace('_', ' ')}
+                        </span>
+                      )}
+                      {evt?.entity_type && evt.entity_type !== evt.event_type.split('.')[0] && (
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-sky-700 bg-sky-100 px-2 py-0.5 rounded-md">
+                          {evt.entity_type.replace('_', ' ')}
+                        </span>
+                      )}
+                      {evt?.actor?.full_name ? (
+                        <span className="text-xs font-medium text-neutral-600 bg-neutral-100 border border-neutral-200 px-2 py-0.5 rounded-md">
+                          {evt.actor.full_name}
+                        </span>
+                      ) : (
+                        <span className="text-xs font-medium text-neutral-500 bg-neutral-100 border border-neutral-200 px-2 py-0.5 rounded-md">
+                          System Auto
+                        </span>
+                      )}
+                      <span className="text-xs text-neutral-400 flex items-center gap-1 ml-1">
+                        <Clock className="w-3 h-3" />
                         {timeAgo(notif.created_at || notif.createdAt)}
                       </span>
                     </div>

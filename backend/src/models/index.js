@@ -6,7 +6,7 @@ import { Organization, User, OrganizationMembership, CustomerAccount } from './a
 import { Product, ProductVariant, PriceList, PriceListItem, UpsellRule, ProductAttachment } from './catalog.models.js';
 import { DiscountTierCeiling, CategoryCeiling, ApprovalChain, ApprovalRule } from './governance.models.js';
 import { Quotation, QuotationLine, NegotiationThread, QuotationApproval, ApprovalAuditLog } from './quotation.models.js';
-import { Warehouse, WarehouseStock, FulfillmentOrder, FulfillmentItem, Backorder } from './fulfillment.models.js';
+import { Warehouse, WarehouseStock, FulfillmentOrder, FulfillmentAllocation, FulfillmentItem, Backorder } from './fulfillment.models.js';
 import { Subscription, SubscriptionLineItem, BillingSchedule, SubscriptionEvent } from './subscription.models.js';
 import { Invoice, InvoiceLine, Payment, CreditAllocation } from './ledger.models.js';
 import { DealHealthAlert, RepDiscountBaseline } from './dealHealth.models.js';
@@ -147,11 +147,14 @@ FulfillmentOrder.belongsTo(Organization, { foreignKey: 'organization_id', as: 'o
 Quotation.hasMany(FulfillmentOrder, { foreignKey: 'quotation_id', as: 'fulfillment_orders' });
 FulfillmentOrder.belongsTo(Quotation, { foreignKey: 'quotation_id', as: 'quotation' });
 
-Warehouse.hasMany(FulfillmentOrder, { foreignKey: 'warehouse_id', as: 'dispatched_orders' });
-FulfillmentOrder.belongsTo(Warehouse, { foreignKey: 'warehouse_id', as: 'warehouse' });
+FulfillmentOrder.hasMany(FulfillmentAllocation, { foreignKey: 'fulfillment_order_id', as: 'allocations' });
+FulfillmentAllocation.belongsTo(FulfillmentOrder, { foreignKey: 'fulfillment_order_id', as: 'fulfillment_order' });
 
-FulfillmentOrder.hasMany(FulfillmentItem, { foreignKey: 'fulfillment_order_id', as: 'items' });
-FulfillmentItem.belongsTo(FulfillmentOrder, { foreignKey: 'fulfillment_order_id', as: 'fulfillment_order' });
+Warehouse.hasMany(FulfillmentAllocation, { foreignKey: 'warehouse_id', as: 'dispatched_allocations' });
+FulfillmentAllocation.belongsTo(Warehouse, { foreignKey: 'warehouse_id', as: 'warehouse' });
+
+FulfillmentAllocation.hasMany(FulfillmentItem, { foreignKey: 'fulfillment_allocation_id', as: 'items' });
+FulfillmentItem.belongsTo(FulfillmentAllocation, { foreignKey: 'fulfillment_allocation_id', as: 'fulfillment_allocation' });
 
 QuotationLine.hasMany(FulfillmentItem, { foreignKey: 'quotation_line_id', as: 'fulfillment_items' });
 FulfillmentItem.belongsTo(QuotationLine, { foreignKey: 'quotation_line_id', as: 'quotation_line' });
@@ -342,6 +345,7 @@ const db = {
   Warehouse,
   WarehouseStock,
   FulfillmentOrder,
+  FulfillmentAllocation,
   FulfillmentItem,
   Backorder,
   // Subscriptions
@@ -397,6 +401,7 @@ export {
   Warehouse,
   WarehouseStock,
   FulfillmentOrder,
+  FulfillmentAllocation,
   FulfillmentItem,
   Backorder,
   Subscription,

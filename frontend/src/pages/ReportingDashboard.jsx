@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { reportingApi } from '../api/reportingApi.js';
+import { teamRolesApi } from '../api/teamRolesApi.js';
 import { Card } from '../components/ui/Card.jsx';
 import { Button } from '../components/ui/Button.jsx';
-import { Download, FileText, Filter } from 'lucide-react';
+import { Download, FileText, Filter, Users, Package, Target, TrendingUp } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -20,10 +21,27 @@ export function ReportingDashboard() {
   const [period, setPeriod] = useState('all');
   const [category, setCategory] = useState('');
   const [approvalStatus, setApprovalStatus] = useState('');
+  const [salesRepId, setSalesRepId] = useState('');
+  const [reps, setReps] = useState([]);
+
+  useEffect(() => {
+    loadReps();
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, [period, category, approvalStatus]);
+  }, [period, category, approvalStatus, salesRepId]);
+
+  const loadReps = async () => {
+    try {
+      const res = await teamRolesApi.getMembers();
+      if (res.data && res.data.members) {
+        setReps(res.data.members.filter(m => m.role === 'sales_rep' || m.role === 'sales_manager'));
+      }
+    } catch (err) {
+      console.error('Failed to load reps', err);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -32,6 +50,7 @@ export function ReportingDashboard() {
       if (period !== 'all') params.period = period;
       if (category) params.category = category;
       if (approvalStatus) params.approval_status = approvalStatus;
+      if (salesRepId) params.sales_rep_id = salesRepId;
 
       const [kpiData, repData, prodData, pipelineData, revenueData] = await Promise.all([
         reportingApi.getKpis(params),
@@ -317,6 +336,19 @@ export function ReportingDashboard() {
             <option value="hardware">Hardware</option>
             <option value="services">Services</option>
             <option value="subscriptions">Subscriptions</option>
+          </select>
+
+          <select 
+            value={salesRepId}
+            onChange={(e) => setSalesRepId(e.target.value)}
+            className="border border-gray-300 rounded-md px-3 py-1.5 text-xs bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#724B66]"
+          >
+            <option value="">Sales Rep: All</option>
+            {reps.map(rep => (
+              <option key={rep.user?.id} value={rep.user?.id}>
+                {rep.user?.full_name}
+              </option>
+            ))}
           </select>
 
           <div className="flex items-center gap-1.5 ml-auto">

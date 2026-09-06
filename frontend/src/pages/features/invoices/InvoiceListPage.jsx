@@ -6,9 +6,22 @@ import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
 import { listInvoices, recordPayment, applyCreditOffset } from '../../../api/invoiceApi';
 import { formatDualCurrency, convertFromBase } from '../../../utils/currency';
+import { AdvancedFilter } from '../../../components/ui/AdvancedFilter';
+import { useAdvancedFilter } from '../../../hooks/useAdvancedFilter';
 
 export const InvoiceListPage = () => {
   const { providerSlug } = useParams();
+
+  const INVOICE_FILTER_SCHEMA = [
+    { key: 'total_amount', label: 'Total Amount ($)', type: 'number' },
+    { key: 'balance_due', label: 'Balance Due ($)', type: 'number' },
+    { key: 'days_overdue', label: 'Days Overdue', type: 'number', getValue: (inv) => {
+        if (inv.status === 'paid' || inv.status === 'void') return 0;
+        const diff = Math.floor((new Date() - new Date(inv.due_date)) / (1000 * 60 * 60 * 24));
+        return Math.max(0, diff);
+    }}
+  ];
+
   const [invoices, setInvoices] = useState([]);
   const [kpis, setKpis] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -139,7 +152,9 @@ export const InvoiceListPage = () => {
     { label: 'Credit Notes', value: 'credit_note' },
   ];
 
-  const filteredInvoices = invoices.filter((inv) => {
+  const advancedFilterProps = useAdvancedFilter(invoices, INVOICE_FILTER_SCHEMA);
+
+  const filteredInvoices = advancedFilterProps.filteredData.filter((inv) => {
     const matchesType = docTypeFilter === 'all' || inv.document_type === docTypeFilter;
     const searchLower = searchQuery.toLowerCase();
     const matchesSearch = !searchQuery ||
@@ -207,15 +222,18 @@ export const InvoiceListPage = () => {
       {/* Data Grid */}
       <div className="bg-[#FFFFFF] rounded-xl shadow-sm border border-neutral-200/60 overflow-hidden">
         <div className="p-4 border-b border-neutral-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="relative max-w-sm w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input 
-              type="text" 
-              placeholder="Search by invoice #, customer, origin..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#724B66]/20 focus:border-[#724B66] transition-all"
-            />
+          <div className="flex items-center gap-2 max-w-sm w-full">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+              <input 
+                type="text" 
+                placeholder="Search by invoice #, customer, origin..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#724B66]/20 focus:border-[#724B66] transition-all"
+              />
+            </div>
+            <AdvancedFilter schema={INVOICE_FILTER_SCHEMA} filterProps={advancedFilterProps} />
           </div>
           <div className="text-xs text-neutral-500 font-medium">
             Showing {filteredInvoices.length} of {invoices.length} entries

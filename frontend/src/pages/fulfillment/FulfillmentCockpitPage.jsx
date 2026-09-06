@@ -70,6 +70,8 @@ export const FulfillmentCockpitPage = () => {
     loadData();
   }, [loadData]);
 
+  const [activeTab, setActiveTab] = useState('inventory');
+
   // Auto-dismiss success notification
   useEffect(() => {
     if (!successMessage) return;
@@ -181,13 +183,17 @@ export const FulfillmentCockpitPage = () => {
     }
   };
 
+  const pendingOrdersCount = orders.length;
+  const openBackordersCount = backorders.length;
+  const activeWarehouseCount = warehouseOptions.length;
+
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
+    <div className="p-8 max-w-7xl mx-auto space-y-6 pb-16">
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#111826]">
-            Fulfillment and Stock (List)
+          <h1 className="text-3xl font-bold tracking-tight text-[#111826]">
+            Fulfillment and Stock
           </h1>
           <p className="text-sm text-[#2E3141]/70 mt-1">
             Live stock per warehouse, plus every order that still needs fulfilling
@@ -266,196 +272,263 @@ export const FulfillmentCockpitPage = () => {
         </div>
       )}
 
+      {/* Quick Metrics */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-[#FFFFFF] p-4 rounded-xl border border-neutral-200/60 shadow-xs flex flex-col items-center justify-center">
+          <div className="text-2xl font-bold text-[#111826]">{pendingOrdersCount}</div>
+          <div className="text-[#2E3141]/70 text-xs font-semibold uppercase tracking-wider mt-1">Pending Orders</div>
+        </div>
+        <div className="bg-[#FFFFFF] p-4 rounded-xl border border-neutral-200/60 shadow-xs flex flex-col items-center justify-center">
+          <div className="text-2xl font-bold text-[#111826]">{openBackordersCount}</div>
+          <div className="text-[#2E3141]/70 text-xs font-semibold uppercase tracking-wider mt-1">Open Backorders</div>
+        </div>
+        <div className="bg-[#FFFFFF] p-4 rounded-xl border border-neutral-200/60 shadow-xs flex flex-col items-center justify-center">
+          <div className="text-2xl font-bold text-[#111826]">{activeWarehouseCount}</div>
+          <div className="text-[#2E3141]/70 text-xs font-semibold uppercase tracking-wider mt-1">Warehouses</div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-neutral-200/60 overflow-x-auto mb-6">
+        <button
+          onClick={() => setActiveTab('inventory')}
+          className={`pb-3 px-1 mr-8 font-medium text-sm transition-colors relative shrink-0 ${activeTab === 'inventory' ? 'text-[#724B66]' : 'text-[#2E3141]/60 hover:text-[#2E3141]'}`}
+        >
+          <div className="flex items-center space-x-2">
+            <Warehouse size={18}/>
+            <span>Live Inventory</span>
+            {stockList.length > 0 && (
+              <span className={`ml-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${activeTab === 'inventory' ? 'bg-[#724B66]/10 text-[#724B66]' : 'bg-neutral-100 text-neutral-600'}`}>
+                {stockList.length}
+              </span>
+            )}
+          </div>
+          {activeTab === 'inventory' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#724B66] rounded-t-full" />}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('orders')}
+          className={`pb-3 px-1 mr-8 font-medium text-sm transition-colors relative shrink-0 ${activeTab === 'orders' ? 'text-[#724B66]' : 'text-[#2E3141]/60 hover:text-[#2E3141]'}`}
+        >
+          <div className="flex items-center space-x-2">
+            <Package size={18}/>
+            <span>Orders Awaiting Fulfillment</span>
+            {pendingOrdersCount > 0 && (
+              <span className={`ml-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${activeTab === 'orders' ? 'bg-[#724B66]/10 text-[#724B66]' : 'bg-neutral-100 text-neutral-600'}`}>
+                {pendingOrdersCount}
+              </span>
+            )}
+          </div>
+          {activeTab === 'orders' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#724B66] rounded-t-full" />}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('backorders')}
+          className={`pb-3 px-1 mr-8 font-medium text-sm transition-colors relative shrink-0 ${activeTab === 'backorders' ? 'text-[#724B66]' : 'text-[#2E3141]/60 hover:text-[#2E3141]'}`}
+        >
+          <div className="flex items-center space-x-2">
+            <Clock size={18}/>
+            <span>Backorders</span>
+            {openBackordersCount > 0 && (
+              <span className={`ml-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${activeTab === 'backorders' ? 'bg-[#724B66]/10 text-[#724B66]' : 'bg-neutral-100 text-neutral-600'}`}>
+                {openBackordersCount}
+              </span>
+            )}
+          </div>
+          {activeTab === 'backorders' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#724B66] rounded-t-full" />}
+        </button>
+      </div>
+
       {/* SECTION 1: Live Stock Inventory Table */}
-      <Card
-        title="Live Stock Inventory"
-        subtitle="Physical on-hand, committed reservations, and available-to-fulfill balances"
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-[#F3F2F2] text-[#2E3141] font-semibold text-xs border-b border-neutral-200 uppercase tracking-wider">
-              <tr>
-                <th className="px-4 py-3">Warehouse</th>
-                <th className="px-4 py-3">Product</th>
-                <th className="px-4 py-3 text-right">In Stock</th>
-                <th className="px-4 py-3 text-right">Reserved</th>
-                <th className="px-4 py-3 text-right">Allocated</th>
-                <th className="px-4 py-3 text-right">Available</th>
-                <th className="px-4 py-3 text-center">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {stockList.length === 0 ? (
+      {activeTab === 'inventory' && (
+        <Card
+          title="Live Stock Inventory"
+          subtitle="Physical on-hand, committed reservations, and available-to-fulfill balances"
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-neutral-50/75 border-b border-neutral-200 text-neutral-500 uppercase tracking-wider text-xs font-semibold">
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-[#2E3141]/50 text-sm">
-                    {isLoading ? 'Loading stock levels...' : 'No warehouse stock records registered.'}
-                  </td>
+                  <th className="px-4 py-3">Warehouse</th>
+                  <th className="px-4 py-3">Product</th>
+                  <th className="px-4 py-3 text-right">In Stock</th>
+                  <th className="px-4 py-3 text-right">Reserved</th>
+                  <th className="px-4 py-3 text-right">Allocated</th>
+                  <th className="px-4 py-3 text-right">Available</th>
+                  <th className="px-4 py-3 text-center">Status</th>
                 </tr>
-              ) : (
-                stockList.map((item) => (
-                  <tr key={item.id} className="hover:bg-[#F3F2F2]/50 transition">
-                    <td className="px-4 py-3 font-medium text-[#111826]">
-                      <div className="flex items-center gap-2">
-                        <Warehouse className="w-4 h-4 text-[#724B66]" />
-                        <span>{item.warehouse?.name || item.warehouse_id}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-[#111826]">
-                      <span className="font-medium">{item.product?.name}</span>
-                      <span className="text-xs text-[#2E3141]/60 block">{item.product?.sku}</span>
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-[#111826]">
-                      {item.on_hand_quantity}
-                    </td>
-                    <td className="px-4 py-3 text-right text-neutral-600">
-                      {item.soft_reserved_quantity}
-                    </td>
-                    <td className="px-4 py-3 text-right text-[#724B66] font-medium">
-                      {item.hard_allocated_quantity}
-                    </td>
-                    <td className="px-4 py-3 text-right font-bold text-[#111826]">
-                      <span className={item.available_to_fulfill <= 0 ? 'text-rose-600' : 'text-emerald-700'}>
-                        {item.available_to_fulfill}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {item.available_to_fulfill <= 0 ? (
-                        <Badge status="stockout" title="Stockout • Zero units available in warehouse facility">Stockout</Badge>
-                      ) : item.is_low_stock ? (
-                        <Badge status="low_stock" title="Low Stock • Quantity below minimum threshold">Low Stock</Badge>
-                      ) : (
-                        <Badge status="healthy" title="Healthy • Inventory levels optimal for fulfillment">Healthy</Badge>
-                      )}
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {stockList.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-[#2E3141]/50 text-sm">
+                      {isLoading ? 'Loading stock levels...' : 'No warehouse stock records registered.'}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      {/* SECTION 2: Orders Awaiting Fulfillment Table */}
-      <Card
-        title="Orders Awaiting Fulfillment"
-        subtitle="Reverse-chronological queue of orders needing dispatch or parcel preparation"
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-[#F3F2F2] text-[#2E3141] font-semibold text-xs border-b border-neutral-200 uppercase tracking-wider">
-              <tr>
-                <th className="px-4 py-3">Fulfillment #</th>
-                <th className="px-4 py-3">Quote Ref</th>
-                <th className="px-4 py-3">Customer</th>
-                <th className="px-4 py-3">Warehouse Assigned</th>
-                <th className="px-4 py-3 text-right">Items</th>
-                <th className="px-4 py-3 text-center">Status</th>
-                <th className="px-4 py-3 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {orders.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-[#2E3141]/50 text-sm">
-                    {isLoading ? 'Loading orders...' : 'No orders awaiting fulfillment.'}
-                  </td>
-                </tr>
-              ) : (
-                orders.map((order) => {
-                  const buyerOrg = order.quotation?.customer_account?.buyer_organization;
-                  const customerName =
-                    buyerOrg?.trading_name || buyerOrg?.legal_name ||
-                    'Standard Customer';
-
-                  return (
-                    <tr
-                      key={order.id}
-                      onClick={() => navigate(`/fulfillment/orders/${order.id}`)}
-                      className="hover:bg-[#724B66]/5 transition cursor-pointer group"
-                    >
-                      <td className="px-4 py-3 font-semibold text-[#724B66]">
-                        {order.fulfillment_number}
-                      </td>
-                      <td className="px-4 py-3 text-xs font-mono text-neutral-600">
-                        {order.quotation?.quotation_number || 'N/A'}
-                      </td>
+                ) : (
+                  stockList.map((item) => (
+                    <tr key={item.id} className="hover:bg-[#F3F2F2]/50 transition">
                       <td className="px-4 py-3 font-medium text-[#111826]">
-                        {customerName}
-                      </td>
-                      <td className="px-4 py-3 text-[#2E3141]">
-                        <div className="flex items-center gap-1.5">
-                          <Warehouse className="w-3.5 h-3.5 text-neutral-400" />
-                          <span>{order.warehouse?.name}</span>
+                        <div className="flex items-center gap-2">
+                          <Warehouse className="w-4 h-4 text-[#724B66]" />
+                          <span>{item.warehouse?.name || item.warehouse_id}</span>
                         </div>
                       </td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-[#111826]">{item.product?.name}</div>
+                        <div className="text-xs text-neutral-500">{item.product?.sku}</div>
+                      </td>
                       <td className="px-4 py-3 text-right font-medium text-[#111826]">
-                        {order.items?.reduce((sum, it) => sum + it.quantity_allocated, 0) || 0}
+                        {item.on_hand_quantity}
+                      </td>
+                      <td className="px-4 py-3 text-right text-amber-600">
+                        {item.soft_reserved_quantity}
+                      </td>
+                      <td className="px-4 py-3 text-right text-rose-600">
+                        {item.hard_allocated_quantity}
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-emerald-600">
+                        {item.available_to_fulfill}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <Badge status={order.status}>{formatFulfillmentStatus(order.status)}</Badge>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#724B66] group-hover:translate-x-0.5 transition">
-                          View Split <ArrowRight className="w-3.5 h-3.5" />
-                        </span>
+                        {item.available_to_fulfill > 0 ? (
+                          <Badge status="completed">Healthy</Badge>
+                        ) : (
+                          <Badge status="failed">Depleted</Badge>
+                        )}
                       </td>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
-      {/* SECTION 3: Open Backorders Table */}
-      <Card
-        title="Open Backorders Queue"
-        subtitle="Unallocated line remainders waiting on depot replenishment"
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-[#F3F2F2] text-[#2E3141] font-semibold text-xs border-b border-neutral-200 uppercase tracking-wider">
-              <tr>
-                <th className="px-4 py-3">Quote #</th>
-                <th className="px-4 py-3">Product</th>
-                <th className="px-4 py-3 text-right">Backordered Qty</th>
-                <th className="px-4 py-3 text-center">Status</th>
-                <th className="px-4 py-3">Created</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {backorders.length === 0 ? (
+      {/* SECTION 2: Pending Orders Table */}
+      {activeTab === 'orders' && (
+        <Card
+          title="Orders Awaiting Fulfillment"
+          subtitle="Reverse-chronological queue of orders needing dispatch or parcel preparation"
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-neutral-50/75 border-b border-neutral-200 text-neutral-500 uppercase tracking-wider text-xs font-semibold">
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-neutral-400 text-sm">
-                    No backorders pending.
-                  </td>
+                  <th className="px-4 py-3">Fulfillment #</th>
+                  <th className="px-4 py-3">Quote Ref</th>
+                  <th className="px-4 py-3">Customer</th>
+                  <th className="px-4 py-3">Depot</th>
+                  <th className="px-4 py-3 text-right">Items</th>
+                  <th className="px-4 py-3 text-center">Stage</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
-              ) : (
-                backorders.map((bo) => (
-                  <tr key={bo.id} className="hover:bg-[#F3F2F2]/50 transition">
-                    <td className="px-4 py-3 font-mono text-xs text-[#724B66]">
-                      {bo.quotation?.quotation_number || bo.quotation_id}
-                    </td>
-                    <td className="px-4 py-3 font-medium text-[#111826]">
-                      {bo.product?.name}
-                    </td>
-                    <td className="px-4 py-3 text-right font-bold text-rose-600">
-                      {bo.backorder_quantity}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <Badge status={bo.status}>{formatFulfillmentStatus(bo.status)}</Badge>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-neutral-500">
-                      {new Date(bo.createdAt).toLocaleDateString()}
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {orders.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-[#2E3141]/50 text-sm">
+                      No active orders awaiting fulfillment.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                ) : (
+                  orders.map((order) => {
+                    const customerName =
+                      order.quotation?.customer_account?.buyer_organization?.legal_name || 'Unknown Entity';
+
+                    return (
+                      <tr
+                        key={order.id}
+                        onClick={() => navigate(`/fulfillment/orders/${order.id}`)}
+                        className="hover:bg-[#F3F2F2]/50 transition cursor-pointer group"
+                      >
+                        <td className="px-4 py-3 font-medium text-blue-600">
+                          {order.order_number}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs text-[#724B66]">
+                          {order.quotation?.quotation_number || 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 font-medium text-[#111826]">
+                          {customerName}
+                        </td>
+                        <td className="px-4 py-3 text-[#2E3141]">
+                          <div className="flex items-center gap-1.5">
+                            <Warehouse className="w-3.5 h-3.5 text-neutral-400" />
+                            <span>{order.warehouse?.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right font-medium text-[#111826]">
+                          {order.items?.reduce((sum, it) => sum + it.quantity_allocated, 0) || 0}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <Badge status={order.status}>{formatFulfillmentStatus(order.status)}</Badge>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#724B66] group-hover:translate-x-0.5 transition">
+                            View Split <ArrowRight className="w-3.5 h-3.5" />
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* SECTION 3: Open Backorders Table */}
+      {activeTab === 'backorders' && (
+        <Card
+          title="Open Backorders Queue"
+          subtitle="Unallocated line remainders waiting on depot replenishment"
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-neutral-50/75 border-b border-neutral-200 text-neutral-500 uppercase tracking-wider text-xs font-semibold">
+                <tr>
+                  <th className="px-4 py-3">Quote #</th>
+                  <th className="px-4 py-3">Product</th>
+                  <th className="px-4 py-3 text-right">Backordered Qty</th>
+                  <th className="px-4 py-3 text-center">Status</th>
+                  <th className="px-4 py-3">Created</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {backorders.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-6 text-center text-neutral-400 text-sm">
+                      No backorders pending.
+                    </td>
+                  </tr>
+                ) : (
+                  backorders.map((bo) => (
+                    <tr key={bo.id} className="hover:bg-[#F3F2F2]/50 transition">
+                      <td className="px-4 py-3 font-mono text-xs text-[#724B66]">
+                        {bo.quotation?.quotation_number || bo.quotation_id}
+                      </td>
+                      <td className="px-4 py-3 font-medium text-[#111826]">
+                        {bo.product?.name}
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-rose-600">
+                        {bo.backorder_quantity}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge status={bo.status}>{formatFulfillmentStatus(bo.status)}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-neutral-500">
+                        {new Date(bo.createdAt).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       {/* Modal: Receive Inward Stock */}
       <Modal

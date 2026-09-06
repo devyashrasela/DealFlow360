@@ -13,6 +13,9 @@ import {
   Truck,
   Box,
   Layers,
+  Edit2,
+  Save,
+  X
 } from 'lucide-react';
 
 const ORDER_LIFECYCLE_STEPS = [
@@ -43,12 +46,28 @@ export const WarehouseSplitDetailPage = () => {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isConsolidating, setIsConsolidating] = useState(false);
 
+  // Manual Override State
+  const [isEditing, setIsEditing] = useState(false);
+  const [editAllocations, setEditAllocations] = useState([]);
+  const [isSaving, setIsSaving] = useState(false);
+
   const loadOrderDetail = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
       const res = await fulfillmentApi.getOrderDetail(id);
       setOrder(res.data);
+
+      const fetchedAllocations = res.data.allocations?.length
+        ? res.data.allocations
+        : (res.data.items ? [{
+            id: 'default',
+            warehouse: res.data.warehouse,
+            warehouse_id: res.data.warehouse_id,
+            items: res.data.items
+          }] : []);
+      
+      setEditAllocations(JSON.parse(JSON.stringify(fetchedAllocations)));
 
       if (res.data?.quotation?.id) {
         const [prevRes, promptRes] = await Promise.all([
@@ -100,6 +119,69 @@ export const WarehouseSplitDetailPage = () => {
     }
   };
 
+  const handleAllocationChange = (allocIndex, itemIndex, newQuantity) => {
+    const updated = [...editAllocations];
+    updated[allocIndex].items[itemIndex].quantity_allocated = parseInt(newQuantity, 10) || 0;
+    setEditAllocations(updated);
+  };
+
+  const handleSaveOverrides = async () => {
+    setIsSaving(true);
+    
+    // Validate quantities match ordered amount (or don't exceed)
+    if (order.quotation?.lines) {
+      let isValid = true;
+      let errorMessage = '';
+      order.quotation.lines.forEach(line => {
+         const ordered = line.quantity;
+         const allocated = editAllocations.reduce((sum, alloc) => {
+           const it = alloc.items.find(i => (i.product_id || i.product?.id) === line.product_id);
+           return sum + (it ? Number(it.quantity_allocated) : 0);
+         }, 0);
+         if (allocated > ordered) {
+           isValid = false;
+           errorMessage = `Total allocated for ${line.product?.name} exceeds ordered quantity of ${ordered}.`;
+         }
+      });
+      if (!isValid) {
+         alert(errorMessage);
+         setIsSaving(false);
+         return;
+      }
+    }
+
+    try {
+      const payload = editAllocations.map(a => ({
+        warehouse_id: a.warehouse?.id || a.warehouse_id,
+        items: a.items.map(it => ({
+          product_id: it.product_id || it.product?.id,
+          quantity_allocated: it.quantity_allocated
+        }))
+      }));
+      await fulfillmentApi.updateAllocations(id, payload);
+      setIsEditing(false);
+      await loadOrderDetail();
+    } catch (err) {
+      alert(`Failed to save overrides: ${err.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    // Reset from order
+    const fetchedAllocations = order.allocations?.length
+      ? order.allocations
+      : (order.items ? [{
+          id: 'default',
+          warehouse: order.warehouse,
+          warehouse_id: order.warehouse_id,
+          items: order.items
+        }] : []);
+    setEditAllocations(JSON.parse(JSON.stringify(fetchedAllocations)));
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64 text-[#2E3141]/50 text-sm">
@@ -122,15 +204,17 @@ export const WarehouseSplitDetailPage = () => {
   }
 
   const buyerOrg = order.quotation?.customer_account?.buyer_organization;
-  const customerName =
-    buyerOrg?.trading_name || buyerOrg?.legal_name || 'Standard Customer';
-  const totalAllocatedUnits =
-    order.items?.reduce((sum, it) => sum + it.quantity_allocated, 0) || 0;
-  const backorders = order.quotation?.backorders || [];
-  const totalBackorderedUnits =
-    backorders.reduce((sum, bo) => sum + (bo.status === 'open' ? bo.backorder_quantity : 0), 0);
+  const customerName = buyerOrg?.trading_name || buyerOrg?.legal_name || 'Standard Customer';
+  
+  const displayAllocations = isEditing ? editAllocations : (order.allocations?.length ? order.allocations : (order.items ? [{id: 'default', warehouse: order.warehouse, items: order.items}] : []));
+  
+  const totalAllocatedUnits = displayAllocations.reduce((sum, alloc) => {
+    return sum + (alloc.items?.reduce((s, it) => s + (it.quantity_allocated || 0), 0) || 0);
+  }, 0);
 
-  // Check if there is an active consolidation prompt for this quote
+  const backorders = order.quotation?.backorders || [];
+  const totalBackorderedUnits = backorders.reduce((sum, bo) => sum + (bo.status === 'open' ? bo.backorder_quantity : 0), 0);
+
   const activePrompt = prompts.find((p) => p.quotation_id === order.quotation_id);
   const canConsolidate = ['draft', 'allocated', 'assigned'].includes(order.status);
 
@@ -166,7 +250,17 @@ export const WarehouseSplitDetailPage = () => {
           <div className="text-right">
             <span className="text-xs text-neutral-500 block">Est. Shipping Fee</span>
             <span className="text-xl font-bold text-[#111826]">
-              ${Number(order.estimated_shipping_cost || 0).toFixed(2)}
+              ${Number(
+                isEditing
+                  ? editAllocations.reduce((sum, alloc) => {
+                      const hasItems = alloc.items?.some(it => it.quantity_allocated > 0);
+                      if (hasItems && alloc.warehouse) {
+                        return sum + Number(alloc.warehouse.shipping_base_fee || 0) * Number(alloc.warehouse.shipping_cost_multiplier || 1.0);
+                      }
+                      return sum;
+                    }, 0)
+                  : order.estimated_shipping_cost || 0
+              ).toFixed(2)}
             </span>
           </div>
         </div>
@@ -174,14 +268,14 @@ export const WarehouseSplitDetailPage = () => {
         {/* Metadata Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-neutral-100 text-xs">
           <div>
-            <span className="text-neutral-400 block">Warehouse Depot</span>
+            <span className="text-neutral-400 block">Warehouses Involved</span>
             <span className="font-semibold text-[#111826] flex items-center gap-1.5 mt-0.5">
               <Warehouse className="w-3.5 h-3.5 text-[#724B66]" />
-              {order.warehouse?.name} ({order.warehouse?.code})
+              {displayAllocations.length} Location(s)
             </span>
           </div>
           <div>
-            <span className="text-neutral-400 block">Quantity in this Dispatch</span>
+            <span className="text-neutral-400 block">Total Quantity</span>
             <span className="font-semibold text-[#111826] mt-0.5 block">
               {totalAllocatedUnits} Units
             </span>
@@ -286,45 +380,91 @@ export const WarehouseSplitDetailPage = () => {
         </div>
       </Card>
 
-      {/* Split Allocation Matrix Table */}
-      <Card
-        title="Split Allocation Matrix"
-        subtitle="Line-item allocation breakdown across network depots"
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-[#F3F2F2] text-[#2E3141] font-semibold text-xs border-b border-neutral-200 uppercase tracking-wider">
-              <tr>
-                <th className="px-4 py-3">Product / SKU</th>
-                <th className="px-4 py-3 text-right">This Dispatch Allocation</th>
-                <th className="px-4 py-3 text-right">Depot Location</th>
-                <th className="px-4 py-3 text-center">Dispatch Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {order.items?.map((item) => (
-                <tr key={item.id} className="hover:bg-[#F3F2F2]/50 transition">
-                  <td className="px-4 py-3 font-medium text-[#111826]">
-                    <div className="flex items-center gap-2">
-                      <Box className="w-4 h-4 text-neutral-400" />
-                      <span>{item.product?.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right font-bold text-[#724B66]">
-                    {item.quantity_allocated} Units
-                  </td>
-                  <td className="px-4 py-3 text-right text-xs text-neutral-600">
-                    {order.warehouse?.name}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <Badge status={order.status}>{formatFulfillmentStatus(order.status)}</Badge>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Split Shipment Dashboard */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold text-[#111826]">Split Shipment Dashboard</h2>
+            <p className="text-sm text-neutral-500">Breakdown of line-item allocations per warehouse</p>
+          </div>
+          <div>
+            {!isEditing ? (
+              <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} icon={Edit2}>
+                Edit Allocations
+              </Button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={cancelEditing} icon={X}>
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={handleSaveOverrides} disabled={isSaving} icon={Save}>
+                  {isSaving ? 'Saving...' : 'Save Allocations'}
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
-      </Card>
+
+        <div className="space-y-4">
+          {displayAllocations.map((alloc, aIdx) => (
+            <Card key={alloc.id || aIdx} className="overflow-hidden border border-neutral-200">
+              <div className="bg-[#F3F2F2]/50 px-4 py-3 border-b border-neutral-200 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Warehouse className="w-4 h-4 text-[#724B66]" />
+                  <span className="font-semibold text-[#111826]">
+                    Shipment {aIdx + 1}: {alloc.warehouse?.name || 'Unknown Warehouse'}
+                  </span>
+                </div>
+                <Badge status={order.status}>{formatFulfillmentStatus(order.status)}</Badge>
+              </div>
+              <div className="p-0 overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-[#FFFFFF] text-neutral-500 font-medium text-xs border-b border-neutral-100">
+                    <tr>
+                      <th className="px-4 py-3">Product / SKU</th>
+                      <th className="px-4 py-3 text-right w-48">Allocated Quantity</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100 bg-[#FFFFFF]">
+                    {alloc.items?.map((item, iIdx) => (
+                      <tr key={item.id || iIdx} className="hover:bg-[#F3F2F2]/30 transition">
+                        <td className="px-4 py-3 font-medium text-[#111826]">
+                          <div className="flex items-center gap-2">
+                            <Box className="w-4 h-4 text-neutral-400" />
+                            <span>{item.product?.name || 'Unknown Product'}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              min="0"
+                              className="w-20 text-right border border-neutral-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#724B66]"
+                              value={item.quantity_allocated}
+                              onChange={(e) => handleAllocationChange(aIdx, iIdx, e.target.value)}
+                            />
+                          ) : (
+                            <span className="font-bold text-[#724B66]">
+                              {item.quantity_allocated} Units
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {(!alloc.items || alloc.items.length === 0) && (
+                      <tr>
+                        <td colSpan="2" className="px-4 py-4 text-center text-neutral-400 text-xs">
+                          No items allocated to this shipment.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
 
       {/* Recommended Warehouse Split Comparison (Preview) */}
       {preview && (
