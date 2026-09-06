@@ -4,6 +4,7 @@ import {
   Warehouse,
   WarehouseStock,
   FulfillmentOrder,
+  FulfillmentAllocation,
   FulfillmentItem,
   Backorder,
   Quotation,
@@ -433,29 +434,36 @@ export const executeFulfillmentAllocation = async (orgId, {
       planBackorders = optResult.backorders;
     }
 
-    // 5. Commit Fulfillment Orders, Items, and Update Hard Allocated Quantities
-    const createdFulfillmentOrders = [];
+    // 5. Commit Fulfillment Order, Allocations, Items, and Update Hard Allocated Quantities
+    const foNumber = `FO-${quotation.quotation_number}-${Date.now().toString().slice(-4)}`;
 
-    let orderCounter = 1;
+    let totalEstimatedShipping = 0;
+    for (const alloc of planAllocationsByWarehouse.values()) {
+        totalEstimatedShipping += alloc.estimated_shipping_cost || 0.00;
+    }
+
+    const fulfillmentOrder = await FulfillmentOrder.create({
+      organization_id: quotation.organization_id,
+      quotation_id: quotation.id,
+      fulfillment_number: foNumber,
+      status: 'allocated',
+      is_manual_override: isManualOverride,
+      estimated_shipping_cost: totalEstimatedShipping,
+    }, { transaction: t });
+
     for (const [whId, alloc] of planAllocationsByWarehouse.entries()) {
       if (alloc.items.length === 0) continue;
 
-      const foNumber = `FO-${quotation.quotation_number}-${alloc.warehouse.code || orderCounter}-${Date.now().toString().slice(-4)}`;
-      orderCounter++;
-
-      const fulfillmentOrder = await FulfillmentOrder.create({
-        organization_id: quotation.organization_id,
-        quotation_id: quotation.id,
-        fulfillment_number: foNumber,
+      const allocation = await FulfillmentAllocation.create({
+        fulfillment_order_id: fulfillmentOrder.id,
         warehouse_id: whId,
         status: 'allocated',
-        is_manual_override: isManualOverride,
         estimated_shipping_cost: alloc.estimated_shipping_cost || 0.00,
       }, { transaction: t });
 
       for (const item of alloc.items) {
         await FulfillmentItem.create({
-          fulfillment_order_id: fulfillmentOrder.id,
+          fulfillment_allocation_id: allocation.id,
           quotation_line_id: item.quotation_line_id,
           product_id: item.product_id,
           product_variant_id: item.product_variant_id || null,
@@ -470,8 +478,6 @@ export const executeFulfillmentAllocation = async (orgId, {
           await stockRecord.save({ transaction: t });
         }
       }
-
-      createdFulfillmentOrders.push(fulfillmentOrder);
     }
 
     // 6. Persist Backorders
@@ -493,8 +499,8 @@ export const executeFulfillmentAllocation = async (orgId, {
 
     return {
       quotation_id: quotation.id,
-      is_split: createdFulfillmentOrders.length > 1,
-      orders: createdFulfillmentOrders,
+      is_split: planAllocationsByWarehouse.size > 1,
+      orders: [fulfillmentOrder],
       backorders: createdBackorders,
     };
   };
@@ -528,6 +534,13 @@ export const findConsolidationPrompts = async (organizationId) => {
               status: { [Op.in]: ['draft', 'allocated', 'assigned'] }, // strictly < pickpack
             },
             required: false,
+            include: [
+              {
+                model: FulfillmentAllocation,
+                as: 'allocations',
+                required: false,
+              }
+            ]
           },
         ],
       },
@@ -553,7 +566,16 @@ export const findConsolidationPrompts = async (organizationId) => {
       if (avail >= bo.backorder_quantity) {
         // Find existing eligible fulfillment orders
         const eligibleOrders = bo.quotation?.fulfillment_orders || [];
-        const matchingWarehouseOrder = eligibleOrders.find((fo) => fo.warehouse_id === stock.warehouse_id);
+        let matchingWarehouseOrder = null;
+        let matchingAllocation = null;
+        for (const fo of eligibleOrders) {
+          const alloc = (fo.allocations || []).find(a => a.warehouse_id === stock.warehouse_id);
+          if (alloc) {
+            matchingWarehouseOrder = fo;
+            matchingAllocation = alloc;
+            break;
+          }
+        }
 
         prompts.push({
           backorder_id: bo.id,
@@ -566,6 +588,7 @@ export const findConsolidationPrompts = async (organizationId) => {
           warehouse_id: stock.warehouse_id,
           warehouse_name: stock.warehouse?.name,
           eligible_fulfillment_order_id: matchingWarehouseOrder ? matchingWarehouseOrder.id : (eligibleOrders[0]?.id || null),
+          eligible_fulfillment_allocation_id: matchingAllocation ? matchingAllocation.id : null,
           recommendation: matchingWarehouseOrder
             ? `Consolidate ${bo.backorder_quantity} units into existing shipment #${matchingWarehouseOrder.fulfillment_number}`
             : `Fulfill backorder directly from ${stock.warehouse?.name}`,

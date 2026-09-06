@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { sequelize } from './models/index.js';
 import negotiationRoutes from './controllers/negotiation.controller.js';
+import auditRoutes from './controllers/audit.controller.js';
 import dealHealthRoutes from './controllers/dealHealth.controller.js';
 import reportingRoutes from './controllers/reporting.controller.js';
 
@@ -34,7 +35,7 @@ app.use((req, res, next) => {
 });
 
 app.use(cors({
-  origin: [process.env.FRONTEND_URL, 'http://localhost:5173',].filter(Boolean),
+  origin: true,
   credentials: true
 }));
 app.use(express.json());
@@ -58,6 +59,7 @@ app.use('/api/catalog', catalogRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/governance', governanceRoutes);
 app.use('/api/quotations', quotationRoutes);
+app.use('/api/admin/audit-logs', auditRoutes);
 app.use('/api/approvals', approvalRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/invoices', invoiceRoutes);

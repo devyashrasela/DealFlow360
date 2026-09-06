@@ -12,4 +12,5 @@ export const fulfillmentApi = {
   getConsolidationPrompts: (params) => apiClient.get('/fulfillment/consolidation-prompts', params),
   consolidateBackorder: (id, data) => apiClient.post(`/fulfillment/backorders/${id}/consolidate`, data),
   receiveStock: (data) => apiClient.post('/fulfillment/stock/receive', data),
+  updateAllocations: (id, allocations) => apiClient.patch(`/warehouses/orders/${id}/allocations`, { allocations }),
 };

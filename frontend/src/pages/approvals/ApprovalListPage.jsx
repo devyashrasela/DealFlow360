@@ -73,25 +73,31 @@ export function ApprovalListPage() {
   });
 
   return (
-    <div className="p-6 h-full flex flex-col space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-[#111826]">Approvals</h1>
-        <p className="text-[#2E3141]/70 text-sm">Every quotation that needed, needs, or is going through discount approval</p>
+    <div className="p-8 max-w-7xl mx-auto h-full flex flex-col space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-[#111826] tracking-tight">Approval Queue</h1>
+          <p className="text-sm text-[#2E3141]/70 mt-1">
+            Every quotation that needed, needs, or is going through discount approval
+          </p>
+        </div>
       </div>
 
-      <div className="flex space-x-6">
-        <Card className="w-32 flex flex-col items-center justify-center p-4">
+      {/* Quick Metrics */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-[#FFFFFF] p-4 rounded-xl border border-neutral-200/60 shadow-xs flex flex-col items-center justify-center">
           <div className="text-2xl font-bold text-[#111826]">{pendingCount}</div>
-          <div className="text-[#2E3141]/70 text-sm">Pending</div>
-        </Card>
-        <Card className="w-32 flex flex-col items-center justify-center p-4">
+          <div className="text-[#2E3141]/70 text-xs font-semibold uppercase tracking-wider mt-1">Pending</div>
+        </div>
+        <div className="bg-[#FFFFFF] p-4 rounded-xl border border-neutral-200/60 shadow-xs flex flex-col items-center justify-center">
           <div className="text-2xl font-bold text-[#111826]">{returnedCount}</div>
-          <div className="text-[#2E3141]/70 text-sm">Returned</div>
-        </Card>
-        <Card className="w-32 flex flex-col items-center justify-center p-4">
+          <div className="text-[#2E3141]/70 text-xs font-semibold uppercase tracking-wider mt-1">Returned</div>
+        </div>
+        <div className="bg-[#FFFFFF] p-4 rounded-xl border border-neutral-200/60 shadow-xs flex flex-col items-center justify-center">
           <div className="text-2xl font-bold text-[#111826]">{approvedCount}</div>
-          <div className="text-[#2E3141]/70 text-sm">Approved</div>
-        </Card>
+          <div className="text-[#2E3141]/70 text-xs font-semibold uppercase tracking-wider mt-1">Approved</div>
+        </div>
       </div>
 
       <Card className="flex-1 flex flex-col overflow-hidden">
@@ -125,20 +131,20 @@ export function ApprovalListPage() {
               checked={showPendingOnly}
               onChange={(e) => setShowPendingOnly(e.target.checked)}
             />
-            <span>Filter: Pending Only</span>
+            <span className="font-medium">Filter: Pending Only</span>
           </label>
         </div>
         
         <div className="overflow-y-auto flex-1 bg-[#FFFFFF]">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-neutral-50 sticky top-0 z-10 border-b border-neutral-200/60">
+            <thead className="bg-neutral-50/75 sticky top-0 z-10 border-b border-neutral-200 text-neutral-500 uppercase tracking-wider text-xs font-semibold">
               <tr>
-                <th className="px-6 py-3 font-medium text-[#111826]">Quotation</th>
-                <th className="px-6 py-3 font-medium text-[#111826]">Customer</th>
-                <th className="px-6 py-3 font-medium text-[#111826]">Blended Risk</th>
-                <th className="px-6 py-3 font-medium text-[#111826]">Status</th>
-                <th className="px-6 py-3 font-medium text-[#111826]">Stage</th>
-                <th className="px-6 py-3 font-medium text-[#111826]">Assigned To</th>
+                <th className="px-6 py-3">Quotation</th>
+                <th className="px-6 py-3">Customer</th>
+                <th className="px-6 py-3">Blended Risk</th>
+                <th className="px-6 py-3">Status</th>
+                <th className="px-6 py-3">Stage</th>
+                <th className="px-6 py-3">Assigned To</th>
               </tr>
             </thead>
             <tbody>

@@ -19,6 +19,7 @@ import { QuotationBuilderPage } from './pages/quotations/QuotationBuilderPage.js
 import { ApprovalListPage } from './pages/approvals/ApprovalListPage.jsx';
 import { ApprovalDetailPage } from './pages/approvals/ApprovalDetailPage.jsx';
 import { CatalogAdminPage } from './pages/admin/CatalogAdminPage.jsx';
+import { AuditLogsPage } from './pages/admin/AuditLogsPage.jsx';
 import { GovernanceDashboard } from './pages/admin/GovernanceDashboard.jsx';
 import { WarehouseAdminPage } from './pages/admin/WarehouseAdminPage.jsx';
 import { ExchangeRatesPage } from './pages/admin/ExchangeRatesPage.jsx';
@@ -129,6 +130,8 @@ export default function App() {
             <Route path="admin/governance" element={<RoleGate><GovernanceDashboard /></RoleGate>} />
             <Route path="admin/warehouses" element={<RoleGate><WarehouseAdminPage /></RoleGate>} />
             <Route path="admin/exchange-rates" element={<RoleGate><ExchangeRatesPage /></RoleGate>} />
+            <Route path="admin/audit-logs" element={<RoleGate><AuditLogsPage /></RoleGate>} />
+            <Route path="audit-logs" element={<RoleGate><AuditLogsPage /></RoleGate>} />
 
             {/* Direct Configuration Routes (Matching Sidebar) */}
             <Route path="catalog" element={<RoleGate><CatalogAdminPage /></RoleGate>} />

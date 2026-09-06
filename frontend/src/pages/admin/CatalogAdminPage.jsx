@@ -11,6 +11,9 @@ import {
   Settings, DollarSign, PackageOpen, Layers, CheckCircle2,
   AlertCircle, Sparkles, X, RefreshCw, ArrowUpRight, FileText, Search
 } from 'lucide-react';
+import { AdvancedFilter } from '../../components/ui/AdvancedFilter.jsx';
+import { useAdvancedFilter } from '../../hooks/useAdvancedFilter.js';
+import { formatCurrency } from '../../utils/currency.js';
 
 export function CatalogAdminPage({ initialTab }) {
   const location = useLocation();
@@ -138,6 +141,23 @@ export function CatalogAdminPage({ initialTab }) {
   );
 
   const activePlansCount = subscriptionPlans.filter(p => p.is_active !== false).length;
+
+  const PRODUCT_FILTER_SCHEMA = [
+    { key: 'unit_price', label: 'Unit Price ($)', type: 'number' },
+    { key: 'margin', label: 'Margin (%)', type: 'number', getValue: (p) => {
+        if (!p.unit_price) return 0;
+        return ((p.unit_price - (p.unit_cost || 0)) / p.unit_price) * 100;
+    }}
+  ];
+
+  const productFilterProps = useAdvancedFilter(products, PRODUCT_FILTER_SCHEMA);
+
+  const filteredProducts = productFilterProps.filteredData.filter(p => 
+    !productSearchTerm || 
+    p.name.toLowerCase().includes(productSearchTerm.toLowerCase()) || 
+    p.sku.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+    (p.category || '').toLowerCase().includes(productSearchTerm.toLowerCase())
+  );
 
   const handleOpenCreateProduct = () => {
     setCurrentProduct(null);
@@ -573,7 +593,7 @@ export function CatalogAdminPage({ initialTab }) {
             {/* TAB 1: MASTER PRODUCT CATALOG */}
             {activeTab === 'products' && (
               <Card>
-                <div className="p-4 border-b border-neutral-100 flex items-center">
+                <div className="p-4 border-b border-neutral-100 flex items-center gap-3">
                   <div className="relative w-full max-w-sm">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 w-4 h-4" />
                     <input 
@@ -584,6 +604,7 @@ export function CatalogAdminPage({ initialTab }) {
                       onChange={(e) => setProductSearchTerm(e.target.value)}
                     />
                   </div>
+                  {activeTab === 'products' && <AdvancedFilter schema={PRODUCT_FILTER_SCHEMA} filterProps={productFilterProps} />}
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
@@ -600,12 +621,7 @@ export function CatalogAdminPage({ initialTab }) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-200/60">
-                      {products.filter(p => 
-                        !productSearchTerm || 
-                        p.name.toLowerCase().includes(productSearchTerm.toLowerCase()) || 
-                        p.sku.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
-                        (p.category || '').toLowerCase().includes(productSearchTerm.toLowerCase())
-                      ).map(p => {
+                      {filteredProducts.map(p => {
                         const variantCount = p.variants_count ?? (p.variants ? p.variants.length : 0);
                         return (
                           <React.Fragment key={p.id}>
@@ -639,11 +655,11 @@ export function CatalogAdminPage({ initialTab }) {
                                   {p.category}
                                 </Badge>
                               </td>
-                              <td className="p-4 text-right font-semibold text-[#111826]">
-                                ${Number(p.base_list_price).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              <td className="p-4 text-right font-medium text-[#111826]">
+                                {formatCurrency(Number(p.base_list_price))}
                               </td>
                               <td className="p-4 text-right text-neutral-600">
-                                ${Number(p.standard_unit_cost || p.unit_cost || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                {formatCurrency(Number(p.standard_unit_cost || p.unit_cost || 0))}
                               </td>
                               <td className="p-4 text-center text-xs font-mono text-neutral-500">
                                 10.0%
@@ -741,8 +757,10 @@ export function CatalogAdminPage({ initialTab }) {
                                                 <td className="p-3 text-right font-mono text-xs">
                                                   {Number(v.price_delta) >= 0 ? `+${Number(v.price_delta).toFixed(2)}` : Number(v.price_delta).toFixed(2)}
                                                 </td>
-                                                <td className="p-3 text-right font-bold text-[#111826]">
-                                                  ${effectivePrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                <td className="p-3 text-right">
+                                                  <span className="font-semibold text-[#111826]">
+                                                    {formatCurrency(effectivePrice)}
+                                                  </span>
                                                 </td>
                                                 <td className="p-3 text-xs text-neutral-500 font-mono">
                                                   {v.attributes ? JSON.stringify(v.attributes) : '{}'}
@@ -918,11 +936,11 @@ export function CatalogAdminPage({ initialTab }) {
                                   </span>
                                 </td>
                                 <td className="p-4 text-right font-bold text-[#111826]">
-                                  ${listPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  {formatCurrency(listPrice)}
                                   <span className="text-xs font-normal text-neutral-400"> / {p.billing_cadence === 'annual' ? 'yr' : p.billing_cadence === 'quarterly' ? 'qtr' : 'mo'}</span>
                                 </td>
                                 <td className="p-4 text-right text-neutral-600">
-                                  ${unitCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  {formatCurrency(unitCost)}
                                 </td>
                                 <td className="p-4 text-center">
                                   <Badge status={p.is_active ? 'active' : 'inactive'}>{p.is_active ? 'Active' : 'Inactive'}</Badge>
@@ -1006,9 +1024,9 @@ export function CatalogAdminPage({ initialTab }) {
                                       {/* Commercial terms footer */}
                                       <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] text-neutral-500">
                                         <div className="flex items-center gap-4">
-                                          <span>Base List Rate: <strong className="text-[#111826]">${listPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })} / {p.billing_cadence === 'annual' ? 'yr' : 'mo'}</strong></span>
-                                          <span>Standard Cost: <strong className="text-[#111826]">${unitCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
-                                          <span>Expected Contribution: <strong className="text-emerald-700 font-semibold">${(listPrice - unitCost).toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+                                          <span>Base List Rate: <strong className="text-[#111826]">{formatCurrency(listPrice)} / {p.billing_cadence === 'annual' ? 'yr' : 'mo'}</strong></span>
+                                          <span>Standard Cost: <strong className="text-[#111826]">{formatCurrency(unitCost)}</strong></span>
+                                          <span>Expected Contribution: <strong className="text-emerald-700 font-semibold">{formatCurrency(listPrice - unitCost)}</strong></span>
                                         </div>
                                         <div className="flex items-center gap-2">
                                           <Button
@@ -1538,8 +1556,8 @@ export function CatalogAdminPage({ initialTab }) {
                         {item.product?.sku || item.Product?.sku || item.product_id}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-right font-bold text-[#111826]">
-                      {selectedPriceList?.currency || '$'} {Number(item.custom_unit_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <td className="px-4 py-3 text-right font-medium text-[#111826]">
+                      {formatCurrency(Number(item.custom_unit_price), selectedPriceList?.currency || 'USD')}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button 

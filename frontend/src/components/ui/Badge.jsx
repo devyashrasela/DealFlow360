@@ -199,6 +199,28 @@ const STATUS_CONFIGS = {
     dot: 'bg-neutral-400',
     defaultTitle: 'Archived • Historical record',
   },
+  
+  // --- SALES STAGES ---
+  draft: {
+    badge: 'bg-gray-100 text-gray-700 border-gray-200',
+    isTag: true,
+  },
+  pending_approval: {
+    badge: 'bg-amber-100 text-amber-800 border-amber-200 capitalize font-medium',
+    isTag: true,
+  },
+  negotiation: {
+    badge: 'bg-purple-100 text-purple-800 border-purple-200 capitalize font-medium',
+    isTag: true,
+  },
+  fulfillment: {
+    badge: 'bg-sky-100 text-sky-800 border-sky-200 capitalize font-medium',
+    isTag: true,
+  },
+  completed: {
+    badge: 'bg-emerald-100 text-emerald-800 border-emerald-200 capitalize font-medium',
+    isTag: true,
+  },
 
   // --- CLASSIFICATION CHIPS (Roles, Tiers, Categories, Scopes - NO DOT) ---
   role_admin: {

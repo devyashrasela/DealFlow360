@@ -6,7 +6,7 @@ export const listNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
     const organizationId = req.orgContext.organizationId;
-    const { unread_only, limit = 20, offset = 0 } = req.query;
+    const { unread_only, entity_type, limit = 20, offset = 0 } = req.query;
 
     const where = {
       user_id: userId,
@@ -17,11 +17,23 @@ export const listNotifications = async (req, res) => {
       where.is_read = false;
     }
 
+    const activityEventWhere = {};
+    if (entity_type) {
+      // Sometimes entity_type is 'deal_health' but stored as 'quotation' with event_type 'deal_health.critical'.
+      // DealFlow handles 'deal_health' specifically. Let's do a prefix match on event_type.
+      if (entity_type === 'deal_health') {
+        activityEventWhere.event_type = { [Op.like]: 'deal_health.%' };
+      } else {
+        activityEventWhere.entity_type = entity_type;
+      }
+    }
+
     const { count, rows } = await Notification.findAndCountAll({
       where,
       include: [{
         model: ActivityEvent,
         as: 'activity_event',
+        where: activityEventWhere,
         include: [{
           model: User,
           as: 'actor',

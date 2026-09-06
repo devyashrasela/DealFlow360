@@ -3,7 +3,7 @@ import { exchangeRateApi } from '../../api/exchangeRateApi.js';
 import { Card } from '../../components/ui/Card.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { RefreshCw, DollarSign, Activity } from 'lucide-react';
-import { CURRENCY_NAMES } from '../../utils/currency.js';
+import { CURRENCY_NAMES, CURRENCY_SYMBOLS } from '../../utils/currency.js';
 
 export function ExchangeRatesPage() {
   const [rates, setRates] = useState({});
@@ -25,7 +25,14 @@ export function ExchangeRatesPage() {
     setError('');
     try {
       const res = await exchangeRateApi.getCachedRates();
-      setRates(res.rates || res || {});
+      const rateArray = res.rates || res || [];
+      const rateDict = {};
+      if (Array.isArray(rateArray)) {
+        rateArray.forEach(r => {
+          if (r.target_currency) rateDict[r.target_currency] = r.rate;
+        });
+      }
+      setRates(rateDict);
       
       try {
         const histRes = await exchangeRateApi.getRateHistory('USD');
@@ -109,7 +116,9 @@ export function ExchangeRatesPage() {
                       <tr key={currency} className="hover:bg-neutral-50/50 transition-colors">
                         <td className="p-4 font-bold text-[#111826]">
                           <div className="flex items-center gap-2">
-                            <DollarSign className="w-4 h-4 text-[#724B66]" />
+                            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#724B66]/10 text-[#724B66] text-xs font-bold">
+                              {CURRENCY_SYMBOLS[currency] || '$'}
+                            </span>
                             <span>{currency}</span>
                           </div>
                         </td>

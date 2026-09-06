@@ -3,7 +3,8 @@ import { Op, fn, col, literal } from 'sequelize';
 import {
   Quotation, QuotationLine, DealHealthAlert, RepDiscountBaseline,
   FulfillmentOrder, Backorder, QuotationApproval, ApprovalAuditLog,
-  CustomerAccount, User, Organization, Warehouse
+  CustomerAccount, User, Organization, Warehouse,
+  FulfillmentAllocation
 } from '../models/index.js';
 import { authenticate, resolveOrgContext, requireRoles } from '../middleware/auth.middleware.js';
 import { emitEvent } from '../services/notification.service.js';
@@ -228,7 +229,11 @@ router.get('/alerts', async (req, res) => {
         model: FulfillmentOrder,
         as: 'fulfillment_order',
         include: [
-          { model: Warehouse, as: 'warehouse', attributes: ['id', 'name', 'code'] },
+          { 
+            model: FulfillmentAllocation, 
+            as: 'allocations', 
+            include: [{ model: Warehouse, as: 'warehouse', attributes: ['id', 'name', 'code'] }] 
+          },
           {
             model: Quotation,
             as: 'quotation',

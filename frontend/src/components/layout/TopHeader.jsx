@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, Bell, RefreshCw, LogOut, ChevronDown, User, Shield, Building, Loader2, X, CheckCheck, Clock, FileText, MessageSquare, Package, CreditCard, AlertTriangle, Activity as ActivityIcon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { useNavigate } from 'react-router-dom';
+import { GLOBAL_CURRENCY, setGlobalCurrency, SUPPORTED_CURRENCIES, CURRENCY_SYMBOLS } from '../../utils/currency.js';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { searchApi } from '../../api/searchApi.js';
 import { notificationApi } from '../../api/notificationApi.js';
 
@@ -21,9 +22,11 @@ function useDebounce(value, delay) {
 
 export const TopHeader = ({ onRefresh, isRefreshing = false }) => {
   const { user, activeRole, activeOrg, memberships, switchWorkspace, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isOnNotificationsPage = location.pathname === '/notifications';
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
-  const navigate = useNavigate();
 
   // Search State
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,6 +38,14 @@ export const TopHeader = ({ onRefresh, isRefreshing = false }) => {
 
   // Notification State
   const [notifOpen, setNotifOpen] = useState(false);
+  const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [currency, setLocalCurrency] = useState(GLOBAL_CURRENCY);
+
+  useEffect(() => {
+    const handleCurr = () => setLocalCurrency(GLOBAL_CURRENCY);
+    window.addEventListener('currency_changed', handleCurr);
+    return () => window.removeEventListener('currency_changed', handleCurr);
+  }, []);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const notifRef = useRef(null);
@@ -293,11 +304,42 @@ export const TopHeader = ({ onRefresh, isRefreshing = false }) => {
           </button>
         )}
 
+        {/* Currency Selector */}
+        <div className="relative">
+          <button 
+            onClick={() => setCurrencyOpen(!currencyOpen)}
+            className="flex items-center gap-1 p-2 rounded-lg text-[#2E3141] hover:bg-[#F3F2F2] transition cursor-pointer text-xs font-semibold"
+          >
+            {CURRENCY_SYMBOLS[currency]} {currency}
+            <ChevronDown className="w-3 h-3 text-neutral-400" />
+          </button>
+          
+          {currencyOpen && (
+            <div className="absolute right-0 mt-2 w-32 bg-[#FFFFFF] rounded-xl shadow-xl border border-neutral-200/90 z-50 overflow-hidden py-1">
+              {SUPPORTED_CURRENCIES.map(c => (
+                <button
+                  key={c}
+                  onClick={() => {
+                    setGlobalCurrency(c);
+                    setCurrencyOpen(false);
+                    // trigger a react re-render hack by reloading for hackathon
+                    window.location.reload(); 
+                  }}
+                  className={`w-full text-left px-4 py-2 text-xs hover:bg-[#F3F2F2] flex items-center justify-between ${c === currency ? 'text-[#724B66] font-bold bg-[#724B66]/5' : 'text-[#2E3141]'}`}
+                >
+                  <span>{c}</span>
+                  <span className="text-neutral-400 font-normal">{CURRENCY_SYMBOLS[c]}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Notification Bell */}
         <div className="relative" ref={notifRef}>
           <button onClick={openNotifications} className="relative p-2 rounded-lg text-[#2E3141] hover:bg-[#F3F2F2] transition cursor-pointer">
             <Bell className="w-4 h-4" />
-            {unreadCount > 0 && (
+            {!isOnNotificationsPage && unreadCount > 0 && (
               <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-[#724B66] text-[#FFFFFF] text-[10px] font-bold flex items-center justify-center ring-2 ring-[#FFFFFF] px-1">
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>

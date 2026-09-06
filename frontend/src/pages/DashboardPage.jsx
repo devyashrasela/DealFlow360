@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { fulfillmentApi } from '../api/fulfillmentApi.js';
 import { apiClient } from '../api/client.js';
 import { notificationApi } from '../api/notificationApi.js';
+import { formatCurrency } from '../utils/currency.js';
 import {
   FileText,
   Users,
@@ -55,7 +56,7 @@ export const DashboardPage = () => {
   const [revenuePeriod, setRevenuePeriod] = useState('this_year');
   const [revenueOpen, setRevenueOpen] = useState(false);
   const [revenueData, setRevenueData] = useState({
-    totalFormatted: '₹ 233.9K',
+    totalFormatted: formatCurrency(233900).replace(/\.00$/, ''),
     trend: 'Active invoices',
     items: [],
   });
@@ -68,6 +69,8 @@ export const DashboardPage = () => {
   ];
 
   const [activityFeed, setActivityFeed] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [topCustomers, setTopCustomers] = useState([]);
 
   useEffect(() => {
     // Fetch all KPIs in parallel — fail gracefully per-call
@@ -77,7 +80,25 @@ export const DashboardPage = () => {
       fulfillmentApi.getOrders().catch(() => null),
       apiClient.get('/reports/kpi-summary').catch(() => null),
       apiClient.get('/invoices?status=issued&limit=1').catch(() => null),
-    ]).then(([quotRes, apprRes, fulfRes, kpiRes, invRes]) => {
+      apiClient.get('/reports/top-customers').catch(() => null),
+    ]).then(([quotRes, apprRes, fulfRes, kpiRes, invRes, custRes]) => {
+      if (apprRes?.status === 'fulfilled' && Array.isArray(apprRes.value)) {
+        const myTasks = apprRes.value.filter(a => a.status === 'pending').map((a, i) => ({
+          id: a.id,
+          title: `Review ${a.quotation?.quotation_number || 'Quote'}`,
+          sub: a.comments || 'Approval required',
+          date: new Date(a.createdAt).toLocaleDateString()
+        }));
+        setTasks(myTasks);
+      }
+      
+      if (custRes?.status === 'fulfilled' && Array.isArray(custRes.value)) {
+        setTopCustomers(custRes.value.map(c => ({
+          ...c,
+          revenue: formatCurrency(c.revenue).replace(/\.00$/, '')
+        })));
+      }
+
       setKpiValues({
         openQuotations:
           quotRes.status === 'fulfilled' && quotRes.value
@@ -147,15 +168,13 @@ export const DashboardPage = () => {
       .then((res) => {
         const items = Array.isArray(res) ? res : [];
         const total = items.reduce((sum, item) => sum + (Number(item.revenue) || 0), 0);
-        let formattedTotal = '₹ 0';
-        if (total >= 10000000) {
-          formattedTotal = `₹ ${(total / 10000000).toFixed(2)}Cr`;
-        } else if (total >= 100000) {
-          formattedTotal = `₹ ${(total / 100000).toFixed(2)}L`;
+        
+        // Compact notation for large numbers (keeps currency symbol intact)
+        let formattedTotal = formatCurrency(total);
+        if (total >= 1000000) {
+          formattedTotal = formatCurrency(total / 1000000).replace(/\.00$/, '') + 'M';
         } else if (total >= 1000) {
-          formattedTotal = `₹ ${(total / 1000).toFixed(1)}K`;
-        } else if (total > 0) {
-          formattedTotal = `₹ ${total.toLocaleString()}`;
+          formattedTotal = formatCurrency(total / 1000).replace(/\.00$/, '') + 'K';
         }
 
         let trendText = 'Active posted revenue';
@@ -254,84 +273,11 @@ export const DashboardPage = () => {
     return `${days}d ago`;
   };
 
-  const recentActivityMock = [
-    {
-      id: 1,
-      title: 'Q-1042 submitted for approval',
-      meta: 'Acme Corp • 10 minutes ago',
-      icon: FileText,
-      color: 'text-[#724B66] bg-[#724B66]/10',
-    },
-    {
-      id: 2,
-      title: 'Approval granted by Sarah Kim',
-      meta: 'Q-1038 • 2 hours ago',
-      icon: Users,
-      color: 'text-[#724B66] bg-[#724B66]/10',
-    },
-    {
-      id: 3,
-      title: 'Order ORD-0011 marked as shipped',
-      meta: 'Zenith Ltd • 4 hours ago',
-      icon: Package,
-      color: 'text-[#724B66] bg-[#724B66]/10',
-    },
-    {
-      id: 4,
-      title: 'New message from Acme Corp',
-      meta: 'Q-1042 • 6 hours ago',
-      icon: MessageSquare,
-      color: 'text-[#724B66] bg-[#724B66]/10',
-    },
-    {
-      id: 5,
-      title: 'Invoice INV-1023 paid',
-      meta: 'Globex • 1 day ago',
-      icon: Receipt,
-      color: 'text-[#724B66] bg-[#724B66]/10',
-    },
-  ];
+  
 
-  const tasks = [
-    {
-      id: 1,
-      title: 'Review Q-1042',
-      sub: 'Approval required',
-      date: 'Aug 20, 2025',
-    },
-    {
-      id: 2,
-      title: 'Follow up with Acme Corp',
-      sub: 'Customer response pending',
-      date: 'Aug 21, 2025',
-    },
-    {
-      id: 3,
-      title: 'Check fulfillment status',
-      sub: 'ORD-0011',
-      date: 'Aug 21, 2025',
-    },
-    {
-      id: 4,
-      title: 'Prepare renewal quote',
-      sub: 'Zenith Ltd',
-      date: 'Aug 22, 2025',
-    },
-    {
-      id: 5,
-      title: 'Reconcile August invoices',
-      sub: 'Finance',
-      date: 'Aug 25, 2025',
-    },
-  ];
+  
 
-  const topCustomers = [
-    { name: 'Acme Corp', deals: 6, revenue: '₹ 4.2M', status: 'On Track', statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-    { name: 'Globex', deals: 4, revenue: '₹ 2.8M', status: 'On Track', statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-    { name: 'Zenith Ltd', deals: 3, revenue: '₹ 1.9M', status: 'Watchlist', statusColor: 'bg-neutral-100 text-neutral-600 border-neutral-300' },
-    { name: 'Vertex Systems', deals: 2, revenue: '₹ 1.2M', status: 'On Track', statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-    { name: 'Nexora', deals: 2, revenue: '₹ 0.9M', status: 'At Risk', statusColor: 'bg-rose-50 text-rose-700 border-rose-200' },
-  ];
+  
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
@@ -623,7 +569,9 @@ export const DashboardPage = () => {
               <h3 className="text-sm font-semibold text-[#111826]">Recent Activity</h3>
             </div>
             <div className="mt-3 space-y-3.5">
-              {(activityFeed.length > 0 ? activityFeed : recentActivityMock).map((evt) => {
+              {activityFeed.length === 0 ? (
+                <div className="p-4 text-center text-neutral-400 text-xs">No recent activity found in the system.</div>
+              ) : activityFeed.map((evt) => {
                 const Icon = getNotifIcon(evt.event_type || (evt.icon && 'mock'));
                 const colorClass = evt.icon ? evt.color : getNotifColor(evt.event_type);
                 const title = evt.title || evt.title;
@@ -657,7 +605,9 @@ export const DashboardPage = () => {
               <h3 className="text-sm font-semibold text-[#111826]">My Tasks</h3>
             </div>
             <div className="mt-3 space-y-3">
-              {tasks.map((task) => {
+              {tasks.length === 0 ? (
+                <div className="p-4 text-center text-neutral-400 text-xs">No pending tasks. You're all caught up!</div>
+              ) : tasks.map((task) => {
                 const isDone = !!checkedTasks[task.id];
                 return (
                   <div
@@ -706,7 +656,9 @@ export const DashboardPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-50">
-                  {topCustomers.map((cust) => (
+                  {topCustomers.length === 0 ? (
+                    <tr><td colSpan="4" className="py-6 text-center text-neutral-400">No confirmed revenue data yet.</td></tr>
+                  ) : topCustomers.map((cust) => (
                     <tr key={cust.name} className="hover:bg-neutral-50/50 transition">
                       <td className="py-2 font-medium text-[#111826]">{cust.name}</td>
                       <td className="py-2 text-center text-neutral-600">{cust.deals}</td>
