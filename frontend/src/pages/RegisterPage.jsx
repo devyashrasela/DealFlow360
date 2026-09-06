@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../api/client.js';
-import { 
-  User, Mail, Phone, Lock, ArrowRight, ArrowLeft, 
-  CheckCircle2, ShieldCheck, Sparkles, AlertCircle, Layers, Check 
+import {
+  User, Mail, Phone, Lock, ArrowRight, ArrowLeft,
+  CheckCircle2, ShieldCheck, Sparkles, AlertCircle, Layers, Check
 } from 'lucide-react';
+import icn from "../assets/icon.png"
 
 export function RegisterPage() {
   const [fullName, setFullName] = useState('');
@@ -59,20 +60,21 @@ export function RegisterPage() {
 
   return (
     <div className="min-h-screen w-full flex bg-[#FFFFFF]">
-      
+
       {/* ── LEFT COLUMN: Registration Form ── */}
       <div className="w-full lg:w-[48%] xl:w-[45%] flex flex-col justify-between p-8 sm:p-12 lg:p-14 z-10 overflow-y-auto">
-        
+
         {/* Top Header & Back link */}
         <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center gap-1 group">
+            <img src={icn} alt="Logo" className='h-10 w-auto' />
             <span className="text-2xl font-bold tracking-tight text-[#111826]">
               DealFlow<span className="text-[#724B66] font-extrabold">360</span>
             </span>
           </Link>
 
-          <Link 
-            to="/" 
+          <Link
+            to="/"
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#2E3141]/70 hover:text-[#724B66] transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
@@ -197,14 +199,14 @@ export function RegisterPage() {
 
             <div className="pt-2">
               <label className="flex items-start gap-2.5 cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  checked={agreedToTerms} 
+                <input
+                  type="checkbox"
+                  checked={agreedToTerms}
                   onChange={(e) => setAgreedToTerms(e.target.checked)}
-                  className="mt-1 rounded text-[#724B66] focus:ring-[#724B66]" 
+                  className="mt-1 rounded text-[#724B66] focus:ring-[#724B66]"
                 />
                 <span className="text-xs text-[#2E3141]/75 leading-relaxed">
-                  I agree to the <a href="#terms" onClick={(e)=>e.preventDefault()} className="text-[#724B66] font-semibold hover:underline">Terms of Service</a> and <a href="#privacy" onClick={(e)=>e.preventDefault()} className="text-[#724B66] font-semibold hover:underline">Privacy Policy</a>.
+                  I agree to the <a href="#terms" onClick={(e) => e.preventDefault()} className="text-[#724B66] font-semibold hover:underline">Terms of Service</a> and <a href="#privacy" onClick={(e) => e.preventDefault()} className="text-[#724B66] font-semibold hover:underline">Privacy Policy</a>.
                 </span>
               </label>
             </div>
@@ -239,7 +241,7 @@ export function RegisterPage() {
 
       {/* ── RIGHT COLUMN: High-Tech Grid & Graphics ── */}
       <div className="hidden lg:flex lg:w-[52%] xl:w-[55%] relative overflow-hidden bg-gradient-to-br from-[#2E3141] via-[#4A2341] to-[#724B66] p-12 text-white flex-col justify-between select-none">
-        
+
         {/* Animated Cybernetic / Grid Pattern Overlay */}
         <div className="absolute inset-0 opacity-15 pointer-events-none">
           <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
@@ -259,9 +261,9 @@ export function RegisterPage() {
 
         {/* Top Tagline */}
         <div className="relative z-10 flex items-center justify-between">
-          <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-3.5 py-1 rounded-full text-xs font-semibold text-pink-200 border border-white/20">
-            <Sparkles className="w-3.5 h-3.5 text-pink-300" />
-            <span>Complete Deal Management</span>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1">
+            {/* <Sparkles className="w-3.5 h-3.5 text-pink-300" />
+            <span>Complete Deal Management</span> */}
           </div>
           <span className="font-['Caveat',cursive] text-2xl text-pink-200 font-bold">
             One platform. Every stage.
@@ -270,7 +272,7 @@ export function RegisterPage() {
 
         {/* Center Graphic & Highlights Area */}
         <div className="relative z-10 my-auto py-8 space-y-6 max-w-lg mx-auto w-full">
-          
+
           <div className="space-y-3">
             <h3 className="text-3xl font-extrabold text-white tracking-tight leading-snug">
               Everything modern teams need to <br />

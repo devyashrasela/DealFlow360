@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
-import { 
-  Mail, Lock, ArrowRight, ArrowLeft, CheckCircle2, 
-  ShieldCheck, Zap, TrendingUp, Sparkles, AlertCircle 
+import {
+  Mail, Lock, ArrowRight, ArrowLeft, CheckCircle2,
+  ShieldCheck, Zap, TrendingUp, Sparkles, AlertCircle
 } from 'lucide-react';
+import icn from "../assets/icon.png";
 
 export function LoginPage() {
   const [identifier, setIdentifier] = useState('');
@@ -21,7 +22,7 @@ export function LoginPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    
+
     try {
       await login(identifier, password);
       // PRD FR-1.3: Confirm org context or select workspace
@@ -35,20 +36,21 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen w-full flex bg-[#FFFFFF]">
-      
+
       {/* ── LEFT COLUMN: Login Form ── */}
       <div className="w-full lg:w-[48%] xl:w-[45%] flex flex-col justify-between p-8 sm:p-12 lg:p-16 z-10">
-        
+
         {/* Top Header & Back link */}
         <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center gap-1 group">
+            <img src={icn} alt="Logo" className='h-10 w-auto' />
             <span className="text-2xl font-bold tracking-tight text-[#111826]">
               DealFlow<span className="text-[#724B66] font-extrabold">360</span>
             </span>
           </Link>
 
-          <Link 
-            to="/" 
+          <Link
+            to="/"
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#2E3141]/70 hover:text-[#724B66] transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
@@ -155,7 +157,7 @@ export function LoginPage() {
 
       {/* ── RIGHT COLUMN: High-Tech Grid & Graphics ── */}
       <div className="hidden lg:flex lg:w-[52%] xl:w-[55%] relative overflow-hidden bg-gradient-to-br from-[#2E3141] via-[#45203A] to-[#6A395C] p-12 text-white flex-col justify-between select-none">
-        
+
         {/* Animated Cybernetic/Isometric Grid Overlay */}
         <div className="absolute inset-0 opacity-15 pointer-events-none">
           <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
@@ -186,7 +188,7 @@ export function LoginPage() {
 
         {/* Center Floating Glassmorphic Cards & Graphic */}
         <div className="relative z-10 my-auto py-8 space-y-5 max-w-lg mx-auto w-full">
-          
+
           {/* Card 1: Fast Quotation Approval */}
           <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-5 rounded-2xl shadow-2xl space-y-3 transform hover:scale-[1.02] transition-transform duration-200">
             <div className="flex items-center justify-between">
@@ -203,7 +205,7 @@ export function LoginPage() {
                 0.0 pt Risk
               </span>
             </div>
-            
+
             <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
               <div className="bg-gradient-to-r from-emerald-400 to-teal-300 h-full w-[100%]" />
             </div>

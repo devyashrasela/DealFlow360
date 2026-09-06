@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { isNavVisible } from '../../rbac/permissions.js';
+import icn from '../../assets/icon.png'
 import {
   LayoutDashboard,
   FileText,
@@ -68,9 +69,11 @@ export const Sidebar = () => {
     <aside className="w-64 bg-[#111826] text-[#FFFFFF] flex flex-col h-screen shrink-0 select-none border-r border-neutral-800">
       {/* Brand Header */}
       <div className="h-16 flex items-center px-6 border-b border-neutral-800/80">
+        <img src={icn} alt="Logo" className='h-10 w-auto mr-3' />
         <span className="text-xl font-bold tracking-tight text-[#FFFFFF]">
           DealFlow<span className="italic text-[#724B66]">360</span>
         </span>
+        {/* <img src={logo} className="h-20 w-auto" alt="logo" /> */}
       </div>
 
       {/* Organization Switcher */}
@@ -173,8 +176,8 @@ export const Sidebar = () => {
                 key={item.name}
                 to={item.path}
                 className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition duration-150 ${isActive
-                    ? 'bg-[#724B66] text-[#FFFFFF] shadow-sm font-semibold'
-                    : 'text-neutral-400 hover:text-[#FFFFFF] hover:bg-[#2E3141]/40'
+                  ? 'bg-[#724B66] text-[#FFFFFF] shadow-sm font-semibold'
+                  : 'text-neutral-400 hover:text-[#FFFFFF] hover:bg-[#2E3141]/40'
                   }`}
               >
                 <Icon className="w-4 h-4 shrink-0" />
@@ -202,8 +205,8 @@ export const Sidebar = () => {
                   key={item.name}
                   to={item.path}
                   className={`flex items-center gap-3 px-3.5 py-2 rounded-lg text-xs font-medium transition duration-150 ${isActive
-                      ? 'bg-[#724B66] text-[#FFFFFF]'
-                      : 'text-neutral-400 hover:text-[#FFFFFF] hover:bg-[#2E3141]/40'
+                    ? 'bg-[#724B66] text-[#FFFFFF]'
+                    : 'text-neutral-400 hover:text-[#FFFFFF] hover:bg-[#2E3141]/40'
                     }`}
                 >
                   <Icon className="w-3.5 h-3.5 shrink-0" />

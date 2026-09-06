@@ -295,7 +295,6 @@ export function TeamRolesPage() {
             icon={RefreshCw}
             className={loading ? 'animate-spin' : ''}
           >
-            Refresh
           </Button>
           <Button
             variant="primary"
@@ -367,62 +366,56 @@ export function TeamRolesPage() {
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
           <button
             onClick={() => setActiveTab('all')}
-            className={`px-4 py-2.5 text-xs font-semibold rounded-t-lg transition border-b-2 whitespace-nowrap ${
-              activeTab === 'all'
-                ? 'border-[#724B66] text-[#724B66] bg-[#724B66]/5'
-                : 'border-transparent text-neutral-500 hover:text-neutral-800'
-            }`}
+            className={`px-4 py-2.5 text-xs font-semibold rounded-t-lg transition border-b-2 whitespace-nowrap ${activeTab === 'all'
+              ? 'border-[#724B66] text-[#724B66] bg-[#724B66]/5'
+              : 'border-transparent text-neutral-500 hover:text-neutral-800'
+              }`}
           >
             All Members ({members.length})
           </button>
           <button
             onClick={() => setActiveTab('internal')}
-            className={`px-4 py-2.5 text-xs font-semibold rounded-t-lg transition border-b-2 whitespace-nowrap ${
-              activeTab === 'internal'
-                ? 'border-[#724B66] text-[#724B66] bg-[#724B66]/5'
-                : 'border-transparent text-neutral-500 hover:text-neutral-800'
-            }`}
+            className={`px-4 py-2.5 text-xs font-semibold rounded-t-lg transition border-b-2 whitespace-nowrap ${activeTab === 'internal'
+              ? 'border-[#724B66] text-[#724B66] bg-[#724B66]/5'
+              : 'border-transparent text-neutral-500 hover:text-neutral-800'
+              }`}
           >
             Internal Team ({members.filter((m) => m.role !== 'customer_portal' && m.status === 'active').length})
           </button>
           <button
             onClick={() => setActiveTab('customers')}
-            className={`px-4 py-2.5 text-xs font-semibold rounded-t-lg transition border-b-2 whitespace-nowrap ${
-              activeTab === 'customers'
-                ? 'border-[#724B66] text-[#724B66] bg-[#724B66]/5'
-                : 'border-transparent text-neutral-500 hover:text-neutral-800'
-            }`}
+            className={`px-4 py-2.5 text-xs font-semibold rounded-t-lg transition border-b-2 whitespace-nowrap ${activeTab === 'customers'
+              ? 'border-[#724B66] text-[#724B66] bg-[#724B66]/5'
+              : 'border-transparent text-neutral-500 hover:text-neutral-800'
+              }`}
           >
             Customer Contacts ({customerContacts.length})
           </button>
           <button
             onClick={() => setActiveTab('suspended')}
-            className={`px-4 py-2.5 text-xs font-semibold rounded-t-lg transition border-b-2 whitespace-nowrap ${
-              activeTab === 'suspended'
-                ? 'border-[#724B66] text-[#724B66] bg-[#724B66]/5'
-                : 'border-transparent text-neutral-500 hover:text-neutral-800'
-            }`}
+            className={`px-4 py-2.5 text-xs font-semibold rounded-t-lg transition border-b-2 whitespace-nowrap ${activeTab === 'suspended'
+              ? 'border-[#724B66] text-[#724B66] bg-[#724B66]/5'
+              : 'border-transparent text-neutral-500 hover:text-neutral-800'
+              }`}
           >
             Suspended ({members.filter((m) => m.status === 'suspended').length})
           </button>
           <button
             onClick={() => setActiveTab('audit')}
-            className={`px-4 py-2.5 text-xs font-semibold rounded-t-lg transition border-b-2 flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'audit'
-                ? 'border-[#724B66] text-[#724B66] bg-[#724B66]/5'
-                : 'border-transparent text-neutral-500 hover:text-neutral-800'
-            }`}
+            className={`px-4 py-2.5 text-xs font-semibold rounded-t-lg transition border-b-2 flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'audit'
+              ? 'border-[#724B66] text-[#724B66] bg-[#724B66]/5'
+              : 'border-transparent text-neutral-500 hover:text-neutral-800'
+              }`}
           >
             <History className="w-3.5 h-3.5" />
             Audit Trail ({auditLogs.length})
           </button>
           <button
             onClick={() => setActiveTab('reference')}
-            className={`px-4 py-2.5 text-xs font-semibold rounded-t-lg transition border-b-2 flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'reference'
-                ? 'border-[#724B66] text-[#724B66] bg-[#724B66]/5'
-                : 'border-transparent text-neutral-500 hover:text-neutral-800'
-            }`}
+            className={`px-4 py-2.5 text-xs font-semibold rounded-t-lg transition border-b-2 flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'reference'
+              ? 'border-[#724B66] text-[#724B66] bg-[#724B66]/5'
+              : 'border-transparent text-neutral-500 hover:text-neutral-800'
+              }`}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
             Role & Permissions Matrix
@@ -547,8 +540,8 @@ export function TeamRolesPage() {
                               m.status === 'active'
                                 ? 'Active • Authorized workspace team member'
                                 : m.status === 'suspended'
-                                ? 'Suspended • User access disabled by administrator'
-                                : `Status: ${m.status}`
+                                  ? 'Suspended • User access disabled by administrator'
+                                  : `Status: ${m.status}`
                             }
                           >
                             {m.status ? m.status.charAt(0).toUpperCase() + m.status.slice(1) : 'Unknown'}
@@ -1098,17 +1091,17 @@ export function TeamRolesPage() {
                 {/* Cross-Boundary Alert if applicable */}
                 {((selectedMember.role === 'customer_portal' && targetRole !== 'customer_portal') ||
                   (selectedMember.role !== 'customer_portal' && targetRole === 'customer_portal')) && (
-                  <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-900 flex items-start gap-2.5">
-                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-bold">Cross-Boundary Role Transition</p>
-                      <p className="mt-0.5">
-                        Converting this user between a Customer Portal account and an Internal Team role
-                        changes their access scope. Portal permissions for customer relationships will be updated accordingly.
-                      </p>
+                    <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-900 flex items-start gap-2.5">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold">Cross-Boundary Role Transition</p>
+                        <p className="mt-0.5">
+                          Converting this user between a Customer Portal account and an Internal Team role
+                          changes their access scope. Portal permissions for customer relationships will be updated accordingly.
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
                 {/* Last Admin warning */}
                 {selectedMember.role === 'admin' &&

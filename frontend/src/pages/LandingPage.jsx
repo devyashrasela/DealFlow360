@@ -10,6 +10,9 @@ import {
   Mail, ChevronDown, CheckCircle2
 } from 'lucide-react';
 
+import logo from "../assets/logo.png";
+import icn from "../assets/icon.png";
+
 
 const LinkedinIcon = ({ className = "w-3.5 h-3.5" }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -172,9 +175,10 @@ export const LandingPage = () => {
           <div className="flex items-center gap-10">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-1.5 group">
-              <span className="text-2xl font-bold tracking-tight text-[#111826]">
+              {/* <span className="text-2xl font-bold tracking-tight text-[#111826]">
                 DealFlow<span className="text-[#724B66] font-extrabold">360</span>
-              </span>
+              </span> */}
+              <img src={logo} alt="logo" className="h-20 w-auto" />
             </Link>
 
             {/* Nav links */}
@@ -762,6 +766,7 @@ export const LandingPage = () => {
             {/* Brand column */}
             <div className="col-span-2 space-y-4">
               <Link to="/" className="flex items-center gap-1">
+                <img src={icn} alt="icon" className="h-10 w-auto" />
                 <span className="text-2xl font-bold tracking-tight text-[#111826]">
                   DealFlow<span className="text-[#724B66] font-extrabold">360</span>
                 </span>

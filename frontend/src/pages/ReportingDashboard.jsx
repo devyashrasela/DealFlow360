@@ -3,7 +3,7 @@ import { reportingApi } from '../api/reportingApi.js';
 import { Card } from '../components/ui/Card.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Download, FileText, Filter } from 'lucide-react';
-// import { jsPDF } from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
