@@ -18,4 +18,3 @@ const startServer = async () => {
 };
 
 startServer();
-setInterval(() => { }, 1000000);

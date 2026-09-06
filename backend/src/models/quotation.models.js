@@ -87,6 +87,11 @@ export const Quotation = sequelize.define('Quotation', {
     allowNull: false,
     defaultValue: false,
   },
+  requires_executive_override: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },
   customer_counter_total: {
     type: DataTypes.DECIMAL(12, 2),
     allowNull: true,
@@ -98,6 +103,22 @@ export const Quotation = sequelize.define('Quotation', {
   expiration_date: {
     type: DataTypes.DATE,
     allowNull: false,
+  },
+  internally_approved_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  internally_approved_by: {
+    type: DataTypes.UUID,
+    allowNull: true,
+  },
+  customer_confirmed_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  customer_confirmed_by: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
   },
   confirmed_at: {
     type: DataTypes.DATE,

@@ -195,15 +195,17 @@ export function QuotationBuilderPage() {
   };
 
   const submitForApproval = async () => {
-    if (isMarginBreached) {
-      setFeedbackMsg({ type: 'error', text: 'Margin error: Minimum threshold of 10% breached' });
-      return;
-    }
     setSubmittingApproval(true);
     setFeedbackMsg(null);
     try {
-      await apiClient.post(`/approvals/${id}/submit`);
-      navigate('/approvals');
+      const res = await apiClient.post(`/approvals/${id}/submit`);
+      
+      if (res.data.status === 'auto_approved') {
+        await fetchData();
+        setFeedbackMsg({ type: 'success', text: 'Quotation auto-approved.' });
+      } else {
+        navigate('/approvals');
+      }
     } catch (err) {
       console.error('Primary approval submit failed, trying status patch fallback:', err);
       try {
@@ -322,11 +324,12 @@ export function QuotationBuilderPage() {
               size="sm"
               icon={Send}
               onClick={submitForApproval}
-              disabled={isMarginBreached || submittingApproval}
+              disabled={submittingApproval}
               loading={submittingApproval}
-              title={isMarginBreached ? 'Margin error: Minimum threshold of 10% breached' : ''}
+              title={isMarginBreached ? 'Will require Executive Approval' : ''}
+              className={isMarginBreached ? 'bg-rose-600 hover:bg-rose-700 text-white border-none' : ''}
             >
-              Submit for Approval
+              {isMarginBreached ? 'Submit for Executive Approval' : 'Submit for Approval'}
             </Button>
           )}
 
@@ -413,7 +416,7 @@ export function QuotationBuilderPage() {
             <div>
               <span className="font-semibold">Minimum Margin Breached:</span> Blended margin is currently{' '}
               <span className="font-bold">{netMargin.toFixed(1)}%</span> (minimum threshold is 10.0%). 
-              Approval submission is disabled until discount levels are adjusted.
+              Submitting this quote will route to Executive/Finance for approval.
             </div>
           </div>
           <Badge status="error" dot={false} isTag>

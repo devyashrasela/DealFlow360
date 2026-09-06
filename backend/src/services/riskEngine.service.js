@@ -42,7 +42,7 @@ export const resolveCeiling = async (organizationId, category, pricingTier) => {
     if (tierLimit !== null) return tierLimit;
     if (catLimit !== null) return catLimit;
 
-    return 100; // No ceiling
+    return 0; // Safe default ceiling if category/tier is unrecognized
   } catch (error) {
     throw new Error(`Failed to resolve ceiling: ${error.message}`);
   }
@@ -163,18 +163,25 @@ export const determineRiskTier = async (organizationId, blendedRiskScore, E_max,
       order: [['min_risk_score', 'ASC']]
     });
 
+    let highestHardStop = null;
     // Margin hard stop check across chains
     for (const chain of chains) {
       if (chain.absolute_margin_hard_stop !== null && chain.absolute_margin_hard_stop !== undefined) {
-        if (marginPct < parseFloat(chain.absolute_margin_hard_stop)) {
-          return {
-            risk_tier: 'high_risk_finance',
-            margin_hard_stop_breached: true,
-            requires_manager_approval: true,
-            requires_finance_approval: true
-          };
+        // Enforce the highest absolute margin hard stop limit found
+        const floor = parseFloat(chain.absolute_margin_hard_stop);
+        if (highestHardStop === null || floor > highestHardStop) {
+          highestHardStop = floor;
         }
       }
+    }
+
+    if (highestHardStop !== null && marginPct < highestHardStop) {
+      return {
+        risk_tier: 'high_risk_finance',
+        margin_hard_stop_breached: true,
+        requires_manager_approval: true,
+        requires_finance_approval: true
+      };
     }
 
     if (chains.length === 0) {

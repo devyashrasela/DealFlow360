@@ -576,11 +576,11 @@ export async function seedDatabase() {
     organization_id: acme.id, quotation_id: q7.quotation.id, fulfillment_number: 'FO-2026-0002', warehouse_id: whWest.id, status: 'allocated', is_manual_override: false, estimated_shipping_cost: 402.50, estimated_delivery_date: dateIn(3),
   });
 
-  await FulfillmentItem.bulkCreate([
-    { fulfillment_order_id: fo1.id, quotation_line_id: q7.lines[0].id, product_id: hwServer.id, quantity_allocated: 5 },
-    { fulfillment_order_id: fo1.id, quotation_line_id: q7.lines[1].id, product_id: hwFirewall.id, quantity_allocated: 4 },
-    { fulfillment_order_id: fo2.id, quotation_line_id: q7.lines[0].id, product_id: hwServer.id, quantity_allocated: 3 },
-  ]);
+  // await FulfillmentItem.bulkCreate([
+  //   { fulfillment_allocation_id: fo1.id, quotation_line_id: q7.lines[0].id, product_id: hwServer.id, quantity_allocated: 5 },
+  //   { fulfillment_allocation_id: fo1.id, quotation_line_id: q7.lines[1].id, product_id: hwFirewall.id, quantity_allocated: 4 },
+  //   { fulfillment_allocation_id: fo2.id, quotation_line_id: q7.lines[0].id, product_id: hwServer.id, quantity_allocated: 3 },
+  // ]);
 
   // Open Backorder on Q-1007 (triggers delivery slippage diagnostic alert)
   await Backorder.create({
@@ -591,9 +591,9 @@ export async function seedDatabase() {
   const fo3 = await FulfillmentOrder.create({
     organization_id: acme.id, quotation_id: q8.quotation.id, fulfillment_number: 'FO-2026-0003', warehouse_id: whEast.id, status: 'delivered', is_manual_override: false, estimated_shipping_cost: 250.00, shipped_at: dateAgo(18), delivered_at: dateAgo(15), estimated_delivery_date: dateAgo(15),
   });
-  await FulfillmentItem.create({
-    fulfillment_order_id: fo3.id, quotation_line_id: q8.lines[0].id, product_id: hwIoT.id, quantity_allocated: 10,
-  });
+  // await FulfillmentItem.create({
+  //   fulfillment_allocation_id: fo3.id, quotation_line_id: q8.lines[0].id, product_id: hwIoT.id, quantity_allocated: 10,
+  // });
 
   // Backorder ready for consolidation prompt (status: stock_received_pending_consolidation)
   await Backorder.create({

@@ -49,6 +49,20 @@ export const recalcQuotation = async (quotationId, organizationId) => {
   const total_tax_amount = Number(quotation.total_tax_amount || 0);
   const grand_total = Number((net_subtotal + total_tax_amount).toFixed(2));
 
+  let risk_tier = quotation.risk_tier;
+  let margin_hard_stop_breached = quotation.margin_hard_stop_breached;
+  let requires_executive_override = quotation.requires_executive_override;
+
+  try {
+    const { determineRiskTier } = await import('../services/riskEngine.service.js');
+    const riskAnalysis = await determineRiskTier(organizationId, blended_risk_score, worst_line_excess, blended_margin_percentage);
+    risk_tier = riskAnalysis.risk_tier || riskAnalysis;
+    margin_hard_stop_breached = riskAnalysis.margin_hard_stop_breached || false;
+    requires_executive_override = riskAnalysis.margin_hard_stop_breached || false;
+  } catch (err) {
+    console.error('Error determining risk tier during recalc:', err);
+  }
+
   await quotation.update({
     gross_total,
     total_discount_amount,
@@ -57,7 +71,10 @@ export const recalcQuotation = async (quotationId, organizationId) => {
     blended_margin_percentage,
     worst_line_excess,
     weighted_margin_bleed,
-    blended_risk_score
+    blended_risk_score,
+    risk_tier,
+    margin_hard_stop_breached,
+    requires_executive_override
   });
 };
 
@@ -460,18 +477,28 @@ export const confirmQuotation = async (req, res) => {
     });
 
     if (!quotation) return res.status(404).json({ error: 'Quotation not found' });
-    if (quotation.stage !== 'approved') {
+    const isCustomerAlreadyConfirmed = !!quotation.customer_confirmed_at;
+    const isApproved = quotation.stage === 'approved';
+
+    if (!isApproved) {
       return res.status(409).json({
-        error: `Cannot confirm quotation in '${quotation.stage}' stage. It must be approved before confirmation.`
+        error: `Cannot internally confirm quotation in '${quotation.stage}' stage. It must be internally approved first.`
       });
     }
 
-    await quotation.update({
-      stage: 'confirmed',
-      confirmed_at: new Date()
-    });
+    const updatePayload = {
+      internally_approved_at: quotation.internally_approved_at || new Date(),
+      internally_approved_by: quotation.internally_approved_by || req.user.id
+    };
 
-    // Downstream event processing: Invoices, Fulfillment, Subscriptions
+    if (isCustomerAlreadyConfirmed) {
+      updatePayload.stage = 'confirmed';
+      updatePayload.confirmed_at = new Date();
+    }
+
+    await quotation.update(updatePayload);
+
+    if (isCustomerAlreadyConfirmed) {
     try {
       const { generateInvoiceFromQuote } = await import('../services/invoice.service.js');
       await generateInvoiceFromQuote(quotation.id);
@@ -497,8 +524,12 @@ export const confirmQuotation = async (req, res) => {
         console.error('[EVENT] Subscription provisioning error:', subErr.message);
       }
     }
+    }
 
-    res.json({ message: 'Quotation confirmed successfully', quotation });
+    res.json({ 
+      message: isCustomerAlreadyConfirmed ? 'Quotation confirmed successfully' : 'Internal confirmation recorded, awaiting customer acceptance', 
+      quotation 
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

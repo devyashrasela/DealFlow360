@@ -237,35 +237,48 @@ router.post('/confirm', async (req, res) => {
   });
   if (!quote) return res.status(404).json({ error: 'Quotation not found' });
 
-  if (quote.stage !== 'approved') {
-    return res.status(409).json({ error: `Cannot confirm from stage: ${quote.stage}. Quotation must be approved before confirmation.` });
+  const isInternallyApproved = quote.stage === 'approved';
+  
+  const updatePayload = {
+    customer_confirmed_at: new Date(),
+    customer_confirmed_by: req.user?.email || 'customer'
+  };
+
+  if (isInternallyApproved) {
+    updatePayload.stage = 'confirmed';
+    updatePayload.confirmed_at = new Date();
   }
 
-  await quote.update({ stage: 'confirmed', confirmed_at: new Date() });
+  await quote.update(updatePayload);
 
-  // Downstream event processing on quotation confirmation
-  try {
-    await generateInvoiceFromQuote(quote.id);
-  } catch (invoiceErr) {
-    console.error(`[EVENT] invoice generation failed for ${quote.id}:`, invoiceErr.message);
-  }
-
-  try {
-    await executeFulfillmentAllocation(quote.organization_id, { quotationId: quote.id });
-  } catch (fulfillErr) {
-    console.error(`[EVENT] fulfillment allocation failed for ${quote.id}:`, fulfillErr.message);
-  }
-
-  const hasRecurringLines = quote.lines?.some(l => l.category === 'subscriptions' || (l.billing_cadence && l.billing_cadence !== 'one_time'));
-  if (hasRecurringLines) {
+  if (isInternallyApproved) {
+    // Downstream event processing on quotation confirmation
     try {
-      await provisionSubscriptionFromQuote(quote.id);
-    } catch (subErr) {
-      console.error(`[EVENT] subscription provisioning failed for ${quote.id}:`, subErr.message);
+      await generateInvoiceFromQuote(quote.id);
+    } catch (invoiceErr) {
+      console.error(`[EVENT] invoice generation failed for ${quote.id}:`, invoiceErr.message);
+    }
+
+    try {
+      await executeFulfillmentAllocation(quote.organization_id, { quotationId: quote.id });
+    } catch (fulfillErr) {
+      console.error(`[EVENT] fulfillment allocation failed for ${quote.id}:`, fulfillErr.message);
+    }
+
+    const hasRecurringLines = quote.lines?.some(l => l.category === 'subscriptions' || (l.billing_cadence && l.billing_cadence !== 'one_time'));
+    if (hasRecurringLines) {
+      try {
+        await provisionSubscriptionFromQuote(quote.id);
+      } catch (subErr) {
+        console.error(`[EVENT] subscription provisioning failed for ${quote.id}:`, subErr.message);
+      }
     }
   }
 
-  res.json({ message: 'Quotation confirmed', quotation: quote });
+  res.json({ 
+    message: isInternallyApproved ? 'Quotation confirmed' : 'Customer acceptance recorded, awaiting internal approval', 
+    quotation: quote 
+  });
 });
 
 // ──────────────────────────────────────────────

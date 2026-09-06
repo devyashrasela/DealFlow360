@@ -55,49 +55,13 @@ export const submitForApproval = async (req, res) => {
 
     const riskTier = await determineRiskTier(orgId, blendedRiskScore, E_max, blendedMarginPercentage);
 
-    if (riskTier.margin_hard_stop_breached) {
-      await quotation.update({
-        stage: 'rejected',
-        worst_line_excess: E_max,
-        weighted_margin_bleed: blendedRisk.weighted_margin_bleed,
-        blended_risk_score: blendedRiskScore,
-        margin_hard_stop_breached: true,
-        gross_total: blendedRisk.gross_total,
-        net_subtotal: blendedRisk.net_subtotal,
-        total_discount_amount: blendedRisk.total_discount_amount,
-        grand_total: blendedRisk.net_subtotal
-      }, { transaction: t });
-
-      await ApprovalAuditLog.create({
-        organization_id: orgId,
-        quotation_id: quotation.id,
-        actor_user_id: req.user.id,
-        blended_risk_score_at_action: blendedRiskScore,
-        payload_snapshot: {
-          gross_total: blendedRisk.gross_total,
-          net_subtotal: blendedRisk.net_subtotal,
-          blended_risk_score: blendedRiskScore,
-          worst_line_excess: E_max,
-          action: 'rejected_margin_hard_stop'
-        },
-        ip_address: req.ip,
-        user_agent: req.get('User-Agent'),
-        action_taken: 'rejected_margin_hard_stop'
-      }, { transaction: t });
-
-      await t.commit();
-      return res.status(422).json({
-        message: 'Margin hard stop breached',
-        explanation: 'Quotation rejected automatically due to margin hard stop.'
-      });
-    }
-
     await quotation.update({
       worst_line_excess: E_max,
       weighted_margin_bleed: blendedRisk.weighted_margin_bleed,
       blended_risk_score: blendedRiskScore,
       risk_tier: riskTier.risk_tier || riskTier,
-      margin_hard_stop_breached: false,
+      margin_hard_stop_breached: riskTier.margin_hard_stop_breached || false,
+      requires_executive_override: riskTier.margin_hard_stop_breached || false,
       gross_total: blendedRisk.gross_total,
       net_subtotal: blendedRisk.net_subtotal,
       total_discount_amount: blendedRisk.total_discount_amount,
@@ -295,12 +259,30 @@ export const approveQuotation = async (req, res) => {
 
     const remainingSteps = pendingSteps.length - 1;
 
+    const isFullyInternallyApproved = remainingSteps === 0;
+    const isCustomerAlreadyConfirmed = !!quotation.customer_confirmed_at;
+    
+    let newStage = 'pending_approval';
+    if (isFullyInternallyApproved) {
+      newStage = isCustomerAlreadyConfirmed ? 'confirmed' : 'approved';
+    }
+
+    const updatePayload = {
+      stage: newStage,
+      lock_version: quotation.lock_version + 1
+    };
+
+    if (isFullyInternallyApproved) {
+      updatePayload.internally_approved_at = new Date();
+      updatePayload.internally_approved_by = req.user.id;
+      if (isCustomerAlreadyConfirmed) {
+        updatePayload.confirmed_at = new Date();
+      }
+    }
+
     // Optimistic locking
     const [updatedRows] = await Quotation.update(
-      {
-        stage: remainingSteps === 0 ? 'approved' : 'pending_approval',
-        lock_version: quotation.lock_version + 1
-      },
+      updatePayload,
       {
         where: { id: quotation.id, lock_version: quotation.lock_version, organization_id: orgId },
         transaction: t
@@ -341,7 +323,25 @@ export const approveQuotation = async (req, res) => {
       metadata: { quotationNumber: quotation.quotation_number, salesRepUserId: quotation.assigned_sales_rep_id },
     });
 
-    return res.status(200).json({ status: 'approved', remainingSteps });
+    if (newStage === 'confirmed') {
+      try {
+        const { generateInvoiceFromQuote } = await import('../services/invoice.service.js');
+        await generateInvoiceFromQuote(quotation.id);
+      } catch (e) { console.error('Invoice gen failed:', e.message); }
+      try {
+        const { executeFulfillmentAllocation } = await import('../services/fulfillment.service.js');
+        await executeFulfillmentAllocation(orgId, { quotationId: quotation.id });
+      } catch (e) { console.error('Fulfillment alloc failed:', e.message); }
+      const hasRecurring = quotation.lines?.some(l => l.category === 'subscriptions' || (l.billing_cadence && l.billing_cadence !== 'one_time'));
+      if (hasRecurring) {
+        try {
+          const { provisionSubscriptionFromQuote } = await import('../services/subscription.service.js');
+          await provisionSubscriptionFromQuote(quotation.id);
+        } catch (e) { console.error('Sub provisioning failed:', e.message); }
+      }
+    }
+
+    return res.status(200).json({ status: newStage, remainingSteps });
   } catch (error) {
     await t.rollback();
     return res.status(500).json({ error: error.message });

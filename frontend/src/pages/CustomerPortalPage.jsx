@@ -404,10 +404,16 @@ export function CustomerPortalPage() {
                     {/* Customer Action Footer */}
                     <div className="p-5 flex flex-col justify-between">
                       <div className="space-y-3">
-                        {quote.stage !== 'approved' && quote.stage !== 'confirmed' && (
-                          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 flex items-start gap-2">
-                            <Clock className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
-                            <span>Quotation must be in <strong>Approved</strong> stage before you can confirm and lock terms. Current stage: <em className="capitalize">{(quote.stage || '').replace(/_/g, ' ')}</em></span>
+                        {quote.stage === 'confirmed' && (
+                          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-800 flex items-start gap-2">
+                            <Clock className="w-4 h-4 shrink-0 mt-0.5 text-emerald-500" />
+                            <span>Quotation is <strong>Confirmed</strong>.</span>
+                          </div>
+                        )}
+                        {quote.customer_confirmed_at && quote.stage !== 'confirmed' && (
+                          <div className="bg-sky-50 border border-sky-200 rounded-xl p-3 text-xs text-sky-800 flex items-start gap-2">
+                            <Clock className="w-4 h-4 shrink-0 mt-0.5 text-sky-500" />
+                            <span>You have accepted these terms. Awaiting final internal approval from provider.</span>
                           </div>
                         )}
 
@@ -420,14 +426,14 @@ export function CustomerPortalPage() {
                         size="lg"
                         className="w-full mt-4 py-3.5 text-sm font-bold"
                         onClick={() => handleConfirm(quote.id)}
-                        disabled={quote.stage !== 'approved' || confirming === quote.id}
+                        disabled={quote.customer_confirmed_at || quote.stage === 'confirmed' || confirming === quote.id}
                         loading={confirming === quote.id}
                       >
                         {quote.stage === 'confirmed'
                           ? '✓ Quotation Confirmed'
-                          : quote.stage === 'approved'
-                          ? 'Confirm Quotation & Lock Terms'
-                          : 'Awaiting Provider Approval'}
+                          : quote.customer_confirmed_at
+                          ? '✓ Terms Accepted'
+                          : 'Accept Terms'}
                       </Button>
                     </div>
                   </div>
