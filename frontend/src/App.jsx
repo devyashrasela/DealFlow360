@@ -30,6 +30,7 @@ import { WorkspaceSelectorPage } from './pages/WorkspaceSelectorPage.jsx';
 import { AcceptInvitePage } from './pages/AcceptInvitePage.jsx';
 import { RegisterPage } from './pages/RegisterPage.jsx';
 import { RoleGate } from './rbac/RoleGate.jsx';
+import { CustomersListPage } from './pages/customer/CustomersListPage.jsx';
 
 /**
  * RequireAuth — simple auth gate, no role logic.
@@ -116,6 +117,9 @@ export default function App() {
 
             {/* Deal Health — sales_rep, sales_manager, admin */}
             <Route path="deal-health" element={<RoleGate><DealHealthDashboard /></RoleGate>} />
+
+            {/* Customers — sales_rep, sales_manager, admin */}
+            <Route path="customers" element={<RoleGate><CustomersListPage /></RoleGate>} />
 
             {/* Reports — sales_manager, admin */}
             <Route path="reports" element={<RoleGate><ReportingDashboard /></RoleGate>} />

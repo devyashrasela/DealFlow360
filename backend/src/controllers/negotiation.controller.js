@@ -38,6 +38,17 @@ async function getScopeWhere(req) {
 
     return { customer_account_id: customerAccountId };
   }
+
+  // If no explicit customer account ID is provided, check if the user is a customer portal user
+  if (req.orgContext?.membership?.role === 'customer_portal') {
+    const accounts = await CustomerAccount.findAll({
+      where: { buyer_organization_id: req.orgContext.organizationId }
+    });
+    const accountIds = accounts.map(a => a.id);
+    return { customer_account_id: { [Op.in]: accountIds } };
+  }
+
+  // Default to provider organization scope
   return { organization_id: req.orgContext.organizationId };
 }
 

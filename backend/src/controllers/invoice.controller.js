@@ -23,7 +23,17 @@ import { emitEvent } from '../services/notification.service.js';
 export const listInvoices = async (req, res, next) => {
   try {
     const { status, document_type } = req.query;
-    const where = { organization_id: req.orgContext.organizationId };
+    let where = {};
+    
+    if (req.orgContext?.membership?.role === 'customer_portal') {
+      const accounts = await CustomerAccount.findAll({
+        where: { buyer_organization_id: req.orgContext.organizationId }
+      });
+      const accountIds = accounts.map(a => a.id);
+      where.customer_account_id = { [Op.in]: accountIds };
+    } else {
+      where.organization_id = req.orgContext.organizationId;
+    }
     if (status) where.status = status;
     if (document_type) where.document_type = document_type;
 

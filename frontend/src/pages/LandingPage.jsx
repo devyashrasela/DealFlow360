@@ -150,18 +150,18 @@ export const LandingPage = () => {
       quote: 'Designs delightful experiences.',
       bgColor: 'bg-rose-100',
       photoUrl: 'https://raw.githubusercontent.com/devyashrasela/dormpay/refs/heads/main/frontend/src/assets/basil.avif',
-      linkedin: 'https://linkedin.com',
-      github: 'https://github.com',
+      linkedin: 'https://www.linkedin.com/in/basil-zafar-490b08302/',
+      github: 'https://github.com/BasilZafar11',
       email: 'mailto:basilzafar2424@gmail.com'
     },
     {
       name: 'Mayank Padhi',
-      role: 'UI/UX Designer',
+      role: 'Product Engineer',
       quote: 'Turns complexity into simplicity.',
       bgColor: 'bg-pink-100',
       photoUrl: 'https://raw.githubusercontent.com/devyashrasela/dormpay/refs/heads/main/frontend/src/assets/mayank.avif',
-      linkedin: 'https://linkedin.com',
-      github: 'https://github.com',
+      linkedin: 'https://www.linkedin.com/in/mayank-padhi-zia/',
+      github: 'https://github.com/Diclo-fenac',
       email: 'mailto:padhimayank@gmail.com'
     }
   ];
@@ -182,7 +182,7 @@ export const LandingPage = () => {
             </Link>
 
             {/* Nav links */}
-            <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-[#2E3141]/80">
+            {/* <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-[#2E3141]/80">
               <a href="#product" className="hover:text-[#724B66] transition-colors">Product</a>
               <a href="#solutions" className="hover:text-[#724B66] transition-colors">Solutions</a>
               <a href="#industries" className="hover:text-[#724B66] transition-colors">Industries</a>
@@ -190,7 +190,7 @@ export const LandingPage = () => {
               <a href="#team" className="hover:text-[#724B66] transition-colors">Team</a>
               <a href="#resources" className="hover:text-[#724B66] transition-colors">Resources</a>
               <a href="#help" className="hover:text-[#724B66] transition-colors">Help</a>
-            </nav>
+            </nav> */}
           </div>
 
           {/* Nav Actions */}
