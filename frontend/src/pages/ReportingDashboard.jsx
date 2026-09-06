@@ -3,7 +3,7 @@ import { reportingApi } from '../api/reportingApi.js';
 import { Card } from '../components/ui/Card.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Download, FileText, Filter } from 'lucide-react';
-import { jsPDF } from 'jspdf';
+// import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
@@ -297,7 +297,7 @@ export function ReportingDashboard() {
             <Filter className="w-4 h-4 text-neutral-400" />
             Filters:
           </span>
-          <select 
+          <select
             value={period}
             onChange={(e) => setPeriod(e.target.value)}
             className="border border-gray-300 rounded-md px-3 py-1.5 text-xs bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#724B66]"
@@ -308,7 +308,7 @@ export function ReportingDashboard() {
             <option value="this_month">This Month</option>
           </select>
 
-          <select 
+          <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             className="border border-gray-300 rounded-md px-3 py-1.5 text-xs bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#724B66]"
@@ -325,11 +325,10 @@ export function ReportingDashboard() {
               <button
                 key={statusKey}
                 onClick={() => setApprovalStatus(statusKey)}
-                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                  approvalStatus === statusKey
-                    ? 'bg-[#724B66] text-white'
-                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                }`}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${approvalStatus === statusKey
+                  ? 'bg-[#724B66] text-white'
+                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                  }`}
               >
                 {statusKey === '' ? 'All Stages' : statusKey.replace(/_/g, ' ')}
               </button>
@@ -365,41 +364,37 @@ export function ReportingDashboard() {
         <nav className="-mb-px flex space-x-6">
           <button
             onClick={() => setActiveTab('rep_discipline')}
-            className={`whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'rep_discipline' 
-                ? 'border-[#724B66] text-[#724B66]' 
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            className={`whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-sm ${activeTab === 'rep_discipline'
+              ? 'border-[#724B66] text-[#724B66]'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
           >
             Sales Rep & Discount Discipline
           </button>
           <button
             onClick={() => setActiveTab('product_performance')}
-            className={`whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'product_performance' 
-                ? 'border-[#724B66] text-[#724B66]' 
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            className={`whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-sm ${activeTab === 'product_performance'
+              ? 'border-[#724B66] text-[#724B66]'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
           >
             Product & Category Performance
           </button>
           <button
             onClick={() => setActiveTab('pipeline')}
-            className={`whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'pipeline' 
-                ? 'border-[#724B66] text-[#724B66]' 
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            className={`whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-sm ${activeTab === 'pipeline'
+              ? 'border-[#724B66] text-[#724B66]'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
           >
             Pipeline By Stage
           </button>
           <button
             onClick={() => setActiveTab('revenue')}
-            className={`whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'revenue' 
-                ? 'border-[#724B66] text-[#724B66]' 
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            className={`whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-sm ${activeTab === 'revenue'
+              ? 'border-[#724B66] text-[#724B66]'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
           >
             Confirmed Revenue By Month
           </button>
@@ -431,9 +426,8 @@ export function ReportingDashboard() {
                     <td className="p-3 text-right font-medium">${Number(rep.net_revenue).toLocaleString()}</td>
                     <td className="p-3 text-right text-rose-600 font-medium">{rep.avg_discount_percentage}%</td>
                     <td className="p-3 text-center">
-                      <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                        rep.quotes_flagged > 0 ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'
-                      }`}>
+                      <span className={`px-2 py-0.5 rounded text-xs font-semibold ${rep.quotes_flagged > 0 ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'
+                        }`}>
                         {rep.quotes_flagged}
                       </span>
                     </td>

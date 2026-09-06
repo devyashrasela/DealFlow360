@@ -34,7 +34,7 @@ app.use((req, res, next) => {
 });
 
 app.use(cors({
-  origin: [process.env.FRONTEND_URL, 'http://localhost:5173'].filter(Boolean),
+  origin: [process.env.FRONTEND_URL, 'http://localhost:5173',].filter(Boolean),
   credentials: true
 }));
 app.use(express.json());

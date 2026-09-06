@@ -89,13 +89,13 @@ export const Sidebar = () => {
         </button>
 
         {/* Role Badge */}
-        {activeRole && (
+        {/* {activeRole && (
           <div className="mt-2 px-3">
             <span className="inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded bg-[#724B66]/20 text-[#724B66] border border-[#724B66]/30">
               {activeRole.replace('_', ' ')}
             </span>
           </div>
-        )}
+        )} */}
 
         {/* Dropdown for org switcher */}
         {orgDropdownOpen && (
@@ -118,9 +118,8 @@ export const Sidebar = () => {
                         switchWorkspace(m.organization_id);
                         setOrgDropdownOpen(false);
                       }}
-                      className={`w-full text-left px-3 py-2 text-xs hover:bg-[#2E3141] text-neutral-200 flex items-center justify-between transition cursor-pointer ${
-                        isCurrent ? 'bg-[#2E3141]/60 font-semibold text-white' : ''
-                      }`}
+                      className={`w-full text-left px-3 py-2 text-xs hover:bg-[#2E3141] text-neutral-200 flex items-center justify-between transition cursor-pointer ${isCurrent ? 'bg-[#2E3141]/60 font-semibold text-white' : ''
+                        }`}
                     >
                       <div className="truncate flex items-center gap-1.5">
                         {isCurrent && <Check className="w-3.5 h-3.5 text-[#E892A2] shrink-0" />}
@@ -165,19 +164,18 @@ export const Sidebar = () => {
         <div className="space-y-1">
           {visibleMain.map((item) => {
             const Icon = item.icon;
-            const isActive = item.path === '/' 
-              ? location.pathname === '/' 
+            const isActive = item.path === '/'
+              ? location.pathname === '/'
               : location.pathname.startsWith(item.path);
 
             return (
               <NavLink
                 key={item.name}
                 to={item.path}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition duration-150 ${
-                  isActive
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition duration-150 ${isActive
                     ? 'bg-[#724B66] text-[#FFFFFF] shadow-sm font-semibold'
                     : 'text-neutral-400 hover:text-[#FFFFFF] hover:bg-[#2E3141]/40'
-                }`}
+                  }`}
               >
                 <Icon className="w-4 h-4 shrink-0" />
                 <span>{item.name}</span>
@@ -203,11 +201,10 @@ export const Sidebar = () => {
                 <NavLink
                   key={item.name}
                   to={item.path}
-                  className={`flex items-center gap-3 px-3.5 py-2 rounded-lg text-xs font-medium transition duration-150 ${
-                    isActive
+                  className={`flex items-center gap-3 px-3.5 py-2 rounded-lg text-xs font-medium transition duration-150 ${isActive
                       ? 'bg-[#724B66] text-[#FFFFFF]'
                       : 'text-neutral-400 hover:text-[#FFFFFF] hover:bg-[#2E3141]/40'
-                  }`}
+                    }`}
                 >
                   <Icon className="w-3.5 h-3.5 shrink-0" />
                   <span>{item.name}</span>
