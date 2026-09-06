@@ -14,10 +14,11 @@ import {
   WarehouseStock,
   Quotation,
   QuotationLine,
-  CustomerAccount,
   Organization,
   Product,
+  CustomerAccount,
 } from '../models/index.js';
+import { emitEvent } from '../services/notification.service.js';
 
 /**
  * Controller: Fulfillment, Warehouse Auto-Split & Stock Inventory Cockpit
@@ -354,7 +355,10 @@ export const updateOrderStatus = async (req, res, next) => {
       return res.status(400).json({ success: false, error: `Invalid status: ${status}` });
     }
 
-    const order = await FulfillmentOrder.findOne({ where: { id, organization_id: orgId } });
+    const order = await FulfillmentOrder.findOne({ 
+      where: { id, organization_id: orgId },
+      include: [{ model: Quotation, as: 'quotation', attributes: ['assigned_sales_rep_id'] }]
+    });
     if (!order) {
       return res.status(404).json({ success: false, error: `Fulfillment order ${id} not found.` });
     }
@@ -368,6 +372,17 @@ export const updateOrderStatus = async (req, res, next) => {
     }
 
     await order.save();
+
+    await emitEvent({
+      organizationId: orgId,
+      actorUserId: req.user.id,
+      eventType: `fulfillment.${status}`,
+      entityType: 'fulfillment_order',
+      entityId: order.id,
+      title: `Order ${order.fulfillment_number} ${status}`,
+      metadata: { fulfillmentNumber: order.fulfillment_number, salesRepUserId: order.quotation?.assigned_sales_rep_id },
+    });
+
     return res.status(200).json({ success: true, data: order });
   } catch (err) {
     next(err);

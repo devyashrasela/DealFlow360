@@ -38,6 +38,7 @@ export function QuotationBuilderPage() {
   const [newLineQty, setNewLineQty] = useState(1);
   const [newLineDiscount, setNewLineDiscount] = useState(0);
   const [addingLine, setAddingLine] = useState(false);
+  const [addingProductId, setAddingProductId] = useState(null);
 
   const [activeRate, setActiveRate] = useState(1);
 
@@ -119,20 +120,27 @@ export function QuotationBuilderPage() {
     }
   };
 
-  const addUpsell = async (productId) => {
+  const addUpsell = async (u) => {
     setFeedbackMsg(null);
+    setAddingProductId(u.rule_id);
     try {
       await apiClient.post(`/quotations/${id}/lines`, {
-        product_id: productId,
+        product_id: u.recommended_product?.id,
         quantity: 1,
-        applied_discount_percentage: 0
+        applied_discount_percentage: u.promotional_discount_percent || 0
       });
       await fetchData();
       setFeedbackMsg({ type: 'success', text: 'Upsell product added to quotation' });
     } catch (err) {
       console.error(err);
       setFeedbackMsg({ type: 'error', text: err.message || 'Failed to add upsell product' });
+    } finally {
+      setAddingProductId(null);
     }
+  };
+
+  const dismissUpsell = (ruleId) => {
+    setUpsells(prev => prev.filter(u => u.rule_id !== ruleId));
   };
 
   const updateLineDiscount = async (lineId, qty, discount) => {
@@ -476,6 +484,8 @@ export function QuotationBuilderPage() {
         </div>
       </div>
 
+      <div className={upsells.length > 0 ? "grid grid-cols-1 lg:grid-cols-4 gap-4" : ""}>
+        <div className={upsells.length > 0 ? "lg:col-span-3" : ""}>
       {/* Line Items Card */}
       <div className="bg-white rounded-xl border border-neutral-200/80 shadow-xs overflow-hidden">
         <div className="p-4 border-b border-neutral-200/70 flex items-center justify-between">
@@ -673,36 +683,58 @@ export function QuotationBuilderPage() {
           </table>
         </div>
       </div>
+      </div> {/* Close col-span-3 */}
 
       {/* Upsell Suggestions */}
       {upsells.length > 0 && (
-        <div className="space-y-3 pt-2">
+        <div className="lg:col-span-1 space-y-3">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-[#724B66]" />
             <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-700">
               Upsell & Cross-Sell Opportunities
             </h3>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="flex flex-col gap-3">
             {upsells.map((u) => (
               <div
-                key={u.product_id}
-                className="bg-white border border-neutral-200/80 rounded-xl p-3.5 flex flex-col justify-between shadow-xs hover:border-[#724B66]/40 transition"
+                key={u.recommended_product?.id || u.rule_id}
+                className="bg-white border border-neutral-200/80 rounded-xl p-3.5 flex flex-col justify-between shadow-xs hover:border-[#724B66]/40 transition relative group"
               >
+                <button
+                  onClick={() => dismissUpsell(u.rule_id)}
+                  className="absolute top-2 right-2 text-neutral-400 hover:text-rose-600 transition-colors opacity-0 group-hover:opacity-100"
+                  title="Dismiss suggestion"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
                 <div>
-                  <div className="font-semibold text-xs text-[#111826]">
-                    {u.product_name}
+                  <div className="flex items-center gap-1 flex-wrap pr-4">
+                    <span className="font-semibold text-xs text-[#111826]">
+                      {u.recommended_product?.name}
+                    </span>
+                    {u.is_promoted && (
+                      <span className="text-[9px] font-bold uppercase tracking-wide bg-[#724B66]/10 text-[#724B66] px-1.5 py-0.5 rounded">
+                        Promoted
+                      </span>
+                    )}
                   </div>
                   <div className="text-[11px] text-emerald-700 font-medium mt-1">
-                    Margin Contribution: +${Number(u.margin_delta || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    Margin: +{u.margin_delta}%
                   </div>
+                  {u.promotional_discount_percent > 0 && (
+                    <div className="text-[11px] text-amber-700 font-medium mt-0.5">
+                      Promo: {u.promotional_discount_percent}% off
+                    </div>
+                  )}
                 </div>
                 {quotation.stage === 'draft' && (
                   <Button
                     size="sm"
                     variant="outline"
                     icon={Plus}
-                    onClick={() => addUpsell(u.product_id)}
+                    onClick={() => addUpsell(u)}
+                    disabled={addingProductId === u.rule_id}
+                    loading={addingProductId === u.rule_id}
                     className="mt-3 w-full justify-center"
                   >
                     Add to Quote
@@ -713,6 +745,7 @@ export function QuotationBuilderPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

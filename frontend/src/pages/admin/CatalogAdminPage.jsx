@@ -9,7 +9,7 @@ import { Card } from '../../components/ui/Card';
 import { 
   Plus, Edit2, Trash2, ChevronDown, ChevronRight, 
   Settings, DollarSign, PackageOpen, Layers, CheckCircle2,
-  AlertCircle, Sparkles, X, RefreshCw, ArrowUpRight, FileText
+  AlertCircle, Sparkles, X, RefreshCw, ArrowUpRight, FileText, Search
 } from 'lucide-react';
 
 export function CatalogAdminPage({ initialTab }) {
@@ -50,6 +50,7 @@ export function CatalogAdminPage({ initialTab }) {
   // UI State
   const [expandedProductId, setExpandedProductId] = useState(null);
   const [expandedPlanId, setExpandedPlanId] = useState(null);
+  const [productSearchTerm, setProductSearchTerm] = useState('');
 
   // Product / Plan Modal Dynamic Fields State
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -80,33 +81,9 @@ export function CatalogAdminPage({ initialTab }) {
 
   // Upsell & Co-Purchase Rules State
   const [minMarginThreshold, setMinMarginThreshold] = useState(20);
-  const [coPurchaseRules, setCoPurchaseRules] = useState([
-    {
-      id: 'rule-1',
-      trigger_product_id: '',
-      trigger_name: 'Enterprise Router X900',
-      suggested_product_id: '',
-      suggested_name: '3-Year On-Site Maintenance SLA',
-      co_purchase_pct: 68,
-      priority_rank: 1,
-      promotional_discount_percent: 15,
-      is_promoted: true,
-      is_active: true
-    },
-    {
-      id: 'rule-2',
-      trigger_product_id: '',
-      trigger_name: 'Managed Cloud Gateway',
-      suggested_product_id: '',
-      suggested_name: '24/7 Security Operations Center Add-On',
-      co_purchase_pct: 54,
-      priority_rank: 2,
-      promotional_discount_percent: 10,
-      is_promoted: false,
-      is_active: true
-    }
-  ]);
+  const [coPurchaseRules, setCoPurchaseRules] = useState([]);
   const [isAddRuleModalOpen, setIsAddRuleModalOpen] = useState(false);
+  const [ruleToDelete, setRuleToDelete] = useState(null);
   const [newRule, setNewRule] = useState({
     trigger_product_id: '',
     suggested_product_id: '',
@@ -128,9 +105,18 @@ export function CatalogAdminPage({ initialTab }) {
     setLoading(true);
     setError('');
     try {
-      if (activeTab === 'products' || activeTab === 'plans' || activeTab === 'upsell') {
+      if (activeTab === 'products' || activeTab === 'plans') {
         const res = await apiClient.get('/catalog');
         setProducts(res.products || []);
+      } else if (activeTab === 'upsell') {
+        const [prodRes, rulesRes, configData] = await Promise.all([
+          apiClient.get('/catalog'),
+          apiClient.get('/catalog/upsell-rules'),
+          apiClient.get('/catalog/upsell-config').catch(() => ({}))
+        ]);
+        setProducts(prodRes.products || []);
+        setCoPurchaseRules(rulesRes || []);
+        setMinMarginThreshold(configData.minimum_margin_threshold ?? 20);
       } else if (activeTab === 'pricelists') {
         const [plRes, prodRes] = await Promise.all([
           apiClient.get('/catalog/price-lists'),
@@ -386,57 +372,70 @@ export function CatalogAdminPage({ initialTab }) {
   };
 
   // --- UPSELL ENGINE HANDLERS ---
-  const handleSaveMarginThreshold = () => {
-    showFeedback(`Minimum Margin Threshold saved at ${minMarginThreshold}%.`);
+  const handleSaveMarginThreshold = async () => {
+    try {
+      await apiClient.put('/catalog/upsell-config', { minimum_margin_threshold: minMarginThreshold });
+      showFeedback(`Minimum Margin Threshold saved at ${minMarginThreshold}%.`);
+    } catch (err) {
+      showFeedback(err.message || 'Failed to save threshold', 'error');
+    }
   };
 
-  const handleAddCoPurchaseRule = (e) => {
+  const handleAddRule = async (e) => {
     e.preventDefault();
-    const trigger = products.find(p => p.id === newRule.trigger_product_id);
-    const suggested = products.find(p => p.id === newRule.suggested_product_id);
-
     if (!newRule.trigger_product_id || !newRule.suggested_product_id) {
-      alert('Please select both a trigger product and suggested pairing.');
+      showFeedback('Please select both a trigger product and suggested pairing.', 'error');
       return;
     }
 
     if (newRule.trigger_product_id === newRule.suggested_product_id) {
-      alert('Trigger product and suggested pairing cannot be the same.');
+      showFeedback('Trigger product and suggested pairing cannot be the same.', 'error');
       return;
     }
 
-    const createdRule = {
-      id: `rule-${Date.now()}`,
-      trigger_product_id: newRule.trigger_product_id,
-      trigger_name: trigger?.name || 'Selected Product',
-      suggested_product_id: newRule.suggested_product_id,
-      suggested_name: suggested?.name || 'Suggested Add-on',
-      co_purchase_pct: Math.floor(Math.random() * 40) + 40,
-      priority_rank: Number(newRule.priority_rank),
-      promotional_discount_percent: Number(newRule.promotional_discount_percent),
-      is_promoted: Boolean(newRule.is_promoted),
-      is_active: true
-    };
-
-    setCoPurchaseRules([createdRule, ...coPurchaseRules]);
-    setIsAddRuleModalOpen(false);
-    setNewRule({
-      trigger_product_id: '',
-      suggested_product_id: '',
-      priority_rank: 1,
-      promotional_discount_percent: 10,
-      is_promoted: false
-    });
-    showFeedback('New Co-Purchase rule activated.');
+    try {
+      await apiClient.post('/catalog/upsell-rules', {
+        trigger_product_id: newRule.trigger_product_id,
+        recommended_product_id: newRule.suggested_product_id,
+        priority_rank: Number(newRule.priority_rank),
+        promotional_discount_percent: Number(newRule.promotional_discount_percent),
+        is_promoted: Boolean(newRule.is_promoted),
+        is_active: true
+      });
+      fetchData();
+      setIsAddRuleModalOpen(false);
+      setNewRule({
+        trigger_product_id: '',
+        suggested_product_id: '',
+        priority_rank: 1,
+        promotional_discount_percent: 10,
+        is_promoted: false
+      });
+      showFeedback('New Co-Purchase rule activated.');
+    } catch (err) {
+      showFeedback(err.message || 'Error saving rule', 'error');
+    }
   };
 
-  const handleToggleRulePromoted = (ruleId) => {
-    setCoPurchaseRules(coPurchaseRules.map(r => r.id === ruleId ? { ...r, is_promoted: !r.is_promoted } : r));
+  const handleToggleRulePromoted = async (rule) => {
+    try {
+      await apiClient.put(`/catalog/upsell-rules/${rule.id}`, { is_promoted: !rule.is_promoted });
+      setCoPurchaseRules(coPurchaseRules.map(r => r.id === rule.id ? { ...r, is_promoted: !r.is_promoted } : r));
+    } catch (err) {
+      showFeedback(err.message || 'Error toggling promotion status', 'error');
+    }
   };
 
-  const handleDeleteRule = (ruleId) => {
-    setCoPurchaseRules(coPurchaseRules.filter(r => r.id !== ruleId));
-    showFeedback('Co-Purchase rule removed.');
+  const handleDeleteRuleConfirmed = async () => {
+    if (!ruleToDelete) return;
+    try {
+      await apiClient.delete(`/catalog/upsell-rules/${ruleToDelete}`);
+      setCoPurchaseRules(coPurchaseRules.filter(r => r.id !== ruleToDelete));
+      showFeedback('Co-Purchase rule removed.');
+      setRuleToDelete(null);
+    } catch (err) {
+      showFeedback(err.message || 'Error deleting rule', 'error');
+    }
   };
 
   return (
@@ -574,6 +573,18 @@ export function CatalogAdminPage({ initialTab }) {
             {/* TAB 1: MASTER PRODUCT CATALOG */}
             {activeTab === 'products' && (
               <Card>
+                <div className="p-4 border-b border-neutral-100 flex items-center">
+                  <div className="relative w-full max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 w-4 h-4" />
+                    <input 
+                      type="text" 
+                      placeholder="Search SKU, Name, or Category..." 
+                      className="w-full pl-9 pr-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-[#724B66] focus:ring-1 focus:ring-[#724B66]/20 transition-all"
+                      value={productSearchTerm}
+                      onChange={(e) => setProductSearchTerm(e.target.value)}
+                    />
+                  </div>
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
                     <thead className="bg-[#F3F2F2] text-[#2E3141] uppercase tracking-wider text-xs border-b border-neutral-200/60 font-semibold">
@@ -589,7 +600,12 @@ export function CatalogAdminPage({ initialTab }) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-200/60">
-                      {products.map(p => {
+                      {products.filter(p => 
+                        !productSearchTerm || 
+                        p.name.toLowerCase().includes(productSearchTerm.toLowerCase()) || 
+                        p.sku.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+                        (p.category || '').toLowerCase().includes(productSearchTerm.toLowerCase())
+                      ).map(p => {
                         const variantCount = p.variants_count ?? (p.variants ? p.variants.length : 0);
                         return (
                           <React.Fragment key={p.id}>
@@ -824,6 +840,18 @@ export function CatalogAdminPage({ initialTab }) {
                     </Button>
                   }
                 >
+                  <div className="p-4 border-b border-neutral-100 flex items-center">
+                    <div className="relative w-full max-w-sm">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 w-4 h-4" />
+                      <input 
+                        type="text" 
+                        placeholder="Search SKU or Plan Name..." 
+                        className="w-full pl-9 pr-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-[#724B66] focus:ring-1 focus:ring-[#724B66]/20 transition-all"
+                        value={productSearchTerm}
+                        onChange={(e) => setProductSearchTerm(e.target.value)}
+                      />
+                    </div>
+                  </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm whitespace-nowrap">
                       <thead className="bg-[#F3F2F2] text-[#2E3141] uppercase tracking-wider text-xs border-b border-neutral-200/60 font-semibold">
@@ -838,7 +866,11 @@ export function CatalogAdminPage({ initialTab }) {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-200/60">
-                        {subscriptionPlans.map(p => {
+                        {subscriptionPlans.filter(p => 
+                          !productSearchTerm || 
+                          p.name.toLowerCase().includes(productSearchTerm.toLowerCase()) || 
+                          p.sku.toLowerCase().includes(productSearchTerm.toLowerCase())
+                        ).map(p => {
                           const listPrice = Number(p.base_list_price) || 0;
                           const unitCost = Number(p.standard_unit_cost || p.unit_cost) || 0;
                           const marginPct = listPrice > 0 ? (((listPrice - unitCost) / listPrice) * 100).toFixed(1) : '0.0';
@@ -1121,56 +1153,62 @@ export function CatalogAdminPage({ initialTab }) {
                   }
                 >
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm mt-2">
-                      <thead className="bg-[#F3F2F2] text-[#2E3141] uppercase tracking-wider text-xs border-b border-neutral-200/60 font-semibold">
+                    <table className="w-full text-left text-sm mt-2 whitespace-nowrap">
+                      <thead className="bg-neutral-50/75 border-b border-neutral-200 text-neutral-500 uppercase tracking-wider text-xs font-semibold">
                         <tr>
-                          <th className="p-3.5">Trigger Product</th>
-                          <th className="p-3.5">Suggested Pairing</th>
-                          <th className="p-3.5 text-center">Historical Co-Purchase %</th>
-                          <th className="p-3.5 text-center">Priority</th>
-                          <th className="p-3.5 text-right">Promo Discount</th>
-                          <th className="p-3.5 text-center">Sponsorship Tag</th>
-                          <th className="p-3.5 text-right">Actions</th>
+                          <th className="px-4 py-3 text-left">Trigger Product</th>
+                          <th className="px-4 py-3 text-left">Suggested Pairing</th>
+                          <th className="px-4 py-3 text-center">Historical Co-Purchase %</th>
+                          <th className="px-4 py-3 text-center">Priority</th>
+                          <th className="px-4 py-3 text-right">Promo Discount</th>
+                          <th className="px-4 py-3 text-center">Sponsorship Tag</th>
+                          <th className="px-4 py-3 text-right w-24">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-neutral-200/60">
-                        {coPurchaseRules.map(rule => (
-                          <tr key={rule.id} className="hover:bg-neutral-50/50">
-                            <td className="p-3.5 font-medium text-[#111826]">{rule.trigger_name}</td>
-                            <td className="p-3.5 text-[#724B66] font-semibold">{rule.suggested_name}</td>
-                            <td className="p-3.5 text-center font-bold text-neutral-700">
+                      <tbody className="divide-y divide-neutral-100">
+                        {coPurchaseRules.length === 0 ? (
+                          <tr>
+                            <td colSpan="7" className="px-4 py-8 text-center text-sm text-neutral-400">
+                              No co-purchase rules defined yet. Click "Add Pairing Rule" to create one.
+                            </td>
+                          </tr>
+                        ) : (
+                          coPurchaseRules.map(rule => (
+                            <tr key={rule.id} className="hover:bg-neutral-50/50 transition-colors group">
+                              <td className="px-4 py-3 font-medium text-[#111826]">{rule.trigger_product?.name || 'Unknown'}</td>
+                              <td className="px-4 py-3 text-[#724B66] font-semibold">{rule.recommended_product?.name || 'Unknown'}</td>
+                            <td className="px-4 py-3 text-center font-bold text-neutral-700">
                               {rule.co_purchase_pct}%
                             </td>
-                            <td className="p-3.5 text-center">
+                            <td className="px-4 py-3 text-center">
                               <span className="font-mono text-xs px-2 py-0.5 bg-neutral-100 rounded">
                                 Rank #{rule.priority_rank}
                               </span>
                             </td>
-                            <td className="p-3.5 text-right font-semibold text-emerald-700">
+                            <td className="px-4 py-3 text-right font-semibold text-emerald-700">
                               {rule.promotional_discount_percent}% Off
                             </td>
-                            <td className="p-3.5 text-center">
+                            <td className="px-4 py-3 text-center">
                               <button 
-                                onClick={() => handleToggleRulePromoted(rule.id)}
-                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer transition ${rule.is_promoted ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'}`}
+                                onClick={() => handleToggleRulePromoted(rule)}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${rule.is_promoted ? 'bg-[#724B66]' : 'bg-neutral-300'}`}
+                                title={rule.is_promoted ? "Promoted in Suggestions" : "Standard Priority"}
                               >
-                                <Sparkles className="w-3 h-3" />
-                                {rule.is_promoted ? 'Promoted Tag' : 'Standard'}
+                                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${rule.is_promoted ? 'translate-x-4.5' : 'translate-x-1'}`} />
                               </button>
                             </td>
-                            <td className="p-3.5 text-right space-x-1">
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="text-rose-600 hover:bg-rose-50"
-                                onClick={() => handleDeleteRule(rule.id)}
-                                icon={Trash2}
+                            <td className="px-4 py-3 text-right">
+                              <button 
+                                onClick={() => setRuleToDelete(rule.id)} 
+                                className="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors opacity-60 hover:opacity-100 focus:opacity-100"
+                                title="Remove Rule"
                               >
-                                Remove
-                              </Button>
+                                <Trash2 className="w-3.5 h-3.5" /> Remove
+                              </button>
                             </td>
-                          </tr>
-                        ))}
+                            </tr>
+                          ))
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -1278,28 +1316,7 @@ export function CatalogAdminPage({ initialTab }) {
             </div>
           </div>
 
-          {/* Dynamic Subscription Policy & Run-Rate Helper */}
-          {modalCategory === 'subscriptions' && (
-            <div className="p-3 bg-[#724B66]/10 border border-[#724B66]/20 rounded-lg text-xs space-y-1.5">
-              <div className="flex items-center gap-1.5 font-bold text-[#724B66]">
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Recurring Subscription Policy</span>
-              </div>
-              <p className="text-neutral-600">
-                Products categorized as subscriptions automatically generate recurring contract billing lines and support mid-cycle seat co-terming and proration upon quotation acceptance.
-              </p>
-              {Number(modalBasePrice) > 0 && (
-                <div className="pt-2 border-t border-[#724B66]/15 flex items-center justify-between text-neutral-700 font-medium">
-                  <span>Calculated Run-Rate:</span>
-                  <span className="font-mono font-bold text-[#111826]">
-                    {modalBillingCadence === 'monthly' && `MRR: $${Number(modalBasePrice).toFixed(2)} | ARR: $${(Number(modalBasePrice) * 12).toFixed(2)}`}
-                    {modalBillingCadence === 'quarterly' && `MRR: $${(Number(modalBasePrice) / 3).toFixed(2)} | ARR: $${(Number(modalBasePrice) * 4).toFixed(2)}`}
-                    {modalBillingCadence === 'annual' && `MRR: $${(Number(modalBasePrice) / 12).toFixed(2)} | ARR: $${Number(modalBasePrice).toFixed(2)}`}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
+
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -1546,7 +1563,7 @@ export function CatalogAdminPage({ initialTab }) {
 
       {/* Add Co-Purchase Rule Modal */}
       <Modal isOpen={isAddRuleModalOpen} onClose={() => setIsAddRuleModalOpen(false)} title="Add Co-Purchase Recommendation Rule">
-        <form onSubmit={handleAddCoPurchaseRule} className="space-y-4">
+        <form onSubmit={handleAddRule} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-[#111826] uppercase tracking-wider mb-1">Trigger Product (Cart Line)</label>
             <select 
@@ -1618,6 +1635,20 @@ export function CatalogAdminPage({ initialTab }) {
         </form>
       </Modal>
 
+      {/* Delete Rule Confirmation Modal */}
+      <Modal isOpen={!!ruleToDelete} onClose={() => setRuleToDelete(null)} title="Remove Co-Purchase Rule?">
+        <div className="space-y-4">
+          <p className="text-sm text-neutral-600">
+            Are you sure you want to remove this Upsell/Co-Purchase rule? This action cannot be undone, and the Quotation Builder will no longer suggest this pairing.
+          </p>
+          <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100">
+            <Button variant="ghost" onClick={() => setRuleToDelete(null)}>Cancel</Button>
+            <Button variant="primary" className="bg-rose-600 hover:bg-rose-700 text-white border-rose-600" onClick={handleDeleteRuleConfirmed}>
+              Remove Rule
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

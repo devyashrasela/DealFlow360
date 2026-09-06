@@ -96,14 +96,7 @@ export function GovernanceDashboard({ initialTab }) {
   };
 
   const handleDeleteTier = async (id, tierName) => {
-    if (!window.confirm(`Are you sure you want to delete the ceiling for tier "${tierName}"?`)) return;
-    try {
-      await governanceApi.deleteTierCeiling(id);
-      showFeedback('Tier ceiling deleted.');
-      fetchData();
-    } catch (err) {
-      setError(err.message);
-    }
+    setItemToDelete({ type: 'tier', id, title: `tier "${tierName}"` });
   };
 
   const handleSaveCategory = async (e) => {
@@ -118,11 +111,30 @@ export function GovernanceDashboard({ initialTab }) {
     }
   };
 
+  const [itemToDelete, setItemToDelete] = useState(null);
+
   const handleDeleteCategory = async (id, catName) => {
-    if (!window.confirm(`Are you sure you want to delete ceiling for category "${catName}"?`)) return;
+    setItemToDelete({ type: 'category', id, title: `category "${catName}"` });
+  };
+
+  const handleDeleteSlab = async (id) => {
+    setItemToDelete({ type: 'slab', id, title: 'this risk routing slab' });
+  };
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
     try {
-      await governanceApi.deleteCategoryCeiling(id);
-      showFeedback('Category ceiling deleted.');
+      if (itemToDelete.type === 'tier') {
+        await governanceApi.deleteTierCeiling(itemToDelete.id);
+        showFeedback('Tier ceiling deleted.');
+      } else if (itemToDelete.type === 'category') {
+        await governanceApi.deleteCategoryCeiling(itemToDelete.id);
+        showFeedback('Category ceiling deleted.');
+      } else if (itemToDelete.type === 'slab') {
+        await governanceApi.deleteApprovalChain(itemToDelete.id);
+        showFeedback('Approval chain slab deleted.');
+      }
+      setItemToDelete(null);
       fetchData();
     } catch (err) {
       setError(err.message);
@@ -140,17 +152,6 @@ export function GovernanceDashboard({ initialTab }) {
         showFeedback('New approval chain slab created.');
       }
       setSlabModal({ isOpen: false, data: null });
-      fetchData();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleDeleteSlab = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this risk routing slab?')) return;
-    try {
-      await governanceApi.deleteApprovalChain(id);
-      showFeedback('Approval chain slab deleted.');
       fetchData();
     } catch (err) {
       setError(err.message);
@@ -193,24 +194,6 @@ export function GovernanceDashboard({ initialTab }) {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex border-b border-neutral-200/60 gap-8">
-        <button
-          className={`pb-3 font-medium text-sm transition-colors relative ${activeTab === 'ceilings' ? 'text-[#724B66]' : 'text-[#2E3141]/60 hover:text-[#2E3141]'}`}
-          onClick={() => setActiveTab('ceilings')}
-        >
-          <span>Discount Ceilings</span>
-          {activeTab === 'ceilings' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#724B66] rounded-t-full" />}
-        </button>
-        <button
-          className={`pb-3 font-medium text-sm transition-colors relative ${activeTab === 'slabs' ? 'text-[#724B66]' : 'text-[#2E3141]/60 hover:text-[#2E3141]'}`}
-          onClick={() => setActiveTab('slabs')}
-        >
-          <span>Risk Slabs & Margins</span>
-          {activeTab === 'slabs' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#724B66] rounded-t-full" />}
-        </button>
-      </div>
-
       {error && (
         <div className="text-rose-600 bg-rose-50 p-3 rounded-lg border border-rose-200 text-sm flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
@@ -218,8 +201,8 @@ export function GovernanceDashboard({ initialTab }) {
         </div>
       )}
 
-      {/* TAB 1: DISCOUNT CEILINGS */}
-      {!loading && activeTab === 'ceilings' && (
+      {/* COMBINED GOVERNANCE VIEW */}
+      {!loading && (
         <div className="space-y-6">
           <Card
             title="Customer Tier Ceilings"
@@ -236,16 +219,16 @@ export function GovernanceDashboard({ initialTab }) {
             }
           >
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-[#F3F2F2] text-[#2E3141] uppercase tracking-wider text-xs border-b border-neutral-200/60 font-semibold">
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-neutral-50/75 border-b border-neutral-200 text-neutral-500 uppercase tracking-wider text-xs font-semibold">
                   <tr>
-                    <th className="p-3.5">Customer Tier</th>
-                    <th className="p-3.5 text-center">Max Authorized Discount</th>
-                    <th className="p-3.5">Status</th>
-                    <th className="p-3.5 text-right">Actions</th>
+                    <th className="px-4 py-3 text-left">Customer Tier</th>
+                    <th className="px-4 py-3 text-center">Max Authorized Discount</th>
+                    <th className="px-4 py-3 text-center">Status</th>
+                    <th className="px-4 py-3 text-right w-24">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-200/60">
+                <tbody className="divide-y divide-neutral-100">
                   {tierCeilings.map(tc => {
                     const tierName = tc.tier || tc.customer_tier;
                     return (
@@ -304,32 +287,32 @@ export function GovernanceDashboard({ initialTab }) {
             }
           >
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-[#F3F2F2] text-[#2E3141] uppercase tracking-wider text-xs border-b border-neutral-200/60 font-semibold">
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-neutral-50/75 border-b border-neutral-200 text-neutral-500 uppercase tracking-wider text-xs font-semibold">
                   <tr>
-                    <th className="p-3.5">Category</th>
-                    <th className="p-3.5 text-center">Max Category Discount</th>
-                    <th className="p-3.5">Policy Scope</th>
-                    <th className="p-3.5 text-right">Actions</th>
+                    <th className="px-4 py-3 text-left">Category</th>
+                    <th className="px-4 py-3 text-center">Max Category Discount</th>
+                    <th className="px-4 py-3 text-left">Policy Scope</th>
+                    <th className="px-4 py-3 text-right w-24">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-200/60">
+                <tbody className="divide-y divide-neutral-100">
                   {categoryCeilings.map(cc => {
                     const catName = cc.category || cc.product_category;
                     return (
-                      <tr key={cc.id} className="hover:bg-neutral-50/50 transition-colors">
-                        <td className="p-3.5 font-semibold capitalize text-[#111826]">
+                      <tr key={cc.id} className="hover:bg-neutral-50/50 transition-colors group">
+                        <td className="px-4 py-3 font-semibold capitalize text-[#111826]">
                           <Badge variant="category" dot={false} title={`Product Category: ${catName}`}>
                             {catName}
                           </Badge>
                         </td>
-                        <td className="p-3.5 text-center font-mono font-bold text-[#724B66] text-base">
+                        <td className="px-4 py-3 text-center font-mono font-bold text-[#724B66] text-base">
                           {cc.max_discount_percentage}%
                         </td>
-                        <td className="p-3.5 text-xs text-neutral-500">
+                        <td className="px-4 py-3 text-xs text-neutral-500">
                           All {catName} quotation lines
                         </td>
-                        <td className="p-3.5 text-right space-x-1">
+                        <td className="px-4 py-3 text-right space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -356,12 +339,7 @@ export function GovernanceDashboard({ initialTab }) {
               </table>
             </div>
           </Card>
-        </div>
-      )}
 
-      {/* TAB 2: RISK SLABS & MARGIN GUARDRAILS */}
-      {!loading && activeTab === 'slabs' && (
-        <div className="space-y-6">
           <Card
             title="Blended Risk Routing Slabs"
             subtitle="Automatic escalation routing driven by Blended Risk Score points"
@@ -385,17 +363,57 @@ export function GovernanceDashboard({ initialTab }) {
               </Button>
             }
           >
+            {/* Visual Risk Meter */}
+            {approvalChains.length > 0 && (
+              <div className="mb-6 px-1">
+                <div className="flex justify-between text-[10px] font-semibold text-neutral-400 mb-1.5 px-1 uppercase tracking-wider">
+                  <span>0 pt (No Risk)</span>
+                  <span>Escalation Continuum</span>
+                  <span>50+ pt (High Risk)</span>
+                </div>
+                <div className="w-full h-8 flex rounded-lg overflow-hidden border border-neutral-200 shadow-sm">
+                  {[...approvalChains].sort((a, b) => a.min_risk_score - b.min_risk_score).map((slab, i, arr) => {
+                    // Normalize the width to a 50-point visual scale
+                    const scaleMax = 50;
+                    let widthPct = 0;
+                    if (slab.max_risk_score) {
+                      widthPct = ((slab.max_risk_score - slab.min_risk_score) / scaleMax) * 100;
+                    } else {
+                      widthPct = 100 - ((slab.min_risk_score / scaleMax) * 100);
+                    }
+                    
+                    const color = slab.requires_manager_approval && slab.requires_finance_approval
+                      ? 'bg-rose-500'
+                      : slab.requires_manager_approval
+                        ? 'bg-amber-400'
+                        : 'bg-emerald-500';
+
+                    return (
+                      <div 
+                        key={slab.id} 
+                        className={`${color} h-full flex items-center justify-center text-[11px] font-bold text-white/90 shadow-inner border-r border-white/20 last:border-r-0 transition-all hover:brightness-110 cursor-help`}
+                        style={{ width: `${Math.max(widthPct, 10)}%` }}
+                        title={`${slab.risk_tier.replace(/_/g, ' ').toUpperCase()}: ${slab.min_risk_score} - ${slab.max_risk_score || '∞'} pt`}
+                      >
+                        {slab.risk_tier.split('_')[0].toUpperCase()}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-[#F3F2F2] text-[#2E3141] uppercase tracking-wider text-xs border-b border-neutral-200/60 font-semibold">
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-neutral-50/75 border-b border-neutral-200 text-neutral-500 uppercase tracking-wider text-xs font-semibold">
                   <tr>
-                    <th className="p-3.5">Risk Tier</th>
-                    <th className="p-3.5 text-center">Score Range</th>
-                    <th className="p-3.5">Approval Hierarchy</th>
-                    <th className="p-3.5 text-right">Actions</th>
+                    <th className="px-4 py-3 text-left">Risk Tier</th>
+                    <th className="px-4 py-3 text-center">Score Range</th>
+                    <th className="px-4 py-3 text-left">Approval Hierarchy</th>
+                    <th className="px-4 py-3 text-right w-24">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-200/60">
+                <tbody className="divide-y divide-neutral-100">
                   {approvalChains.map(ac => {
                     const routingLabel = ac.requires_manager_approval && ac.requires_finance_approval
                       ? 'Tier 3: Sales Manager + Finance VP'
@@ -410,19 +428,19 @@ export function GovernanceDashboard({ initialTab }) {
                         : 'active';
 
                     return (
-                      <tr key={ac.id} className="hover:bg-neutral-50/50 transition-colors">
-                        <td className="p-3.5 font-medium text-[#111826]">
+                      <tr key={ac.id} className="hover:bg-neutral-50/50 transition-colors group">
+                        <td className="px-4 py-3 font-medium text-[#111826]">
                           <Badge status={routingBadge} title={routingLabel} className="capitalize">
                             {ac.risk_tier.replace(/_/g, ' ')}
                           </Badge>
                         </td>
-                        <td className="p-3.5 text-center font-mono font-semibold text-xs">
+                        <td className="px-4 py-3 text-center font-mono font-semibold text-xs">
                           {ac.min_risk_score} pt — {ac.max_risk_score !== null ? `${ac.max_risk_score} pt` : '∞'}
                         </td>
-                        <td className="p-3.5 font-medium text-[#111826]">
+                        <td className="px-4 py-3 font-medium text-[#111826]">
                           {routingLabel}
                         </td>
-                        <td className="p-3.5 text-right space-x-1">
+                        <td className="px-4 py-3 text-right space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -472,8 +490,8 @@ export function GovernanceDashboard({ initialTab }) {
                     Save Guardrail
                   </Button>
                 </div>
-                <p className="text-xs text-[#2E3141]/70 mt-1">
-                  Quotes resulting in a gross margin lower than this percentage are completely locked and cannot be approved by any role.
+                <p className="text-xs text-[#2E3141]/70 mt-1 leading-relaxed">
+                  <strong>When does this apply?</strong> If a deal's blended margin falls below this threshold, it is automatically routed to Finance for review, or completely locked out from Auto-Approval. It acts as the final safety net regardless of other Risk Slabs.
                 </p>
               </div>
 
@@ -655,6 +673,20 @@ export function GovernanceDashboard({ initialTab }) {
             <Button variant="primary" type="submit">Save Routing Slab</Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal isOpen={!!itemToDelete} onClose={() => setItemToDelete(null)} title="Confirm Deletion">
+        <div className="space-y-4">
+          <p className="text-sm text-neutral-600">
+            Are you sure you want to remove {itemToDelete?.title}? This action cannot be undone and will immediately affect routing logic.
+          </p>
+          <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100">
+            <Button variant="ghost" onClick={() => setItemToDelete(null)}>Cancel</Button>
+            <Button variant="primary" className="bg-rose-600 hover:bg-rose-700 text-white border-rose-600" onClick={confirmDelete}>
+              Remove
+            </Button>
+          </div>
+        </div>
       </Modal>
 
     </div>

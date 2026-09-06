@@ -4,6 +4,8 @@ import { apiClient } from '../../api/client';
 import { Modal } from '../../components/ui/Modal.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Badge } from '../../components/ui/Badge.jsx';
+import { AdvancedFilter } from '../../components/ui/AdvancedFilter.jsx';
+import { useAdvancedFilter } from '../../hooks/useAdvancedFilter.js';
 import { Plus, ChevronDown, AlertCircle, FileText, ArrowRight, Search, Check, Trash2, X, LayoutGrid, List } from 'lucide-react';
 import { formatDualCurrency, convertFromBase } from '../../utils/currency.js';
 
@@ -167,7 +169,15 @@ export function QuotationListPage() {
     }
   };
 
-  const filteredQuotations = quotations.filter((q) => {
+  // --- Advanced Filtering ---
+  const QUOTATION_FILTER_SCHEMA = [
+    { key: 'grand_total', label: 'Grand Total ($)', type: 'number' },
+    { key: 'total_margin', label: 'Margin ($)', type: 'number' },
+    { key: 'line_items', label: 'Item Count', type: 'number', getValue: (q) => q.line_items?.length || 0 }
+  ];
+  const advancedFilterProps = useAdvancedFilter(quotations, QUOTATION_FILTER_SCHEMA);
+
+  const filteredQuotations = advancedFilterProps.filteredData.filter((q) => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
     const num = (q.quotation_number || '').toLowerCase();
@@ -223,6 +233,9 @@ export function QuotationListPage() {
               </button>
             )}
           </div>
+          
+          <AdvancedFilter schema={QUOTATION_FILTER_SCHEMA} filterProps={advancedFilterProps} />
+
           {/* View Mode Toggle */}
           <div className="flex items-center bg-neutral-100 p-0.5 rounded-lg border border-neutral-200 text-xs font-medium text-neutral-600">
             <button

@@ -279,9 +279,9 @@ export async function seedDatabase() {
 
   // Upsell Rules
   await UpsellRule.bulkCreate([
-    { organization_id: acme.id, trigger_product_id: hwServer.id, recommended_product_id: svcSec.id, priority_rank: 1, promotional_discount_percent: 10.00, is_active: true },
-    { organization_id: acme.id, trigger_product_id: hwServer.id, recommended_product_id: svcTrain.id, priority_rank: 2, promotional_discount_percent: 5.00, is_active: true },
-    { organization_id: acme.id, trigger_product_id: hwIoT.id, recommended_product_id: subPlatform.id, priority_rank: 1, promotional_discount_percent: 15.00, is_active: true },
+    { organization_id: acme.id, trigger_product_id: hwServer.id, recommended_product_id: svcSec.id, priority_rank: 1, promotional_discount_percent: 10.00, is_promoted: true, is_active: true },
+    { organization_id: acme.id, trigger_product_id: hwServer.id, recommended_product_id: svcTrain.id, priority_rank: 2, promotional_discount_percent: 5.00, is_promoted: false, is_active: true },
+    { organization_id: acme.id, trigger_product_id: hwIoT.id, recommended_product_id: subPlatform.id, priority_rank: 1, promotional_discount_percent: 15.00, is_promoted: true, is_active: true },
   ]);
 
   // Product Attachments

@@ -11,6 +11,7 @@ import { generateInvoiceFromQuote } from '../services/invoice.service.js';
 import { executeFulfillmentAllocation } from '../services/fulfillment.service.js';
 import { provisionSubscriptionFromQuote } from '../services/subscription.service.js';
 import { recalcQuotation } from './quotation.controller.js';
+import { emitEvent } from '../services/notification.service.js';
 
 const router = Router();
 router.use(authenticate, resolveOrgContext);
@@ -76,6 +77,16 @@ router.post('/line-request', async (req, res) => {
     message_content,
   });
 
+  await emitEvent({
+    organizationId: quote.organization_id,
+    actorUserId: req.user.id,
+    eventType: thread.is_customer_message ? 'negotiation.received' : 'negotiation.responded',
+    entityType: 'quotation',
+    entityId: thread.quotation_id,
+    title: `New ${thread.is_customer_message ? 'customer' : 'rep'} message on ${quote.quotation_number}`,
+    metadata: { changeType: thread.change_type, salesRepUserId: quote.assigned_sales_rep_id },
+  });
+
   res.status(201).json(thread);
 });
 
@@ -112,6 +123,16 @@ router.post('/counter-offer', async (req, res) => {
     change_type: 'order_counter',
     proposed_value: target_total ?? counter_discount_percentage,
     message_content: message_content || `Counter-offer submitted`,
+  });
+
+  await emitEvent({
+    organizationId: quote.organization_id,
+    actorUserId: req.user.id,
+    eventType: thread.is_customer_message ? 'negotiation.received' : 'negotiation.responded',
+    entityType: 'quotation',
+    entityId: thread.quotation_id,
+    title: `New ${thread.is_customer_message ? 'customer' : 'rep'} message on ${quote.quotation_number}`,
+    metadata: { changeType: thread.change_type, salesRepUserId: quote.assigned_sales_rep_id },
   });
 
   res.status(201).json({ quotation: quote, negotiation: thread });
@@ -162,6 +183,16 @@ router.post('/respond', async (req, res) => {
     change_type: 'general_inquiry',
     status: action === 'accept_counter' ? 'accepted_by_rep' : action === 'reject_counter' ? 'rejected_by_rep' : 'submitted',
     message_content: message_content || `Sales Rep action: ${action.replace('_', ' ')}`
+  });
+
+  await emitEvent({
+    organizationId: quote.organization_id,
+    actorUserId: req.user.id,
+    eventType: thread.is_customer_message ? 'negotiation.received' : 'negotiation.responded',
+    entityType: 'quotation',
+    entityId: thread.quotation_id,
+    title: `New ${thread.is_customer_message ? 'customer' : 'rep'} message on ${quote.quotation_number}`,
+    metadata: { changeType: thread.change_type, salesRepUserId: quote.assigned_sales_rep_id },
   });
 
   res.json({ message: 'Response recorded', quotation: quote, thread });

@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import PDFDocument from 'pdfkit';
+import ExcelJS from 'exceljs';
 import { Op, fn, col, literal } from 'sequelize';
 import {
   sequelize, Quotation, QuotationLine, Subscription,
@@ -357,19 +359,154 @@ router.get('/revenue-by-month', async (req, res) => {
 // ──────────────────────────────────────────────
 // GET /api/reports/export/pdf
 // ──────────────────────────────────────────────
-router.get('/export/pdf', (req, res) => {
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', 'attachment; filename="report.pdf"');
-  res.send(Buffer.from('%PDF-1.4 Mock PDF Report'));
+router.get('/export/pdf', async (req, res) => {
+  try {
+    const org = req.orgContext.organizationId;
+    
+    const bookings = await Quotation.findOne({
+      where: { organization_id: org, stage: 'confirmed' },
+      attributes: [[fn('COALESCE', fn('SUM', col('grand_total')), 0), 'total_bookings']],
+      raw: true,
+    });
+    const totalBookings = bookings.total_bookings || 0;
+
+    const pipeline = await Quotation.findOne({
+      where: { organization_id: org, stage: { [Op.in]: ['draft', 'pending_approval', 'under_negotiation', 'approved'] } },
+      attributes: [[fn('COALESCE', fn('SUM', col('grand_total')), 0), 'total']],
+      raw: true,
+    });
+    const pipelineTotal = pipeline.total || 0;
+
+    const doc = new PDFDocument({ margin: 50 });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="sales_performance_summary.pdf"');
+    doc.pipe(res);
+
+    doc.fontSize(22).fillColor('#111826').text('Sales Performance Summary', { align: 'center' });
+    doc.moveDown();
+    doc.fontSize(10).fillColor('#2E3141').text(`Generated on: ${new Date().toLocaleDateString()}`, { align: 'center' });
+    doc.moveDown(2);
+
+    doc.fontSize(16).fillColor('#724B66').text('High-Level Metrics', { underline: true });
+    doc.moveDown();
+    doc.fontSize(12).fillColor('#111826');
+    doc.text(`Total Bookings (Confirmed): $${Number(totalBookings).toFixed(2)}`);
+    doc.text(`Total Pipeline Value (Active): $${Number(pipelineTotal).toFixed(2)}`);
+    doc.moveDown(2);
+    
+    doc.fontSize(16).fillColor('#724B66').text('Top Products (Confirmed Bookings)', { underline: true });
+    doc.moveDown();
+    
+    const topProducts = await QuotationLine.findAll({
+      include: [{
+        model: Quotation,
+        as: 'quotation',
+        where: { organization_id: org, stage: 'confirmed' },
+        attributes: []
+      }],
+      attributes: [
+        'product_id',
+        [fn('SUM', col('quantity')), 'total_quantity'],
+        [fn('SUM', col('total_price')), 'total_revenue']
+      ],
+      group: ['product_id'],
+      order: [[literal('total_revenue'), 'DESC']],
+      limit: 10,
+      raw: true,
+    });
+    
+    if (topProducts.length === 0) {
+      doc.fontSize(12).fillColor('#2E3141').text('No product data available for confirmed bookings.');
+    } else {
+      for (const p of topProducts) {
+        doc.fontSize(12).fillColor('#111826').text(`Product ID: ${p.product_id} | Qty: ${p.total_quantity} | Revenue: $${Number(p.total_revenue).toFixed(2)}`);
+      }
+    }
+
+    doc.end();
+  } catch (error) {
+    console.error('PDF Export Error:', error);
+    res.status(500).json({ error: 'Failed to generate PDF report' });
+  }
 });
 
 // ──────────────────────────────────────────────
 // GET /api/reports/export/xls
 // ──────────────────────────────────────────────
-router.get('/export/xls', (req, res) => {
-  res.setHeader('Content-Type', 'application/vnd.ms-excel');
-  res.setHeader('Content-Disposition', 'attachment; filename="report.xls"');
-  res.send('SKU\tProduct\tCategory\tUnits\tGross\tNet\n');
+router.get('/export/xls', async (req, res) => {
+  try {
+    const org = req.orgContext.organizationId;
+    
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'DealFlow360';
+    workbook.created = new Date();
+
+    // Sheet 1: Summary Metrics
+    const summarySheet = workbook.addWorksheet('Summary Metrics');
+    summarySheet.columns = [
+      { header: 'Metric', key: 'metric', width: 30 },
+      { header: 'Value ($)', key: 'value', width: 20 },
+    ];
+    summarySheet.getRow(1).font = { bold: true };
+    
+    const bookings = await Quotation.findOne({
+      where: { organization_id: org, stage: 'confirmed' },
+      attributes: [[fn('COALESCE', fn('SUM', col('grand_total')), 0), 'total']],
+      raw: true,
+    });
+    
+    const pipeline = await Quotation.findOne({
+      where: { organization_id: org, stage: { [Op.in]: ['draft', 'pending_approval', 'under_negotiation', 'approved'] } },
+      attributes: [[fn('COALESCE', fn('SUM', col('grand_total')), 0), 'total']],
+      raw: true,
+    });
+
+    summarySheet.addRow({ metric: 'Total Confirmed Bookings', value: Number(bookings.total || 0).toFixed(2) });
+    summarySheet.addRow({ metric: 'Total Pipeline Value', value: Number(pipeline.total || 0).toFixed(2) });
+
+    // Sheet 2: Top Products
+    const productsSheet = workbook.addWorksheet('Top Products');
+    productsSheet.columns = [
+      { header: 'Product ID', key: 'id', width: 30 },
+      { header: 'Total Quantity', key: 'qty', width: 15 },
+      { header: 'Total Revenue ($)', key: 'revenue', width: 20 },
+    ];
+    productsSheet.getRow(1).font = { bold: true };
+
+    const topProducts = await QuotationLine.findAll({
+      include: [{
+        model: Quotation,
+        as: 'quotation',
+        where: { organization_id: org, stage: 'confirmed' },
+        attributes: []
+      }],
+      attributes: [
+        'product_id',
+        [fn('SUM', col('quantity')), 'total_quantity'],
+        [fn('SUM', col('total_price')), 'total_revenue']
+      ],
+      group: ['product_id'],
+      order: [[literal('total_revenue'), 'DESC']],
+      raw: true,
+    });
+
+    topProducts.forEach(p => {
+      productsSheet.addRow({
+        id: p.product_id,
+        qty: p.total_quantity,
+        revenue: Number(p.total_revenue).toFixed(2)
+      });
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="sales_performance_report.xlsx"');
+    
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error('XLS Export Error:', error);
+    res.status(500).json({ error: 'Failed to generate Excel report' });
+  }
 });
 
 export default router;

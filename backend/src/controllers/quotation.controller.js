@@ -7,7 +7,6 @@ import {
   PriceList,
   PriceListItem,
   CustomerAccount,
-  UpsellRule,
   NegotiationThread,
   Organization,
   User,
@@ -19,6 +18,8 @@ import {
   computeBlendedRisk,
   getUpsellSuggestions
 } from '../services/riskEngine.service.js';
+import { executeFulfillmentAllocation } from '../services/fulfillment.service.js';
+import { emitEvent } from '../services/notification.service.js';
 
 /**
  * Private helper to recalculate quotation totals and risk metrics
@@ -508,8 +509,11 @@ export const getUpsells = async (req, res) => {
     const organization_id = req.orgContext.organizationId;
     const { quotationId } = req.params;
 
+    const quotation = await Quotation.findOne({ where: { id: quotationId, organization_id } });
+    if (!quotation) return res.status(404).json({ error: 'Quotation not found' });
+
     const lines = await QuotationLine.findAll({
-      where: { quotation_id: quotationId },
+      where: { quotation_id: quotation.id },
       attributes: ['product_id']
     });
 
@@ -520,7 +524,7 @@ export const getUpsells = async (req, res) => {
       order: [['createdAt', 'ASC']]
     });
 
-    const threshold = approvalChain?.minimum_upsell_margin_threshold || 20;
+    const threshold = approvalChain?.minimum_upsell_margin_threshold ?? 20;
 
     const suggestions = await getUpsellSuggestions(organization_id, productIds, threshold);
 

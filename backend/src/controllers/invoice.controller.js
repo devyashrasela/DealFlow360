@@ -15,6 +15,7 @@ import {
   Quotation,
   Product,
 } from '../models/index.js';
+import { emitEvent } from '../services/notification.service.js';
 
 /**
  * GET /api/invoices
@@ -121,6 +122,19 @@ export const getInvoiceDetail = async (req, res, next) => {
 export const generateFromQuote = async (req, res, next) => {
   try {
     const result = await generateInvoiceFromQuote(req.params.quotationId);
+
+    if (result.invoice) {
+      await emitEvent({
+        organizationId: result.invoice.organization_id || req.orgContext.organizationId,
+        actorUserId: req.user.id,
+        eventType: 'invoice.issued',
+        entityType: 'invoice',
+        entityId: result.invoice.id,
+        title: `Invoice ${result.invoice.invoice_number} issued`,
+        metadata: { invoiceNumber: result.invoice.invoice_number, totalAmount: result.invoice.total_amount },
+      });
+    }
+
     return res.status(201).json({
       success: true,
       message: result.invoice ? 'Invoice generated successfully.' : result.message,
@@ -155,6 +169,18 @@ export const recordPaymentHandler = async (req, res, next) => {
       paymentDate: payment_date,
       recordedByUserId: recorded_by_user_id,
     });
+
+    if (result.invoice) {
+      await emitEvent({
+        organizationId: result.invoice.organization_id || req.orgContext.organizationId,
+        actorUserId: req.user.id,
+        eventType: 'invoice.paid',
+        entityType: 'invoice',
+        entityId: result.invoice.id,
+        title: `Payment received for ${result.invoice.invoice_number}`,
+        metadata: { invoiceNumber: result.invoice.invoice_number, amount: Number(amount) },
+      });
+    }
 
     return res.status(200).json({
       success: true,

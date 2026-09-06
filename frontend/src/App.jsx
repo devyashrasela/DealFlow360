@@ -14,6 +14,7 @@ import { InvoiceDetailPage } from './pages/features/invoices/InvoiceDetailPage.j
 import { CustomerMessagesPage } from './pages/customer/CustomerMessagesPage.jsx';
 import { CustomerProfilePage } from './pages/customer/CustomerProfilePage.jsx';
 import { QuotationListPage } from './pages/quotations/QuotationListPage.jsx';
+import NotificationCenterPage from './pages/NotificationCenterPage.jsx';
 import { QuotationBuilderPage } from './pages/quotations/QuotationBuilderPage.jsx';
 import { ApprovalListPage } from './pages/approvals/ApprovalListPage.jsx';
 import { ApprovalDetailPage } from './pages/approvals/ApprovalDetailPage.jsx';
@@ -99,6 +100,7 @@ export default function App() {
           >
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path=":providerSlug/dashboard" element={<DashboardPage />} />
+            <Route path="notifications" element={<NotificationCenterPage />} />
 
             {/* Quotations — sales_rep, sales_manager, admin */}
             <Route path="quotations" element={<RoleGate><QuotationListPage /></RoleGate>} />
@@ -129,8 +131,7 @@ export default function App() {
             <Route path="products" element={<RoleGate><CatalogAdminPage initialTab="products" /></RoleGate>} />
             <Route path="price-lists" element={<RoleGate><CatalogAdminPage initialTab="pricelists" /></RoleGate>} />
             <Route path="subscription-plans" element={<RoleGate><CatalogAdminPage initialTab="plans" /></RoleGate>} />
-            <Route path="discount-rules" element={<RoleGate><GovernanceDashboard initialTab="ceilings" /></RoleGate>} />
-            <Route path="approval-chains" element={<RoleGate><GovernanceDashboard initialTab="slabs" /></RoleGate>} />
+            <Route path="discount-governance" element={<RoleGate><GovernanceDashboard /></RoleGate>} />
             <Route path="warehouses" element={<RoleGate><WarehouseAdminPage /></RoleGate>} />
             <Route path="exchange-rates" element={<RoleGate><ExchangeRatesPage /></RoleGate>} />
             <Route path="team-roles" element={<RoleGate><TeamRolesPage /></RoleGate>} />

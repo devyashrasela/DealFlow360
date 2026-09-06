@@ -6,7 +6,8 @@ import {
   Quotation,
   Invoice,
   Payment,
-  Subscription
+  Subscription,
+  UpsellRule
 } from './src/models/index.js';
 
 const runSync = async () => {
@@ -24,6 +25,7 @@ const runSync = async () => {
     await Invoice.sync({ alter: true });
     await Payment.sync({ alter: true });
     await Subscription.sync({ alter: true });
+    await UpsellRule.sync({ alter: true });
     
     console.log('Database synced successfully!');
     process.exit(0);

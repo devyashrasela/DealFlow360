@@ -5,6 +5,7 @@ import {
   cancelSubscription,
   calculateProration,
 } from '../services/subscription.service.js';
+import { emitEvent } from '../services/notification.service.js';
 import {
   Subscription,
   SubscriptionLineItem,

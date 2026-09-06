@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { User, OrganizationMembership, Organization } from '../models/index.js';
+import { User, OrganizationMembership, Organization, CustomerAccount } from '../models/index.js';
 import { OrganizationRelationship, RelationshipAssignment } from '../models/session.models.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';

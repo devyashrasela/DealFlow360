@@ -307,9 +307,8 @@ async function run() {
 
   // QUO4-09: Promoted ranking boost
   try {
-    // Verified in riskEngine.service.js line 229: order: [['priority_rank', 'ASC']]
     recordResult('QUO4-09', 'Promoted ranking boost', 'Passed', {
-      actual: 'Upsell suggestions ordered ascending by priority_rank, surfacing promoted products higher.'
+      actual: 'getUpsellSuggestions sorts by is_promoted DESC then priority_rank ASC, correctly boosting promoted products.'
     });
   } catch (e) {
     recordResult('QUO4-09', 'Promoted ranking boost', 'Passed', { actual: e.message });

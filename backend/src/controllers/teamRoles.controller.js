@@ -9,6 +9,7 @@ import {
   RoleChangeAuditLog
 } from '../models/index.js';
 import { writeAuditLog } from '../services/audit.service.js';
+import { emitEvent } from '../services/notification.service.js';
 
 // Ensure table exists on first run
 let isTableSynced = false;
@@ -209,6 +210,7 @@ export const changeMemberRole = async (req, res) => {
     });
 
     // Also write standard AuditLog
+    await emitEvent({ organizationId, actorUserId: req.user.id, eventType: "role.changed", entityType: "user", entityId: targetMembership.user_id, title: `Role updated to ${new_role} for ${targetMembership.user?.full_name || 'member'}`, metadata: { oldRole: prior_role, newRole: new_role }, targetUserIds: [targetMembership.user_id] });
     await writeAuditLog({
       actor_user_id: req.user.id,
       actor_membership_id: actorMembership.id,

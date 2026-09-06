@@ -198,6 +198,11 @@ export const UpsellRule = sequelize.define('UpsellRule', {
     defaultValue: 0.00,
     validate: { min: 0, max: 100 },
   },
+  is_promoted: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },
   is_active: {
     type: DataTypes.BOOLEAN,
     allowNull: false,

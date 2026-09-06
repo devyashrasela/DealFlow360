@@ -6,6 +6,7 @@ import {
   CustomerAccount, User, Organization, Warehouse
 } from '../models/index.js';
 import { authenticate, resolveOrgContext, requireRoles } from '../middleware/auth.middleware.js';
+import { emitEvent } from '../services/notification.service.js';
 
 const router = Router();
 router.use(authenticate, resolveOrgContext, requireRoles('admin', 'sales_manager', 'finance_ops'));
@@ -177,6 +178,18 @@ router.post('/scan', async (req, res) => {
 
     const created = newAlerts.length ? await DealHealthAlert.bulkCreate(newAlerts) : [];
 
+    for (const alert of created) {
+      await emitEvent({
+        organizationId: org,
+        eventType: alert.severity === 'critical' ? 'deal_health.critical' : 'deal_health.warning',
+        entityType: 'quotation',
+        entityId: alert.quotation_id || alert.fulfillment_order_id,
+        title: alert.title,
+        severity: alert.severity,
+        metadata: { anomalyType: alert.anomaly_type },
+      });
+    }
+
     res.json({ scanned_at: new Date(), alerts_created: created.length, alerts: created });
   } catch (err) {
     console.error('Scan error:', err);
@@ -250,6 +263,7 @@ router.post('/send-nudge', async (req, res) => {
 
   const alert = await DealHealthAlert.findOne({
     where: { id: alert_id, organization_id: req.orgContext.organizationId },
+    include: [{ model: Quotation, as: 'quotation', attributes: ['assigned_sales_rep_id'] }]
   });
   if (!alert) return res.status(404).json({ error: 'Alert not found' });
 
@@ -267,6 +281,18 @@ router.post('/send-nudge', async (req, res) => {
       action_taken: 'nudge_dispatched'
     });
   }
+
+  await emitEvent({
+    organizationId: req.orgContext.organizationId,
+    actorUserId: req.user.id,
+    eventType: 'deal_health.nudge',
+    entityType: 'quotation',
+    entityId: alert.quotation_id,
+    title: `Management nudge sent for stalled deal`,
+    metadata: { alertId: alert.id, salesRepUserId: alert.quotation?.assigned_sales_rep_id },
+    severity: 'warning',
+    targetUserIds: alert.quotation?.assigned_sales_rep_id ? [alert.quotation.assigned_sales_rep_id] : [],
+  });
 
   res.json({ message: 'Nudge sent', alert });
 });

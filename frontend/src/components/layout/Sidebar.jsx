@@ -49,8 +49,7 @@ export const Sidebar = () => {
 
   const CONFIG_NAV = [
     { name: 'Catalog & Products', path: '/catalog', icon: Box },
-    { name: 'Discount Rules', path: '/discount-rules', icon: Percent },
-    { name: 'Approval Chains', path: '/approval-chains', icon: GitBranch },
+    { name: 'Discount Governance', path: '/discount-governance', icon: Percent },
     { name: 'Warehouses', path: '/warehouses', icon: WarehouseIcon },
     { name: 'Exchange Rates', path: '/exchange-rates', icon: DollarSign },
     { name: 'Team & Roles', path: '/team-roles', icon: Users },

@@ -13,6 +13,7 @@ import { DealHealthAlert, RepDiscountBaseline } from './dealHealth.models.js';
 import { Session, Invitation, OrganizationRelationship, RelationshipAssignment, AuditLog } from './session.models.js';
 import { RoleChangeAuditLog } from './roleChangeAudit.models.js';
 import { ExchangeRate, ExchangeRateHistory } from './exchangeRate.models.js';
+import { ActivityEvent, Notification } from './notification.models.js';
 
 // ==========================================
 // RELATIONAL ASSOCIATIONS
@@ -58,6 +59,9 @@ UpsellRule.belongsTo(Product, { foreignKey: 'trigger_product_id', as: 'trigger_p
 
 Product.hasMany(UpsellRule, { foreignKey: 'recommended_product_id', as: 'recommended_upsells' });
 UpsellRule.belongsTo(Product, { foreignKey: 'recommended_product_id', as: 'recommended_product' });
+
+Organization.hasMany(UpsellRule, { foreignKey: 'organization_id', as: 'upsell_rules' });
+UpsellRule.belongsTo(Organization, { foreignKey: 'organization_id', as: 'organization' });
 
 Product.hasMany(ProductAttachment, { foreignKey: 'parent_product_id', as: 'required_attachments' });
 ProductAttachment.belongsTo(Product, { foreignKey: 'parent_product_id', as: 'parent_product' });
@@ -292,6 +296,22 @@ RoleChangeAuditLog.belongsTo(User, { foreignKey: 'actor_user_id', as: 'actor_use
 OrganizationMembership.hasMany(RoleChangeAuditLog, { foreignKey: 'membership_id', as: 'role_change_logs' });
 RoleChangeAuditLog.belongsTo(OrganizationMembership, { foreignKey: 'membership_id', as: 'membership' });
 
+// 14. Activity & Notification Associations
+Organization.hasMany(ActivityEvent, { foreignKey: 'organization_id', as: 'activity_events' });
+ActivityEvent.belongsTo(Organization, { foreignKey: 'organization_id', as: 'organization' });
+
+User.hasMany(ActivityEvent, { foreignKey: 'actor_user_id', as: 'triggered_events' });
+ActivityEvent.belongsTo(User, { foreignKey: 'actor_user_id', as: 'actor' });
+
+ActivityEvent.hasMany(Notification, { foreignKey: 'activity_event_id', as: 'notifications' });
+Notification.belongsTo(ActivityEvent, { foreignKey: 'activity_event_id', as: 'activity_event' });
+
+Organization.hasMany(Notification, { foreignKey: 'organization_id', as: 'notifications' });
+Notification.belongsTo(Organization, { foreignKey: 'organization_id', as: 'organization' });
+
+User.hasMany(Notification, { foreignKey: 'user_id', as: 'notifications' });
+Notification.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
 const db = {
   sequelize,
   Sequelize,
@@ -346,6 +366,9 @@ const db = {
   RoleChangeAuditLog,
   ExchangeRate,
   ExchangeRateHistory,
+  // Notifications
+  ActivityEvent,
+  Notification,
 };
 
 export default db;
@@ -394,4 +417,6 @@ export {
   RoleChangeAuditLog,
   ExchangeRate,
   ExchangeRateHistory,
+  ActivityEvent,
+  Notification,
 };

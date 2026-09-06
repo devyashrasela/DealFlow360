@@ -1,4 +1,4 @@
-import { Product, ProductVariant, PriceList, PriceListItem, UpsellRule, ProductAttachment, ApprovalChain } from '../models/index.js';
+import { Product, ProductVariant, PriceList, PriceListItem, UpsellRule, ProductAttachment, ApprovalChain, Quotation, QuotationLine } from '../models/index.js';
 
 // --- Products CRUD ---
 
@@ -454,7 +454,48 @@ export const listUpsellRules = async (req, res) => {
       ],
       order: [['priority_rank', 'ASC']]
     });
-    res.status(200).json(rules);
+
+    const rulesWithPct = await Promise.all(rules.map(async (rule) => {
+      let coPurchasePct = 0;
+      
+      try {
+        // TODO: Optimize N+1 query. This should be a single aggregate query in future.
+        // 1. Find all quotations that have the trigger product
+        const triggerLines = await QuotationLine.findAll({
+          attributes: ['quotation_id'],
+          where: { product_id: rule.trigger_product_id },
+          include: [{ 
+            model: Quotation, 
+            as: 'quotation',
+            where: { organization_id, stage: ['approved', 'confirmed'] } 
+          }]
+        });
+        
+        const triggerQuotationIds = [...new Set(triggerLines.map(line => line.quotation_id))];
+        
+        if (triggerQuotationIds.length > 0) {
+          // 2. Find how many of those quotations ALSO have the recommended product
+          const recommendedLines = await QuotationLine.findAll({
+            attributes: ['quotation_id'],
+            where: { 
+              product_id: rule.recommended_product_id,
+              quotation_id: triggerQuotationIds
+            }
+          });
+          const coPurchaseQuotationIds = [...new Set(recommendedLines.map(line => line.quotation_id))];
+          
+          coPurchasePct = Math.round((coPurchaseQuotationIds.length / triggerQuotationIds.length) * 100);
+        }
+      } catch (error) {
+        console.error(`Error calculating co-purchase pct for rule ${rule.id}:`, error);
+      }
+      
+      const ruleData = rule.toJSON();
+      ruleData.co_purchase_pct = coPurchasePct;
+      return ruleData;
+    }));
+
+    res.status(200).json(rulesWithPct);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -463,13 +504,19 @@ export const listUpsellRules = async (req, res) => {
 export const createUpsellRule = async (req, res) => {
   try {
     const organization_id = req.orgContext.organizationId;
-    const { trigger_product_id, recommended_product_id, priority_rank = 1, promotional_discount_percent = 0, is_active = true } = req.body;
+    const { trigger_product_id, recommended_product_id, priority_rank = 1, promotional_discount_percent = 0, is_promoted = false, is_active = true } = req.body;
+    
+    if (trigger_product_id === recommended_product_id) {
+      return res.status(400).json({ error: 'Trigger and recommended product cannot be the same' });
+    }
+
     const rule = await UpsellRule.create({
       organization_id,
       trigger_product_id,
       recommended_product_id,
       priority_rank,
       promotional_discount_percent,
+      is_promoted,
       is_active
     });
     res.status(201).json(rule);
@@ -484,7 +531,10 @@ export const updateUpsellRule = async (req, res) => {
     const { ruleId } = req.params;
     const rule = await UpsellRule.findOne({ where: { id: ruleId, organization_id } });
     if (!rule) return res.status(404).json({ error: 'Upsell rule not found' });
-    await rule.update(req.body);
+    
+    const { priority_rank, promotional_discount_percent, is_promoted, is_active } = req.body;
+    await rule.update({ priority_rank, promotional_discount_percent, is_promoted, is_active });
+    
     res.status(200).json(rule);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -507,7 +557,10 @@ export const deleteUpsellRule = async (req, res) => {
 export const getUpsellConfig = async (req, res) => {
   try {
     const organization_id = req.orgContext.organizationId;
-    const chain = await ApprovalChain.findOne({ where: { organization_id } });
+    const chain = await ApprovalChain.findOne({ 
+      where: { organization_id },
+      order: [['createdAt', 'ASC']]
+    });
     const minimum_margin_threshold = chain ? parseFloat(chain.minimum_upsell_margin_threshold || 20) : 20;
     res.status(200).json({ minimum_margin_threshold });
   } catch (error) {

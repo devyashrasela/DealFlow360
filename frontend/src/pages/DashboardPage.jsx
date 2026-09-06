@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fulfillmentApi } from '../api/fulfillmentApi.js';
 import { apiClient } from '../api/client.js';
+import { notificationApi } from '../api/notificationApi.js';
 import {
   FileText,
   Users,
@@ -66,6 +67,8 @@ export const DashboardPage = () => {
     { label: 'All Invoices', value: 'all' },
   ];
 
+  const [activityFeed, setActivityFeed] = useState([]);
+
   useEffect(() => {
     // Fetch all KPIs in parallel — fail gracefully per-call
     Promise.allSettled([
@@ -98,6 +101,14 @@ export const DashboardPage = () => {
             : '…',
       });
     });
+
+    const fetchActivity = async () => {
+      try {
+        const activityData = await notificationApi.activityFeed({ limit: 8 });
+        setActivityFeed(activityData.events || []);
+      } catch (e) { console.error('Activity feed error:', e); }
+    };
+    fetchActivity();
   }, []);
 
   // Live Pipeline stage aggregation per period
@@ -210,7 +221,40 @@ export const DashboardPage = () => {
     },
   ];
 
-  const recentActivity = [
+  const getNotifIcon = (eventType) => {
+    if (!eventType) return FileText;
+    if (eventType.startsWith('quotation')) return FileText;
+    if (eventType.startsWith('negotiation')) return MessageSquare;
+    if (eventType.startsWith('fulfillment')) return Package;
+    if (eventType.startsWith('invoice')) return Receipt;
+    if (eventType.startsWith('deal_health')) return TrendingDown;
+    return FileText;
+  };
+
+  const getNotifColor = (eventType) => {
+    if (!eventType) return 'text-[#724B66] bg-[#724B66]/10';
+    if (eventType.startsWith('negotiation')) return 'text-amber-600 bg-amber-50';
+    if (eventType.startsWith('fulfillment')) return 'text-sky-600 bg-sky-50';
+    if (eventType === 'invoice.paid') return 'text-emerald-600 bg-emerald-50';
+    if (eventType === 'invoice.overdue') return 'text-rose-600 bg-rose-50';
+    if (eventType.startsWith('invoice')) return 'text-sky-600 bg-sky-50';
+    if (eventType.includes('critical')) return 'text-rose-600 bg-rose-50';
+    if (eventType.startsWith('deal_health')) return 'text-amber-600 bg-amber-50';
+    return 'text-[#724B66] bg-[#724B66]/10';
+  };
+
+  const timeAgo = (dateStr) => {
+    const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+    if (seconds < 60) return 'just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  };
+
+  const recentActivityMock = [
     {
       id: 1,
       title: 'Q-1042 submitted for approval',
@@ -579,20 +623,29 @@ export const DashboardPage = () => {
               <h3 className="text-sm font-semibold text-[#111826]">Recent Activity</h3>
             </div>
             <div className="mt-3 space-y-3.5">
-              {recentActivity.map((act) => {
-                const Icon = act.icon;
+              {(activityFeed.length > 0 ? activityFeed : recentActivityMock).map((evt) => {
+                const Icon = getNotifIcon(evt.event_type || (evt.icon && 'mock'));
+                const colorClass = evt.icon ? evt.color : getNotifColor(evt.event_type);
+                const title = evt.title || evt.title;
+                const meta = evt.icon ? evt.meta : `${evt.actor?.full_name || 'System'} • ${timeAgo(evt.created_at || evt.createdAt)}`;
+                
                 return (
-                  <div key={act.id} className="flex items-start gap-3 text-xs">
-                    <div className={`p-1.5 rounded-lg shrink-0 ${act.color}`}>
-                      <Icon className="w-3.5 h-3.5" />
+                  <div key={evt.id} className="flex items-start gap-3 text-xs">
+                    <div className={`p-1.5 rounded-lg shrink-0 ${colorClass}`}>
+                      {evt.icon ? <evt.icon className="w-3.5 h-3.5" /> : <Icon className="w-3.5 h-3.5" />}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-medium text-[#111826] truncate">{act.title}</p>
-                      <p className="text-[11px] text-neutral-400 mt-0.5">{act.meta}</p>
+                      <p className="font-medium text-[#111826] truncate">{title}</p>
+                      <p className="text-[11px] text-neutral-400 mt-0.5">{meta}</p>
                     </div>
                   </div>
                 );
               })}
+            </div>
+            <div className="mt-4 pt-3 border-t border-neutral-100 text-center">
+              <button onClick={() => navigate('/notifications')} className="text-xs font-medium text-[#724B66] hover:underline cursor-pointer">
+                View All Activity
+              </button>
             </div>
           </div>
         </div>

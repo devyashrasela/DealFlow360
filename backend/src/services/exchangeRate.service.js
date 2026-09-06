@@ -5,23 +5,13 @@ const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'JPY', 'AUD', 'CAD', '
 
 export const fetchAndCacheRates = async () => {
   try {
-    const apiKey = process.env.EXCHANGE_RATE_API_KEY;
-    if (!apiKey) {
-      console.warn('EXCHANGE_RATE_API_KEY is missing, skipping fetch and returning cached rates');
-      return await getAllCachedRates();
-    }
-    
-    const response = await fetch(`https://v6.exchangerate-api.com/v6/${apiKey}/latest/INR`);
+    const response = await fetch(`https://api.exchangerate-api.com/v4/latest/INR`);
     if (!response.ok) {
       throw new Error(`Failed to fetch exchange rates. Status: ${response.status}`);
     }
     
     const data = await response.json();
-    if (data.result !== 'success') {
-      throw new Error('Exchange rate API returned error');
-    }
-    
-    const rates = data.conversion_rates;
+    const rates = data.rates;
     const now = new Date();
     
     for (const currency of SUPPORTED_CURRENCIES) {

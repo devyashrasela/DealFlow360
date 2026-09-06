@@ -16,6 +16,7 @@ import {
   computeBlendedRisk,
   determineRiskTier
 } from '../services/riskEngine.service.js';
+import { emitEvent } from '../services/notification.service.js';
 
 export const submitForApproval = async (req, res) => {
   const t = await sequelize.transaction();
@@ -171,6 +172,19 @@ export const submitForApproval = async (req, res) => {
     }
 
     await t.commit();
+
+    if (riskTierValue === 'medium_risk_manager' || riskTierValue === 'high_risk_finance') {
+      await emitEvent({
+        organizationId: orgId,
+        actorUserId: req.user.id,
+        eventType: 'quotation.submitted',
+        entityType: 'quotation',
+        entityId: quotation.id,
+        title: `${quotation.quotation_number} submitted for approval`,
+        metadata: { quotationNumber: quotation.quotation_number, grandTotal: quotation.grand_total, salesRepUserId: quotation.assigned_sales_rep_id },
+      });
+    }
+
     return res.status(200).json({ steps: createdSteps, riskAnalysis: riskTier });
   } catch (error) {
     await t.rollback();
@@ -316,6 +330,17 @@ export const approveQuotation = async (req, res) => {
     }, { transaction: t });
 
     await t.commit();
+
+    await emitEvent({
+      organizationId: req.orgContext.organizationId,
+      actorUserId: req.user.id,
+      eventType: 'quotation.approved',
+      entityType: 'quotation',
+      entityId: quotationId,
+      title: `${quotation.quotation_number} approved by ${req.user.full_name}`,
+      metadata: { quotationNumber: quotation.quotation_number, salesRepUserId: quotation.assigned_sales_rep_id },
+    });
+
     return res.status(200).json({ status: 'approved', remainingSteps });
   } catch (error) {
     await t.rollback();
@@ -391,6 +416,18 @@ export const rejectQuotation = async (req, res) => {
     }, { transaction: t });
 
     await t.commit();
+
+    await emitEvent({
+      organizationId: req.orgContext.organizationId,
+      actorUserId: req.user.id,
+      eventType: 'quotation.rejected',
+      entityType: 'quotation',
+      entityId: quotationId,
+      title: `${quotation.quotation_number} rejected by ${req.user.full_name}`,
+      metadata: { quotationNumber: quotation.quotation_number, salesRepUserId: quotation.assigned_sales_rep_id, reason: req.body.comments },
+      severity: 'warning',
+    });
+
     return res.status(200).json({ status: 'rejected' });
   } catch (error) {
     await t.rollback();

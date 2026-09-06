@@ -261,36 +261,49 @@ export const getUpsellSuggestions = async (organizationId, productIds, minimumMa
       },
       include: [{
         model: Product,
-        as: 'recommended_product'
+        as: 'recommended_product',
+        where: { is_active: true }
       }],
-      order: [['priority_rank', 'ASC']]
+      order: [['is_promoted', 'DESC'], ['priority_rank', 'ASC']]
     });
 
     const suggestions = [];
+    const seenProductIds = new Set();
 
     for (const rule of rules) {
       const recProduct = rule.recommended_product;
       if (!recProduct) continue;
 
+      if (productIds.includes(recProduct.id) || seenProductIds.has(recProduct.id)) {
+        continue;
+      }
+      
       const baseList = parseFloat(recProduct.base_list_price);
       const standardCost = parseFloat(recProduct.standard_unit_cost);
       
       if (baseList > 0) {
-        const marginPct = ((baseList - standardCost) / baseList) * 100;
+        const promoDiscount = parseFloat(rule.promotional_discount_percent || 0);
+        const effectivePrice = baseList * (1 - promoDiscount / 100);
         
-        if (marginPct >= minimumMarginThreshold) {
-          suggestions.push({
-            rule_id: rule.id,
-            recommended_product: {
-              id: recProduct.id,
-              sku: recProduct.sku,
-              name: recProduct.name,
-              base_list_price: baseList,
-              standard_unit_cost: standardCost
-            },
-            margin_delta: marginPct,
-            promotional_discount_percent: rule.promotional_discount_percent
-          });
+        if (effectivePrice > 0) {
+          const marginPct = ((effectivePrice - standardCost) / effectivePrice) * 100;
+          
+          if (marginPct >= minimumMarginThreshold) {
+            seenProductIds.add(recProduct.id);
+            suggestions.push({
+              rule_id: rule.id,
+              recommended_product: {
+                id: recProduct.id,
+                sku: recProduct.sku,
+                name: recProduct.name,
+                base_list_price: baseList,
+                standard_unit_cost: standardCost
+              },
+              margin_delta: marginPct,
+              promotional_discount_percent: promoDiscount,
+              is_promoted: rule.is_promoted
+            });
+          }
         }
       }
     }

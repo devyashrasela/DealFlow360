@@ -18,8 +18,10 @@ import subscriptionRoutes from './routes/subscription.routes.js';
 import invoiceRoutes from './routes/invoice.routes.js';
 import warehouseRoutes from './routes/warehouse.routes.js';
 import teamRolesRoutes from './routes/teamRoles.routes.js';
-
 import exchangeRateRoutes from './controllers/exchangeRate.controller.js';
+import searchRoutes from './routes/search.routes.js';
+import notificationRoutes from './routes/notification.routes.js';
+import activityRoutes from './routes/activity.routes.js';
 
 const app = express();
 
@@ -61,6 +63,9 @@ app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/warehouses', warehouseRoutes);
 app.use('/api/team', teamRolesRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/activity', activityRoutes);
 
 // Sync database on startup
 export const syncDatabase = async () => {
