@@ -291,6 +291,10 @@ export const createInvitation = async (req, res) => {
 
     let custOrgId = customer_organization_id;
 
+    if (custOrgId && custOrgId === providerOrgId) {
+      return res.status(400).json({ error: 'Cannot invite a customer to the provider organization' });
+    }
+
     // If no existing org, create one
     if (!custOrgId) {
       if (!new_customer_legal_name || !new_customer_slug)
@@ -322,6 +326,18 @@ export const createInvitation = async (req, res) => {
       if (rel.status !== 'active')
         return res.status(409).json({ error: 'Relationship is not active' });
     }
+
+    // Ensure CustomerAccount exists
+    await CustomerAccount.findOrCreate({
+      where: { provider_organization_id: providerOrgId, buyer_organization_id: custOrgId },
+      defaults: {
+        account_number: `ACC-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+        pricing_tier: 'standard',
+        default_payment_terms_days: 30,
+        credit_limit: 0.00
+      }
+    });
+
 
     const rawToken = crypto.randomBytes(48).toString('hex');
     const token_hash = hashToken(rawToken);

@@ -20,7 +20,7 @@ export function AuthProvider({ children }) {
   const [refreshToken, setRefreshToken] = useState(() => localStorage.getItem('refresh_token') || null);
 
   const [activeOrgId, setActiveOrgId] = useState(() => localStorage.getItem('activeOrgId') || null);
-  const [activeRole, setActiveRole] = useState(null);
+  const [activeRole, setActiveRole] = useState(() => localStorage.getItem('activeRole') || null);
 
   useEffect(() => {
     if (activeOrgId && memberships.length > 0) {
@@ -51,6 +51,7 @@ export function AuthProvider({ children }) {
     setActiveOrgId(null);
     setActiveRole(null);
     localStorage.removeItem('activeOrgId');
+    localStorage.removeItem('activeRole');
 
     // Do NOT auto-select an org here. The user must explicitly
     // pick a workspace on the /select-workspace card screen.
@@ -97,6 +98,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('user');
     localStorage.removeItem('memberships');
     localStorage.removeItem('activeOrgId');
+    localStorage.removeItem('activeRole');
   };
 
   // ── workspace switch ───────────────────────────────────────────────────────
@@ -106,8 +108,10 @@ export function AuthProvider({ children }) {
     const m = membershipList.find(item => item.organization_id === orgId);
     if (m) {
       setActiveRole(m.role);
+      localStorage.setItem('activeRole', m.role);
     } else {
       setActiveRole('admin');
+      localStorage.setItem('activeRole', 'admin');
     }
   };
 

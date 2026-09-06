@@ -40,6 +40,7 @@ export const Sidebar = () => {
   // ── Nav definitions with role-gated paths ────────────────────────────────
   const MAIN_NAV = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    { name: 'Customers', path: '/customers', icon: Users },
     { name: 'Quotations', path: '/quotations', icon: FileText },
     { name: 'Approvals', path: '/approvals', icon: Users },
     { name: 'Fulfillment', path: '/fulfillment', icon: Package },
@@ -222,7 +223,7 @@ export const Sidebar = () => {
 
       {/* Footer (Settings & Logout) */}
       <div className="p-3 border-t border-neutral-800/80 space-y-1">
-        {isNavVisible(activeRole, '/settings') && (
+        {/* {isNavVisible(activeRole, '/settings') && (
           <NavLink
             to="/settings"
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-neutral-400 hover:text-[#FFFFFF] hover:bg-[#2E3141]/40 transition"
@@ -230,7 +231,7 @@ export const Sidebar = () => {
             <Settings className="w-4 h-4 shrink-0" />
             <span>Settings</span>
           </NavLink>
-        )}
+        )}*/}
         <button
           onClick={handleLogout}
           className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 transition cursor-pointer"
@@ -239,7 +240,7 @@ export const Sidebar = () => {
           <span>Sign Out</span>
         </button>
       </div>
-    </aside>
+    </aside >
   );
 };
 

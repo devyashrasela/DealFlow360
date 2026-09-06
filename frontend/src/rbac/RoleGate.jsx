@@ -13,6 +13,15 @@ export function RoleGate({ children }) {
 
   if (!token) return <Navigate to="/login" replace />;
 
+  // Role is still being resolved from localStorage/useEffect — show nothing briefly
+  if (!activeRole) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="w-6 h-6 border-2 border-[#724B66] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   // Customer portal users should never see internal routes
   if (activeRole === 'customer_portal') {
     return <Navigate to="/portal" replace />;
