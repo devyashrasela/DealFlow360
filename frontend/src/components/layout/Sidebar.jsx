@@ -19,6 +19,7 @@ import {
   Warehouse as WarehouseIcon,
   Layers,
   Settings, ShieldCheck,
+  ShieldAlert,
   ChevronDown,
   LogOut,
   Plus,
@@ -54,6 +55,7 @@ export const Sidebar = () => {
     { name: 'Warehouses', path: '/warehouses', icon: WarehouseIcon },
     { name: 'Exchange Rates', path: '/exchange-rates', icon: DollarSign },
     { name: 'Team & Roles', path: '/team-roles', icon: Users },
+    { name: 'Audit Logs', path: '/admin/audit-logs', icon: ShieldAlert },
   ];
 
   // Filter nav items by role

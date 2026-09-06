@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.API_URL || 'http://localhost:3000/api';
+const BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.API_URL || 'http://localhost:5001/api';
 
 function getHeaders() {
   const headers = {
@@ -19,8 +19,9 @@ function getHeaders() {
   return headers;
 }
 
-function handleResponse(res, isLoginRequest) {
-  if (res.status === 401 && !isLoginRequest) {
+function handleResponse(res, endpoint = '') {
+  const isPublic = endpoint.startsWith('/exchange-rates') || endpoint.startsWith('/auth');
+  if (res.status === 401 && !isPublic) {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('memberships');
@@ -47,7 +48,7 @@ export const apiClient = {
       headers,
     });
 
-    handleResponse(res);
+    handleResponse(res, endpoint);
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
@@ -63,7 +64,7 @@ export const apiClient = {
       body: JSON.stringify(data),
     });
 
-    handleResponse(res, endpoint.includes('/auth/login'));
+    handleResponse(res, endpoint);
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
@@ -79,7 +80,7 @@ export const apiClient = {
       body: JSON.stringify(data),
     });
 
-    handleResponse(res);
+    handleResponse(res, endpoint);
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
@@ -93,7 +94,7 @@ export const apiClient = {
       headers: getHeaders(),
       body: JSON.stringify(data),
     });
-    handleResponse(res);
+    handleResponse(res, endpoint);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error ${res.status}`);
@@ -106,7 +107,7 @@ export const apiClient = {
       method: 'DELETE',
       headers: getHeaders(),
     });
-    handleResponse(res);
+    handleResponse(res, endpoint);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error ${res.status}`);

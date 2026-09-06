@@ -10,10 +10,7 @@ import {
 
 const router = express.Router();
 
-router.use(authenticate);
-router.use(resolveOrgContext);
-
-// GET /api/exchange-rates/
+// GET /api/exchange-rates/ (Public cached rates for UI formatters)
 router.get('/', async (req, res, next) => {
   try {
     const rates = await getAllCachedRates();
@@ -24,7 +21,7 @@ router.get('/', async (req, res, next) => {
 });
 
 // POST /api/exchange-rates/refresh
-router.post('/refresh', requireRoles(['admin']), async (req, res, next) => {
+router.post('/refresh', authenticate, resolveOrgContext, requireRoles(['admin']), async (req, res, next) => {
   try {
     const rates = await fetchAndCacheRates();
     res.json({ message: 'Exchange rates refreshed successfully', rates });

@@ -162,6 +162,29 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within an AuthProvider');
+  if (!context) {
+    let savedUser = null;
+    let savedMemberships = [];
+    try {
+      savedUser = JSON.parse(localStorage.getItem('user'));
+      savedMemberships = JSON.parse(localStorage.getItem('memberships') || '[]');
+    } catch (_) {}
+
+    return {
+      user: savedUser,
+      memberships: savedMemberships,
+      token: localStorage.getItem('token') || null,
+      refreshToken: localStorage.getItem('refresh_token') || null,
+      activeOrgId: localStorage.getItem('activeOrgId') || null,
+      activeOrg: null,
+      activeRole: null,
+      login: async () => {},
+      logout: () => {},
+      switchWorkspace: () => {},
+      refreshAccessToken: async () => {},
+      refreshProfile: async () => {},
+      createWorkspace: async () => {},
+    };
+  }
   return context;
 }
